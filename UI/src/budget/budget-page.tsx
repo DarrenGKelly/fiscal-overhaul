@@ -14,7 +14,6 @@ import {
   SeriesDef,
   SPAN_OPTIONS,
   itemValue,
-  popoutSideIsLeft,
   TOTAL_COLORS,
 } from "chart/chart-math";
 import { ChartLine, LineChart } from "chart/line-chart";
@@ -28,7 +27,7 @@ let rememberedSpan = 12;
 /**
  * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the span stats
  * for the hovered row or line under them; the chart takes the rest, and the vanilla detail panel for a hovered item
- * pops out over it.
+ * row pops out over the chart's left edge, next to the rows.
  */
 export const BudgetPage = () => {
   const { translate } = useLocalization();
@@ -44,12 +43,6 @@ export const BudgetPage = () => {
   const [span, setSpanState] = useState(rememberedSpan);
   const [rowHover, setRowHover] = useState<string | null>(null);
   const [lineHover, setLineHover] = useState<string | null>(null);
-  // The detail pop-out: next to the rows for a row hover; for a line hover, on the side away from the cursor.
-  const [popoutLeft, setPopoutLeft] = useState(false);
-  const onHoverLine = useCallback((key: string | null, xFraction?: number) => {
-    setLineHover(key);
-    if (key !== null && xFraction !== undefined) setPopoutLeft(popoutSideIsLeft(xFraction));
-  }, []);
   const hoverKey = lineHover ?? rowHover;
 
   useEffect(() => {
@@ -96,14 +89,14 @@ export const BudgetPage = () => {
     [allSeries, enabled, label]
   );
 
-  // The vanilla detail panel for the hovered item (rows or chart line); totals have no detail.
+  // The vanilla detail panel pops out only for a hovered row (a line has its tooltip); totals have no detail.
   const detail = useMemo(() => {
-    if (!hoverKey) return null;
-    const [kind, id] = hoverKey.split(":");
+    if (!rowHover) return null;
+    const [kind, id] = rowHover.split(":");
     if (kind === "income") return { item: incomeItems.find((i) => i.id === id) ?? null, values: incomeValues };
     if (kind === "expense") return { item: expenseItems.find((i) => i.id === id) ?? null, values: expenseValues };
     return null;
-  }, [hoverKey, incomeItems, incomeValues, expenseItems, expenseValues]);
+  }, [rowHover, incomeItems, incomeValues, expenseItems, expenseValues]);
 
   const hoveredSeries = hoverKey ? allSeries.find((s) => s.key === hoverKey) : undefined;
 
@@ -111,11 +104,7 @@ export const BudgetPage = () => {
     <div
       key={key}
       className={`${styles.row} ${header ? styles.headerRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
-      onMouseEnter={() => {
-        setRowHover(key);
-        // Hovering a row: the pop-out opens on the chart's left edge, next to the rows.
-        setPopoutLeft(true);
-      }}
+      onMouseEnter={() => setRowHover(key)}
       onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
       onClick={() => toggle(key)}
     >
@@ -158,9 +147,9 @@ export const BudgetPage = () => {
           ))}
         </div>
         <div className={styles.chartArea}>
-          <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={onHoverLine} />
+          <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={setLineHover} />
           {detail?.item && (
-            <div className={`${styles.detailPopout} ${popoutLeft ? styles.popoutLeft : styles.popoutRight}`}>
+            <div className={styles.detailPopout}>
               <BudgetItemDetail item={detail.item} values={detail.values} />
             </div>
           )}

@@ -108,6 +108,7 @@ $row-hover: rgba(255, 255, 255, 0.08);
 .detail-popout {
   position: absolute;
   top: 8rem;
+  left: 8rem;
   width: 360rem;
   max-height: 100%;
   overflow: hidden;
@@ -115,14 +116,6 @@ $row-hover: rgba(255, 255, 255, 0.08);
   background-color: rgba(14, 20, 32, 0.94);
   border: 1rem solid rgba(255, 255, 255, 0.15);
   border-radius: 6rem;
-}
-
-.popout-right {
-  right: 8rem;
-}
-
-.popout-left {
-  left: 8rem;
 }
 
 .stats {

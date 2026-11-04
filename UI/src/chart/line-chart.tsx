@@ -26,8 +26,7 @@ interface Props {
   lines: ChartLine[];
   monthsAgo: number[];
   highlightKey: string | null;
-  /** xFraction: the cursor's position across the chart, 0 = left edge, 1 = right edge. */
-  onHoverLine: (key: string | null, xFraction?: number) => void;
+  onHoverLine: (key: string | null) => void;
 }
 
 // Base sizes in rem. CS2 lays its UI out for 4K, so 1rem is about 0.67 px at 1440p; canvas pixels must be scaled by it.
@@ -213,7 +212,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
       const line = nearestSeries(lines, index, value);
       if (!line) return;
       setHover({ x: mx, y: my, index, key: line.key });
-      onHoverLine(line.key, rect.width > 0 ? mx / rect.width : undefined);
+      onHoverLine(line.key);
     },
     [geometry, lines, onHoverLine]
   );
