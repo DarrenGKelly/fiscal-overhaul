@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: CS2 modding
-description: How a Cities Skylines II mod is built here, where the game's code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, Gameface limits).
+description: How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale).
 resource:
   - Mod/FiscalOverhaul.csproj
   - UI/webpack.config.js
@@ -44,9 +44,24 @@ Traps:
 - **`CSII_*` env vars** are user-level variables the toolchain sets. A shell started before the toolchain was
   installed doesn't have them. `webpack.config.js` falls back to the default user data path; the C# build reads them from
   the registry itself (`Mod.props`).
+- **UI type-check vs vitest.** vitest pulls in `@types/node`, which the template's TypeScript 4.8 can't parse, so
+  `UI/tsconfig.json` sets `"types": []` and excludes `src/**/*.test.ts`; vitest type-checks the tests itself.
 - **Tests** don't touch the game: pure logic lives in `Mod/Logic/` (no game or Unity types) and is compiled into
   `Tests/` (net10). UI pure logic is in `*.ts` files next to the components, tested with vitest.
   [testing.md](testing.md).
+
+## Logs
+
+Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
+- **`Player.log`** (the folder root, not `Logs/`): engine output and every exception, from startup on. Find the
+  *first* error with `Select-String -Pattern "ERROR|Exception:" | Select-Object -First 10`; what follows it is usually
+  the same error repeating every frame.
+- **`Logs/Modding.log`**: `Registered UI Module {"m_ModuleId":"FiscalOverhaul"…}` proves the UI module loaded.
+- **`Logs/UI.log`**: Gameface CSS warnings (`dashed is not supported`, `Unsupported CSS property`) from all mods; noise
+  unless one names our class.
+- A hung startup that never mentions `FiscalOverhaul` isn't the mod: "A platform service integration failed to
+  initialize", then a `[FATAL]` in `AssetDatabase.PopulateFromDataSource`, then `GameManager` NullReferenceExceptions
+  every frame, is the game started without Steam.
 
 ## Reading the game's code
 

@@ -26,6 +26,10 @@ them in the save game**, so a loaded city has its whole history.
 figure the vanilla panel shows. It doesn't use `m_TotalValue`, whose meaning depends on the statistic's collection
 type (cumulative / point / daily). The deltas mean the same thing for every type.
 
+**The newest sample is still filling up** (the current 1/32 of a month), so `ReadMonthly` drops it; with it, every
+line dipped at "Now". So the chart's "Now" is the last complete month and can differ from the vanilla header total,
+which is the live estimate (e.g. ¢295,014 vs ¢315,014).
+
 It sends only the visible span (`setSpan(months)`, 0 = all), downsampled to ≤240 points ending on the newest sample
 (`PickIndices`), as `history = { span, samples, monthsAgo[], income[14][], expense[15][] }`. Expenses are positive
 amounts. It rebuilds only while the Economy panel is open and when the sample count or span changed.
@@ -35,11 +39,16 @@ amounts. It rebuilds only while the Economy panel is open and when the sample co
 - **Rows (left)**: Revenues total, each active revenue item, Expenses total, each active expense item, Monthly
   balance. Each row shows the vanilla current value (`NumberField`). Clicking a row toggles its line, and hovering it
   sets the detail. Items group sources exactly as vanilla does (`BudgetItem.sources`), from
-  `economyBudget.incomeItems$`. The checked set and span persist for the session (module-level variables).
+  `economyBudget.incomeItems$`. **`incomeValues$`/`expenseValues$` are indexed by source, not by item**: an item's
+  value is the sum of `values[source.index]` over its sources (`itemValue`, vanilla's `getItemValue`); indexing by the
+  item's position shows the wrong numbers. The checked set and span persist for the session (module-level variables).
 - **Chart (middle)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All. Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
   (`nearestIndex`/`nearestSeries`). The tooltip shows that line's exact monthly value (signed) and how long ago, next to the cursor.
+  Every canvas size is in rem and scaled by the measured px-per-rem
+  ([cs2-ui-modding.md § Gameface](../cs2-ui-modding.md#gameface-the-games-browser-limits)): unscaled, labels were
+  unreadable; scaled by the root font size, the chart drew off-canvas.
 - **Detail (right)**: the vanilla `BudgetItemDetail` for the hovered row or line (item breakdown by source), plus
   span stats for the hovered line (now / average / low / high / change). Totals have no vanilla detail.
 

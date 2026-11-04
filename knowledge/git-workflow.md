@@ -11,6 +11,11 @@ How work gets from a chat into `master`, directly or (for autonomous sessions) t
 the tracked hooks in `.githooks/` (enable once per clone: `git config core.hooksPath .githooks`). Nothing is enforced
 server-side, so the hooks and the merge guard are the enforcement.
 
+The remote is the private GitHub repo `DarrenGKelly/fiscal-overhaul`: default branch `master`, plus `autodev`. The
+tools find it through `git remote` and `gh` (no owner is hard-coded). `.gitattributes` keeps `*.sh` and `.githooks/*`
+at LF: this checkout converts to CRLF, and a CRLF hook fails in `sh`. A new shell script outside those patterns needs a
+line there too.
+
 ## Rules
 
 - **`master` only changes through pull requests.** The hooks refuse every commit on `master` and every push to it.

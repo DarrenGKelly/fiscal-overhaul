@@ -16,7 +16,7 @@ in it): the game is one shared instance
 |---|---|
 | just `/build`, "deploy it", "build the mod" | `./tools/build.ps1` (C# mod, then the UI after the deploy) |
 | "does it compile", "check the build", in a batch child | `./tools/build.ps1 -NoDeploy` (temporary Mods folder; the UI is type-checked) |
-| "rebuild the UI", "just the UI" | `./tools/build.ps1 -UIOnly` (the game may stay open; reload the UI in game) |
+| "rebuild the UI", "just the UI" | `./tools/build.ps1 -UIOnly` (copies even with the game open, but the game loads it only on restart) |
 | "just the C# side" | `./tools/build.ps1 -ModOnly` (the deploy wipes the mod folder, so the deployed mod has no UI until the next full build: say so) |
 | "a debug build" | add `-Configuration Debug` |
 
