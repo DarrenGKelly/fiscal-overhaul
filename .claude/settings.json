@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/tools/claude-merge-guard.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git fetch)",
+      "Bash(git fetch *)",
+      "PowerShell(git fetch)",
+      "PowerShell(git fetch *)",
+      "PowerShell(./tools/check-batch-status.ps1)",
+      "PowerShell(./tools/check-batch-status.ps1 *)",
+      "PowerShell(./tools/build.ps1 -NoDeploy)",
+      "PowerShell(./tools/build.ps1 -NoDeploy *)",
+      "PowerShell(./tools/test.ps1)",
+      "PowerShell(./tools/test.ps1 *)",
+      "Bash(python tools/okf.py check)",
+      "Bash(python tools/check-doc-links.py)",
+      "Bash(python tools/check-skills.py)",
+      "Bash(python tools/issues.py board)",
+      "Bash(python tools/issues.py board *)",
+      "Bash(python tools/issues.py triage)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(ConvertFrom-Json *)",
+      "PowerShell(Out-String *)",
+      "PowerShell(Get-Date *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-CimInstance *)"
+    ]
+  }
+}

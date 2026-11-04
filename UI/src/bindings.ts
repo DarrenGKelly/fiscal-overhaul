@@ -1,0 +1,31 @@
+import { bindValue, trigger } from "cs2/api";
+import { BudgetHistory } from "chart/chart-math";
+
+// Bindings published by the C# systems in Mod/Systems (group "fiscalOverhaul").
+const GROUP = "fiscalOverhaul";
+
+export const history$ = bindValue<BudgetHistory | null>(GROUP, "history", null);
+
+/** Months of history the chart shows; 0 = all. */
+export function setSpan(months: number) {
+  trigger(GROUP, "setSpan", months);
+}
+
+export interface DensityTaxCell {
+  zone: number;
+  density: number;
+  offset: number;
+  estimate: number;
+  payers: number;
+}
+
+export interface DensityTaxes {
+  maxOffset: number;
+  cells: DensityTaxCell[];
+}
+
+export const densityTaxes$ = bindValue<DensityTaxes | null>(GROUP, "densityTaxes", null);
+
+export function setDensityTax(zone: number, density: number, offset: number) {
+  trigger(GROUP, "setDensityTax", zone, density, offset);
+}

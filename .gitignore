@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+node_modules/
+UI/build/
+Mod/Library/
+TestResults/
+
+# IDE
+.vs/
+*.user
+
+# Orchestrate batch folders (the folder itself is kept by tasks/.gitkeep)
+tasks/*/
+
+# Claude Code: worktrees and per-user settings
+.claude/worktrees/
+.claude/settings.local.json

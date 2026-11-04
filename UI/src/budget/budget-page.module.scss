@@ -1,0 +1,143 @@
+$panel-bg: rgba(24, 33, 51, 0.6);
+$row-hover: rgba(255, 255, 255, 0.08);
+
+.budget-page {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  padding: 0 20rem 20rem 20rem;
+}
+
+.list-column {
+  display: flex;
+  flex-direction: column;
+  width: 400rem;
+  flex: 0 0 auto;
+  margin-right: 12rem;
+  overflow-y: auto;
+}
+
+.section {
+  background-color: $panel-bg;
+  border-radius: 4rem;
+  margin-bottom: 8rem;
+  padding: 4rem 0;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 6rem 12rem;
+  cursor: pointer;
+  font-size: 15rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.header-row {
+  font-size: 18rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.hovered {
+  background-color: $row-hover;
+}
+
+.check {
+  width: 16rem;
+  height: 16rem;
+  margin-right: 10rem;
+  border-width: 2rem;
+  border-style: solid;
+  border-radius: 3rem;
+  flex: 0 0 auto;
+}
+
+.checked {
+}
+
+.row-title {
+  flex: 1 1 auto;
+}
+
+.row-value {
+  flex: 0 0 auto;
+  min-width: 140rem;
+}
+
+.chart-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  background-color: $panel-bg;
+  border-radius: 4rem;
+  padding: 10rem 12rem 8rem 4rem;
+  margin-right: 12rem;
+}
+
+.span-bar {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  margin-bottom: 6rem;
+}
+
+.span-button {
+  padding: 4rem 12rem;
+  margin-left: 4rem;
+  border-radius: 3rem;
+  font-size: 14rem;
+  color: rgba(255, 255, 255, 0.75);
+  background-color: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.span-active {
+  color: white;
+  background-color: rgba(52, 150, 230, 0.85);
+}
+
+.chart-area {
+  display: flex;
+  flex: 1 1 auto;
+  position: relative;
+}
+
+.info-column {
+  display: flex;
+  flex-direction: column;
+  width: 380rem;
+  flex: 0 0 auto;
+}
+
+.info-hint {
+  background-color: $panel-bg;
+  border-radius: 4rem;
+  padding: 16rem;
+  font-size: 15rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stats {
+  margin-top: 8rem;
+  background-color: $panel-bg;
+  border-radius: 4rem;
+  padding: 10rem 16rem;
+  font-size: 14rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stats-title {
+  font-size: 12rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 6rem;
+}
+
+.stat-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 2rem 0;
+}

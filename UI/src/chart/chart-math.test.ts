@@ -1,0 +1,159 @@
+import { describe, expect, it } from "vitest";
+import {
+  BALANCE,
+  buildSeries,
+  BudgetHistory,
+  BudgetItemLike,
+  EXPENSE_TOTAL,
+  formatMoney,
+  formatMoneyShort,
+  formatMonthsAgo,
+  INCOME_TOTAL,
+  itemValue,
+  nearestIndex,
+  nearestSeries,
+  niceTicks,
+  rgbaToCss,
+  sumSources,
+  valueRange,
+} from "./chart-math";
+
+const red = { r: 1, g: 0, b: 0, a: 1 };
+
+const history: BudgetHistory = {
+  span: 12,
+  samples: 3,
+  monthsAgo: [-2, -1, 0],
+  income: [
+    [100, 110, 120], // source 0
+    [10, 10, 10], // source 1
+    [5, 5, 5], // source 2
+  ],
+  expense: [
+    [50, 60, 70], // source 0
+    [0, 0, 0], // source 1
+  ],
+};
+
+const incomeItems: BudgetItemLike[] = [
+  { id: "Taxes", color: red, active: true, sources: [{ id: "A", index: 0 }, { id: "B", index: 1 }] },
+  { id: "Hidden", color: red, active: false, sources: [{ id: "C", index: 2 }] },
+];
+const expenseItems: BudgetItemLike[] = [{ id: "Upkeep", color: red, active: true, sources: [{ id: "U", index: 0 }] }];
+
+describe("buildSeries", () => {
+  const series = buildSeries(history, incomeItems, expenseItems);
+  const byKey = Object.fromEntries(series.map((s) => [s.key, s]));
+
+  it("sums an item's sources", () => {
+    expect(byKey["income:Taxes"].values).toEqual([110, 120, 130]);
+  });
+
+  it("totals include every source, inactive items too", () => {
+    expect(byKey[INCOME_TOTAL].values).toEqual([115, 125, 135]);
+    expect(byKey[EXPENSE_TOTAL].values).toEqual([50, 60, 70]);
+  });
+
+  it("leaves inactive items out of the selectable lines", () => {
+    expect(byKey["income:Hidden"]).toBeUndefined();
+  });
+
+  it("balance is revenue minus expenses", () => {
+    expect(byKey[BALANCE].values).toEqual([65, 65, 65]);
+  });
+
+  it("orders revenue, revenue items, expenses, expense items, balance", () => {
+    expect(series.map((s) => s.key)).toEqual([INCOME_TOTAL, "income:Taxes", EXPENSE_TOTAL, "expense:Upkeep", BALANCE]);
+  });
+});
+
+describe("itemValue", () => {
+  it("sums the item's sources from the flat values array", () => {
+    expect(itemValue({ sources: [{ index: 0 }, { index: 2 }] }, [100, 7, 5])).toBe(105);
+  });
+
+  it("ignores sources missing from the values", () => {
+    expect(itemValue({ sources: [{ index: 9 }] }, [1, 2])).toBe(0);
+  });
+});
+
+describe("sumSources", () => {
+  it("treats missing sources and points as 0", () => {
+    expect(sumSources([{ index: 0 }, { index: 9 }], [[1, 2]], 3)).toEqual([1, 2, 0]);
+  });
+});
+
+describe("valueRange", () => {
+  it("starts at 0 for all-positive data and pads the top", () => {
+    const [min, max] = valueRange([{ values: [10, 100] }]);
+    expect(min).toBe(0);
+    expect(max).toBeGreaterThan(100);
+  });
+
+  it("extends below 0 when a line goes negative", () => {
+    const [min] = valueRange([{ values: [-50, 100] }]);
+    expect(min).toBeLessThan(-50);
+  });
+
+  it("never returns an empty range", () => {
+    const [min, max] = valueRange([{ values: [0, 0] }]);
+    expect(max).toBeGreaterThan(min);
+  });
+});
+
+describe("niceTicks", () => {
+  it("uses round steps", () => {
+    expect(niceTicks(0, 100, 5)).toEqual([0, 20, 40, 60, 80, 100]);
+  });
+
+  it("includes zero cleanly across a negative range", () => {
+    const ticks = niceTicks(-30, 70, 5);
+    expect(ticks).toContain(0);
+    expect(ticks.every((t) => t >= -30 && t <= 70)).toBe(true);
+  });
+
+  it("degenerate range gives a single tick", () => {
+    expect(niceTicks(5, 5)).toEqual([5]);
+  });
+});
+
+describe("nearestIndex / nearestSeries", () => {
+  it("finds the closest x", () => {
+    expect(nearestIndex([0, 10, 20], 14)).toBe(1);
+    expect(nearestIndex([0, 10, 20], 16)).toBe(2);
+    expect(nearestIndex([], 5)).toBe(-1);
+  });
+
+  it("finds the line closest to the cursor value", () => {
+    const a = { name: "a", values: [100] };
+    const b = { name: "b", values: [10] };
+    expect(nearestSeries([a, b], 0, 80)?.name).toBe("a");
+    expect(nearestSeries([a, b], 0, 20)?.name).toBe("b");
+    expect(nearestSeries([a, b], 5, 20)).toBeUndefined();
+  });
+});
+
+describe("formatting", () => {
+  it("formats money with separators and sign", () => {
+    expect(formatMoney(1234567.4)).toBe("¢1,234,567");
+    expect(formatMoney(-12345)).toBe("-¢12,345");
+    expect(formatMoney(0)).toBe("¢0");
+  });
+
+  it("shortens axis money", () => {
+    expect(formatMoneyShort(1_250_000)).toBe("¢1.3M");
+    expect(formatMoneyShort(350_000)).toBe("¢350k");
+    expect(formatMoneyShort(-900)).toBe("-¢900");
+  });
+
+  it("describes time offsets", () => {
+    expect(formatMonthsAgo(0)).toBe("Now");
+    expect(formatMonthsAgo(-0.5)).toBe("12 h ago");
+    expect(formatMonthsAgo(-6)).toBe("6 months ago");
+    expect(formatMonthsAgo(-36)).toBe("3 years ago");
+  });
+
+  it("converts game colours to css", () => {
+    expect(rgbaToCss({ r: 1, g: 0.5, b: 0, a: 1 })).toBe("rgba(255, 128, 0, 1)");
+  });
+});

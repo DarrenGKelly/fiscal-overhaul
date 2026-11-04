@@ -1,0 +1,73 @@
+.chart {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 200rem;
+}
+
+.canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.empty {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 45%;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 20rem;
+}
+
+.tooltip {
+  position: absolute;
+  min-width: 200rem;
+  padding: 8rem 12rem;
+  border-radius: 6rem;
+  background-color: rgba(14, 20, 32, 0.94);
+  border: 1rem solid rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+
+.tooltip-title {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  font-size: 18rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.tooltip-swatch {
+  width: 12rem;
+  height: 12rem;
+  margin-right: 8rem;
+  border-radius: 2rem;
+}
+
+.tooltip-value {
+  margin-top: 4rem;
+  font-size: 20rem;
+  font-weight: bold;
+  color: white;
+}
+
+.tooltip-time {
+  margin-top: 2rem;
+  font-size: 15rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.remProbe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100rem;
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}

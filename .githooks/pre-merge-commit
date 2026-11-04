@@ -1,0 +1,12 @@
+#!/bin/sh
+# Runs before git merge records a merge commit (not on a fast-forward, and not on a conflicted merge, which ends in
+# git commit and so runs pre-commit). Warn-only: the doc size budgets on the merged tree (.githooks/doc-checks.sh,
+# warn_merge_budgets), so the branch owner sees an overflow when the merge makes it, not when land-pr refuses.
+# A checkout that predates doc-checks.sh skips it. Never blocks a merge.
+
+repo_root=$(git rev-parse --show-toplevel)
+if [ -f "$repo_root/.githooks/doc-checks.sh" ]; then
+    . "$repo_root/.githooks/doc-checks.sh"
+    warn_merge_budgets "$repo_root"
+fi
+exit 0

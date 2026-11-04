@@ -1,0 +1,16 @@
+#!/bin/sh
+# Enable once per clone: git config core.hooksPath .githooks
+
+repo_root=$(git rev-parse --show-toplevel)
+
+# Branch policy (.githooks/branch-policy.sh): no commits on master; branches must be feature/<name>, fix/<name>
+# or autodev.
+. "$repo_root/.githooks/branch-policy.sh"
+check_commit_branch "$(git symbolic-ref --short -q HEAD)" || exit 1
+
+# Doc checks (.githooks/doc-checks.sh): only when knowledge/, .claude/skills, .claude/agents, tools or CLAUDE.md is staged. A checkout that
+# predates doc-checks.sh skips them.
+if [ -f "$repo_root/.githooks/doc-checks.sh" ]; then
+    . "$repo_root/.githooks/doc-checks.sh"
+    check_staged_docs "$repo_root" || exit 1
+fi

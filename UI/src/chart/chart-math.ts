@@ -1,0 +1,213 @@
+// Pure chart maths for the Budget tab line chart. No game imports, so vitest can run it in Node.
+
+export interface Rgba {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+/** One budget item as the game describes it (cs2/bindings BudgetItem, minus the parts we don't use). */
+export interface BudgetItemLike {
+  id: string;
+  color: Rgba;
+  sources: { id: string; index: number }[];
+  active: boolean;
+}
+
+/** What BudgetHistoryUISystem sends (group "fiscalOverhaul", binding "history"). */
+export interface BudgetHistory {
+  span: number;
+  samples: number;
+  monthsAgo: number[];
+  income: number[][];
+  expense: number[][];
+}
+
+export type SeriesKind = "income-total" | "income" | "expense-total" | "expense" | "balance";
+
+export interface SeriesDef {
+  key: string;
+  kind: SeriesKind;
+  /** Budget item id for item series; undefined for totals and balance. */
+  itemId?: string;
+  color: string;
+  values: number[];
+}
+
+export const INCOME_TOTAL = "income-total";
+export const EXPENSE_TOTAL = "expense-total";
+export const BALANCE = "balance";
+
+export const TOTAL_COLORS = {
+  [INCOME_TOTAL]: "rgba(113, 241, 168, 1)",
+  [EXPENSE_TOTAL]: "rgba(236, 72, 112, 1)",
+  [BALANCE]: "rgba(132, 202, 255, 1)",
+};
+
+export function rgbaToCss(c: Rgba): string {
+  const ch = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 255);
+  return `rgba(${ch(c.r)}, ${ch(c.g)}, ${ch(c.b)}, ${Math.max(0, Math.min(1, c.a))})`;
+}
+
+/** Sums the history series of an item's sources, point by point. */
+export function sumSources(sources: { index: number }[], set: number[][], length: number): number[] {
+  const out = new Array<number>(length).fill(0);
+  for (const s of sources) {
+    const series = set[s.index];
+    if (!series) continue;
+    for (let i = 0; i < length; i++) out[i] += series[i] ?? 0;
+  }
+  return out;
+}
+
+/** An item's current value: the sum of its sources in the game's flat values array (vanilla getItemValue). */
+export function itemValue(item: { sources: { index: number }[] }, values: number[]): number {
+  return item.sources.reduce((total, s) => total + (values[s.index] ?? 0), 0);
+}
+
+function sumAll(set: number[][], length: number): number[] {
+  return sumSources(set.map((_, index) => ({ index })), set, length);
+}
+
+/**
+ * Every selectable line: revenue total, each active revenue item, expense total, each active expense item,
+ * and the monthly balance. Expense lines are positive amounts so they sit on the same axis as revenue.
+ */
+export function buildSeries(history: BudgetHistory, incomeItems: BudgetItemLike[], expenseItems: BudgetItemLike[]): SeriesDef[] {
+  const n = history.monthsAgo.length;
+  const incomeTotal = sumAll(history.income, n);
+  const expenseTotal = sumAll(history.expense, n);
+  const series: SeriesDef[] = [
+    { key: INCOME_TOTAL, kind: "income-total", color: TOTAL_COLORS[INCOME_TOTAL], values: incomeTotal },
+  ];
+  for (const item of incomeItems) {
+    if (!item.active) continue;
+    series.push({ key: `income:${item.id}`, kind: "income", itemId: item.id, color: rgbaToCss(item.color), values: sumSources(item.sources, history.income, n) });
+  }
+  series.push({ key: EXPENSE_TOTAL, kind: "expense-total", color: TOTAL_COLORS[EXPENSE_TOTAL], values: expenseTotal });
+  for (const item of expenseItems) {
+    if (!item.active) continue;
+    series.push({ key: `expense:${item.id}`, kind: "expense", itemId: item.id, color: rgbaToCss(item.color), values: sumSources(item.sources, history.expense, n) });
+  }
+  series.push({ key: BALANCE, kind: "balance", color: TOTAL_COLORS[BALANCE], values: incomeTotal.map((v, i) => v - expenseTotal[i]) });
+  return series;
+}
+
+/** Min and max over the given series, padded so lines don't touch the edges; always includes 0. */
+export function valueRange(series: { values: number[] }[]): [number, number] {
+  let min = 0;
+  let max = 0;
+  for (const s of series) {
+    for (const v of s.values) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  if (min === max) return [min - 1, max + 1];
+  const pad = (max - min) * 0.05;
+  return [min < 0 ? min - pad : 0, max + pad];
+}
+
+/** "Nice" round tick values covering [min, max], about `count` of them. */
+export function niceTicks(min: number, max: number, count = 5): number[] {
+  if (!(max > min) || count < 1) return [min];
+  const rough = (max - min) / count;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+  const residual = rough / magnitude;
+  const step = (residual > 5 ? 10 : residual > 2 ? 5 : residual > 1 ? 2 : 1) * magnitude;
+  const ticks: number[] = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9; v += step) {
+    ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  }
+  return ticks;
+}
+
+/** Index of the point whose x is closest to `x` (xs ascending). -1 for an empty list. */
+export function nearestIndex(xs: number[], x: number): number {
+  if (xs.length === 0) return -1;
+  let lo = 0;
+  let hi = xs.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (xs[mid] <= x) lo = mid;
+    else hi = mid;
+  }
+  return Math.abs(xs[lo] - x) <= Math.abs(xs[hi] - x) ? lo : hi;
+}
+
+/** The series (among `series`) whose value at `index` is closest to `value`. */
+export function nearestSeries<T extends { values: number[] }>(series: T[], index: number, value: number): T | undefined {
+  let best: T | undefined;
+  let bestDist = Infinity;
+  for (const s of series) {
+    const v = s.values[index];
+    if (v === undefined) continue;
+    const d = Math.abs(v - value);
+    if (d < bestDist) {
+      bestDist = d;
+      best = s;
+    }
+  }
+  return best;
+}
+
+/** Linear map from [d0, d1] to [r0, r1]. */
+export function scale(d0: number, d1: number, r0: number, r1: number): (v: number) => number {
+  const k = d1 === d0 ? 0 : (r1 - r0) / (d1 - d0);
+  return (v) => r0 + (v - d0) * k;
+}
+
+/** "¢1,234,567" / "-¢12,345". Own formatter: the game's browser has patchy Intl support. */
+export function formatMoney(value: number): string {
+  const rounded = Math.round(value);
+  const digits = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${rounded < 0 ? "-" : ""}¢${digits}`;
+}
+
+/** Short axis label: ¢1.2M, ¢350k, ¢900. */
+export function formatMoneyShort(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1e9) return `${sign}¢${trim(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${sign}¢${trim(abs / 1e6)}M`;
+  if (abs >= 1e3) return `${sign}¢${trim(abs / 1e3)}k`;
+  return `${sign}¢${Math.round(abs)}`;
+}
+
+function trim(v: number): string {
+  return (Math.round(v * 10) / 10).toString();
+}
+
+/** "now", "3 days ago"-style label for a point, in months (32 samples = 1 month). */
+export function formatMonthsAgo(monthsAgo: number): string {
+  const m = -monthsAgo;
+  if (m < 1 / 64) return "Now";
+  // One in-game month is one day on the clock, so part of a month reads as hours.
+  if (m < 1) return `${Math.max(1, Math.round(m * 24))} h ago`;
+  if (m < 24) return `${trim(m)} months ago`;
+  return `${trim(m / 12)} years ago`;
+}
+
+/** Axis label for a month offset: "Now", "-6 mo", "-2 yr". */
+export function formatMonthsAxis(monthsAgo: number): string {
+  const m = -monthsAgo;
+  if (m < 1e-6) return "Now";
+  if (m < 24) return `-${trim(m)} mo`;
+  return `-${trim(m / 12)} yr`;
+}
+
+export interface SpanOption {
+  months: number;
+  label: string;
+}
+
+/** Time spans offered above the chart. 0 = all history. */
+export const SPAN_OPTIONS: SpanOption[] = [
+  { months: 1, label: "1M" },
+  { months: 3, label: "3M" },
+  { months: 6, label: "6M" },
+  { months: 12, label: "1Y" },
+  { months: 36, label: "3Y" },
+  { months: 0, label: "All" },
+];
