@@ -165,6 +165,14 @@ export function formatMoney(value: number): string {
   return `${rounded < 0 ? "-" : ""}¢${digits}`;
 }
 
+/**
+ * "¢315,997/mo", as one string. Rendered as {formatMoney(v)}/mo, React makes two text nodes, and Gameface wraps
+ * between them even under white-space: nowrap.
+ */
+export function formatPerMonth(value: number): string {
+  return `${formatMoney(value)}/mo`;
+}
+
 /** Short axis label: ¢1.2M, ¢350k, ¢900. */
 export function formatMoneyShort(value: number): string {
   const abs = Math.abs(value);

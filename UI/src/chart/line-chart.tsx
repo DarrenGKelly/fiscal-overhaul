@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   formatMoney,
+  formatPerMonth,
   formatMoneyShort,
   formatMonthsAgo,
   formatMonthsAxis,
@@ -240,7 +241,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
             <div className={styles.tooltipSwatch} style={{ backgroundColor: hoverLine.color }} />
             {hoverLine.label}
           </div>
-          <div className={styles.tooltipValue}>{formatMoney(hoverLine.negateInTooltip ? -hoverValue : hoverValue)}/mo</div>
+          <div className={styles.tooltipValue}>{formatPerMonth(hoverLine.negateInTooltip ? -hoverValue : hoverValue)}</div>
           <div className={styles.tooltipTime}>{formatMonthsAgo(monthsAgo[hover.index] ?? 0)}</div>
         </div>
       )}

@@ -52,8 +52,9 @@ amounts. It rebuilds only while the Economy panel is open and when the sample co
 - **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All. Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
-  (`nearestIndex`/`nearestSeries`). The tooltip shows that line's exact monthly value (signed, "¢57,466/mo", `nowrap`: Gameface shrinks an
-  absolutely positioned box and wrapped it) and how long ago, next to the cursor. The left margin is the widest
+  (`nearestIndex`/`nearestSeries`). The tooltip shows that line's exact monthly value (signed, "¢57,466/mo" from `formatPerMonth` as one text
+  node, plus `nowrap`: Gameface shrinks an absolutely positioned box, and wraps between React's text nodes even
+  under `nowrap`) and how long ago, next to the cursor. The left margin is the widest
   y label plus 10rem, measured on the canvas, so there is no gap before the labels.
   The x axis has a tick and a faint vertical grid line (fainter than the horizontal ones) at every whole week, month
   or year back from now (`timeTicks`: a week is a quarter month; the step is the smallest that fits the width,
