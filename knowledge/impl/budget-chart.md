@@ -62,7 +62,7 @@ amounts. It rebuilds only while the Economy panel is open and when the sample co
   ([cs2-ui-modding.md § Gameface](../cs2-ui-modding.md#gameface-the-games-browser-limits)): unscaled, labels were
   unreadable; scaled by the root font size, the chart drew off-canvas.
 - **Detail pop-out**: the vanilla `BudgetItemDetail` for the hovered item (breakdown by source) floats over the
-  chart, on the side away from the cursor (`popoutSideIsLeft`), with `pointer-events: none` so it never steals the
+  chart: on its left edge, next to the rows, for a row hover; for a line hover, on the side away from the cursor (`popoutSideIsLeft`), with `pointer-events: none` so it never steals the
   chart's hover. Totals have no vanilla detail. The span stats (now / average / low / high / change) sit under the rows.
 
 ## Tests

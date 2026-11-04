@@ -44,7 +44,7 @@ export const BudgetPage = () => {
   const [span, setSpanState] = useState(rememberedSpan);
   const [rowHover, setRowHover] = useState<string | null>(null);
   const [lineHover, setLineHover] = useState<string | null>(null);
-  // The detail pop-out sits on the chart's side away from the cursor, so it never covers the hovered point.
+  // The detail pop-out: next to the rows for a row hover; for a line hover, on the side away from the cursor.
   const [popoutLeft, setPopoutLeft] = useState(false);
   const onHoverLine = useCallback((key: string | null, xFraction?: number) => {
     setLineHover(key);
@@ -113,7 +113,8 @@ export const BudgetPage = () => {
       className={`${styles.row} ${header ? styles.headerRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
       onMouseEnter={() => {
         setRowHover(key);
-        setPopoutLeft(false);
+        // Hovering a row: the pop-out opens on the chart's left edge, next to the rows.
+        setPopoutLeft(true);
       }}
       onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
       onClick={() => toggle(key)}
