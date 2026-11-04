@@ -25,8 +25,8 @@ let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
 let rememberedSpan = 12;
 
 /**
- * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, the chart
- * takes the middle, and the right column keeps the vanilla detail panel for whatever row or line is hovered.
+ * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the vanilla
+ * detail panel and span stats for whatever row or line is hovered underneath them; the chart takes the rest.
  */
 export const BudgetPage = () => {
   const { translate } = useLocalization();
@@ -134,6 +134,14 @@ export const BudgetPage = () => {
             .map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), itemValue(i, expenseValues)))}
         </div>
         <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], totalIncome + totalExpenses, true)}</div>
+        <div className={styles.info}>
+          {detail?.item ? (
+            <BudgetItemDetail item={detail.item} values={detail.values} />
+          ) : (
+            <div className={styles.infoHint}>Hover a row or a line for details. Click a row to plot it.</div>
+          )}
+          {hoveredSeries && <SeriesStats series={hoveredSeries} negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"} />}
+        </div>
       </div>
 
       <div className={styles.chartColumn}>
@@ -147,15 +155,6 @@ export const BudgetPage = () => {
         <div className={styles.chartArea}>
           <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={setLineHover} />
         </div>
-      </div>
-
-      <div className={styles.infoColumn}>
-        {detail?.item ? (
-          <BudgetItemDetail item={detail.item} values={detail.values} />
-        ) : (
-          <div className={styles.infoHint}>Hover a row or a line for details. Click a row to plot it.</div>
-        )}
-        {hoveredSeries && <SeriesStats series={hoveredSeries} negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"} />}
       </div>
     </div>
   );
