@@ -228,6 +228,14 @@ export function formatMonthsAxis(monthsAgo: number): string {
   return restWeeks === 0 ? `-${months} mo` : `-${months} mo ${restWeeks} wk`;
 }
 
+/**
+ * Where the plot starts, in pixels: any inset (room for a panel over the chart's left side), then the widest y label,
+ * then the gap before the plot. Sizes in rem are scaled by `rem` (pixels per rem); `labelWidth` is already in pixels.
+ */
+export function plotLeft(rem: number, labelWidth: number, gapRem: number, insetLeftRem = 0): number {
+  return (Math.max(0, insetLeftRem) + gapRem) * rem + labelWidth;
+}
+
 export interface SpanOption {
   months: number;
   label: string;

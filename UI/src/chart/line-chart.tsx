@@ -7,6 +7,7 @@ import {
   nearestIndex,
   nearestSeries,
   niceTicks,
+  plotLeft,
   scale,
   timeTicks,
   valueRange,
@@ -27,6 +28,8 @@ interface Props {
   monthsAgo: number[];
   highlightKey: string | null;
   onHoverLine: (key: string | null) => void;
+  /** Extra left margin in rem, e.g. room for a panel laid over the chart's left side; the plot starts after it. */
+  insetLeftRem?: number;
 }
 
 // Base sizes in rem. CS2 lays its UI out for 4K, so 1rem is about 0.67 px at 1440p; canvas pixels must be scaled by it.
@@ -55,12 +58,12 @@ function fontFor(rem: number): string {
 }
 
 /** The left margin fits the widest y label, so the plot starts right after the labels. */
-function scalePad(rem: number, labelWidth: number) {
-  return { left: labelWidth + Y_LABEL_GAP_REM * rem, right: PAD_REM.right * rem, top: PAD_REM.top * rem, bottom: PAD_REM.bottom * rem };
+function scalePad(rem: number, labelWidth: number, insetLeftRem = 0) {
+  return { left: plotLeft(rem, labelWidth, Y_LABEL_GAP_REM, insetLeftRem), right: PAD_REM.right * rem, top: PAD_REM.top * rem, bottom: PAD_REM.bottom * rem };
 }
 
 /** Drawn on a canvas: the game's UI (Coherent Gameface) supports 2D canvas well; inline SVG it does not. */
-export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props) => {
+export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLeftRem = 0 }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const probeRef = useRef<HTMLDivElement>(null);
@@ -91,7 +94,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
       ctx.font = fontFor(size.rem);
       labelWidth = Math.max(0, ...ticks.map((t) => ctx.measureText(formatMoneyShort(t)).width));
     }
-    const PAD = scalePad(size.rem, labelWidth);
+    const PAD = scalePad(size.rem, labelWidth, insetLeftRem);
     const yMin = Math.min(vMin, ticks[0] ?? vMin);
     const yMax = Math.max(vMax, ticks[ticks.length - 1] ?? vMax);
     const xFirst = monthsAgo.length > 0 ? monthsAgo[0] : -1;
@@ -102,7 +105,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
     const plotWidth = Math.max(1, size.w - PAD.left - PAD.right);
     const xTicks = timeTicks(xLast - xFirst, Math.max(2, Math.floor(plotWidth / (X_LABEL_SLOT_REM * size.rem)))).map((t) => xLast + t);
     return { ticks, xTicks, x, y, px, PAD };
-  }, [lines, monthsAgo, size]);
+  }, [lines, monthsAgo, size, insetLeftRem]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

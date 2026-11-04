@@ -64,8 +64,10 @@ amounts. It rebuilds only while the Economy panel is open and when the sample co
 - **Detail pop-out**: hovering an item row floats the vanilla `BudgetItemDetail` (breakdown by source) over the
   chart's left edge, next to the rows, with `pointer-events: none`. A line hover has no pop-out (its tooltip is
   enough). Totals have no vanilla detail. The span stats (now / average / low / high / change over the selected span, per month; no title) sit under the
-  rows in two columns, so they fit without scrolling. The pop-out is anchored to the chart panel with `top` and
-  `bottom` both set: a percentage `max-height` alone didn't constrain it in Gameface, and it ran below the panel.
+  rows in two columns, so they fit without scrolling. The pop-out always runs the chart panel's full height
+  (`top` and `bottom` both set: a percentage `max-height` alone didn't constrain it in Gameface, and it ran below the
+  panel), and while it shows, the plot starts after it (`LineChart insetLeftRem`): the y axis moves right and the x
+  axis shrinks, so nothing is covered.
 
 ## Tests
 

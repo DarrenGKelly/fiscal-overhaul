@@ -105,9 +105,9 @@ $row-hover: rgba(255, 255, 255, 0.08);
   position: relative;
 }
 
-// The vanilla item detail, over the chart panel's top-left corner. The outer box spans the panel's height (top and
-// bottom set, so Gameface gives it a definite height; a percentage max-height alone let it run below the panel), and
-// the inner box shrinks to its content up to that. pointer-events: none so it never steals the chart's hover.
+// The vanilla item detail, down the chart panel's left side, always the panel's full height (top and bottom set, so
+// Gameface gives it a definite height; a percentage max-height alone let it run below the panel). The chart's plot
+// moves right past it (POPOUT_INSET_REM in budget-page.tsx). pointer-events: none so it never steals the chart's hover.
 .detail-popout {
   position: absolute;
   top: 6rem;
@@ -119,7 +119,7 @@ $row-hover: rgba(255, 255, 255, 0.08);
 }
 
 .detail-popout-box {
-  max-height: 100%;
+  height: 100%;
   overflow: hidden;
   background-color: rgba(14, 20, 32, 0.96);
   border: 1rem solid rgba(255, 255, 255, 0.15);

@@ -14,6 +14,7 @@ import {
   nearestIndex,
   nearestSeries,
   niceTicks,
+  plotLeft,
   timeTicks,
   rgbaToCss,
   sumSources,
@@ -205,3 +206,20 @@ describe("formatMonthsAxis", () => {
   });
 });
 
+
+describe("plotLeft", () => {
+  it("starts the plot right after the widest y label", () => {
+    // Regression: a fixed 92rem margin left a big gap before short labels like "¢0".
+    expect(plotLeft(0.5, 30, 10)).toBe(35);
+    expect(plotLeft(0.5, 30, 10)).not.toBe(92 * 0.5);
+  });
+
+  it("moves the y axis right past a pop-out inset", () => {
+    expect(plotLeft(0.5, 30, 10, 368)).toBe(219);
+    expect(plotLeft(0.5, 30, 10, 368)).toBeGreaterThan(plotLeft(0.5, 30, 10));
+  });
+
+  it("ignores a negative inset", () => {
+    expect(plotLeft(1, 40, 10, -50)).toBe(50);
+  });
+});

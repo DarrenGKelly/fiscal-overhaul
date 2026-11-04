@@ -20,6 +20,12 @@ import { ChartLine, LineChart } from "chart/line-chart";
 import { BudgetItemDetail, NumberField } from "vanilla";
 import styles from "./budget-page.module.scss";
 
+/**
+ * While the item pop-out shows, the chart's plot starts after it: the pop-out is 360rem wide at 6rem from the chart
+ * panel's edge (budget-page.module.scss .detail-popout), the canvas starts 10rem in, plus a 12rem gap.
+ */
+const POPOUT_INSET_REM = 360 + 6 - 10 + 12;
+
 // Kept outside the component so the choice survives switching tabs or closing the panel.
 let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
 let rememberedSpan = 12;
@@ -147,7 +153,13 @@ export const BudgetPage = () => {
           ))}
         </div>
         <div className={styles.chartArea}>
-          <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={setLineHover} />
+          <LineChart
+            lines={lines}
+            monthsAgo={history?.monthsAgo ?? []}
+            highlightKey={hoverKey}
+            onHoverLine={setLineHover}
+            insetLeftRem={detail?.item ? POPOUT_INSET_REM : 0}
+          />
         </div>
         {detail?.item && (
           <div className={styles.detailPopout}>
