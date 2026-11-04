@@ -148,18 +148,20 @@ export const BudgetPage = () => {
         </div>
         <div className={styles.chartArea}>
           <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={setLineHover} />
-          {detail?.item && (
-            <div className={styles.detailPopout}>
+        </div>
+        {detail?.item && (
+          <div className={styles.detailPopout}>
+            <div className={styles.detailPopoutBox}>
               <BudgetItemDetail item={detail.item} values={detail.values} />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-/** Current / average / low / high over the visible span, for the hovered line. */
+/** Now / average / low / high / change over the selected span (the points on the chart), per month. */
 const SeriesStats = ({ series, negate }: { series: SeriesDef; negate: boolean }) => {
   const v = series.values;
   if (v.length === 0) return null;
@@ -174,7 +176,6 @@ const SeriesStats = ({ series, negate }: { series: SeriesDef; negate: boolean })
   ];
   return (
     <div className={styles.stats}>
-      <div className={styles.statsTitle}>Over the chart's time span (per month)</div>
       {stats.map(([name, value]) => (
         <div key={name} className={styles.statRow}>
           <div>{name}</div>
