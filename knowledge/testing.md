@@ -81,7 +81,7 @@ after changing a script:
 ```
 python tools/test-okf.py; python tools/test-check-doc-links.py; python tools/test-check-skills.py
 python tools/test-issues.py; python tools/test-promote.py
-sh tools/test-git-hooks.sh
+sh tools/test-git-hooks.sh; sh tools/test-build-linux.sh
 ./tools/test-land-pr.ps1; ./tools/test-claude-merge-guard.ps1; ./tools/test-test.ps1
 ./tools/test-new-test-batch.ps1; ./tools/test-check-batch-status.ps1
 ./tools/test-prune-worktrees.ps1; ./tools/test-remove-worktree.ps1

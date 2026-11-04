@@ -14,6 +14,9 @@ into a running game** (it locks the mod's DLL, and the game is one shared instan
 A session checking its own change uses `tools/build.ps1` directly, not this skill
 ([testing.md § Running tests](../../../knowledge/testing.md#running-tests)).
 
+**On Linux** (the session's platform is linux, or the user says "here" on the Linux PC) `build.ps1` can't build: the
+mod only builds on Windows. Use `sh tools/build-linux.sh` instead ([§ On Linux](#on-linux)).
+
 ## 1. Read the request
 
 | The user says | Run |
@@ -42,8 +45,24 @@ there the first time), builds with the per-user Node and .NET 6 (`%LOCALAPPDATA%
   tell the user, don't install runtimes yourself.
 - A C# error: read the first `error CS` line, not the whole log.
 
+### On Linux
+
+```
+sh tools/build-linux.sh [--ref origin/<branch>] [--configuration Debug]
+```
+
+It bundles origin's branches here (the Windows PC can't reach GitHub over SSH: its logins live in the desktop
+keyring), runs `build.ps1 -Ref <ref> -Zip` on the Windows PC over SSH (`fc-windows` in `~/.ssh/config`), copies the
+zip back and replaces the Proton prefix's `Mods/FiscalOverhaul` with it. The defaults table above maps to `--ref` and
+`--configuration`; there is no `-Zip` (the zip stays in the Windows checkout's `Builds/`).
+
+- Exit 2 with `is running`: the game here holds the mod; ask the user to close it. Never close it yourself.
+- `Couldn't copy the bundle to fc-windows`: the Windows PC is off or unreachable; tell the user.
+- A Windows build failure prints its `build:` and `error CS` lines; read them as above. The installed mod is untouched.
+- "and run it": `xdg-open steam://rungameid/949230`.
+
 ## 3. Report
 
-One line: the ref and commit built, and where it went: the script's last line (`Deployed to ... (<ref> at <commit>)`
-or `Packaged <zip>`). A deployed build loads at the game's next start (no hot reload). `./tools/check-batch-status.ps1`
-shows what the game will load at any time. Nothing to commit.
+One line: the ref and commit built, and where it went: the script's last line (`Deployed to ... (<ref> at <commit>)`,
+`Packaged <zip>` or, on Linux, `Installed to ...`). A deployed build loads at the game's next start (no hot reload). `./tools/check-batch-status.ps1`
+(on Linux, the Mods folder's `build-info.txt`) shows what the game will load at any time. Nothing to commit.
