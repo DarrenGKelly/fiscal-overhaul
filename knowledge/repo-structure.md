@@ -53,6 +53,7 @@ changing the script ([testing.md § Tool tests](testing.md#tool-tests)).
 | Script | Does |
 |---|---|
 | `build.ps1` | Builds and deploys the mod: `-ModOnly`, `-UIOnly`, `-NoDeploy` (compile check), `-Configuration`; `-Ref origin/<branch>` builds that ref in `.claude/worktrees/build`; `-Zip` packages to `Builds/` without deploying. Refuses to deploy while the game runs. No test twin (needs the game's toolchain; verified by real runs) |
+| `build-linux.sh` | On the Linux PC: builds a ref on the Windows PC over SSH (`build.ps1 -Ref <ref> -Zip`, origin fed from a git bundle made here) and installs the zip into the game's Proton Mods folder; `--ref`, `--configuration`. Refuses while the game runs. Tested by `test-build-linux.sh` |
 | `test.ps1` | Runs the unit tests: xunit (`dotnet test Tests`) and vitest (`npm test` in `UI/`); `-CSharpOnly`, `-UIOnly`, `-Filter`. Tested by `test-test.ps1` |
 | `git-common.ps1` | Helpers the PowerShell tools dot-source: paths, `Invoke-Git`, the repo context, the hooks-path warning, `Use-LocalToolchain` (the per-user Node and .NET 6), `Get-GameProcess` |
 | `land-pr.ps1` | Lands a PR into `autodev` ([git-workflow.md](git-workflow.md#autonomous-sessions-autodev)) |

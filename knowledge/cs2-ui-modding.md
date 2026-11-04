@@ -46,6 +46,11 @@ Traps:
   the registry itself (`Mod.props`).
 - **UI type-check vs vitest.** vitest pulls in `@types/node`, which the template's TypeScript 4.8 can't parse, so
   `UI/tsconfig.json` sets `"types": []` and excludes `src/**/*.test.ts`; vitest type-checks the tests itself.
+- **Linux builds on Windows.** The game also runs on the Linux PC under Proton; its Mods folder is
+  `~/.steam/steam/steamapps/compatdata/949230/pfx/drive_c/users/steamuser/AppData/LocalLow/Colossal Order/Cities Skylines II/Mods`.
+  The mod doesn't build there (the toolchain and Burst need the Windows Unity install), so `tools/build-linux.sh`
+  builds on the Windows PC over SSH and copies the zip in. Over SSH the Windows PC can't fetch from GitHub (Git's
+  credential manager and `gh` keep their logins in the desktop keyring), so the script feeds origin from a git bundle.
 - **Tests** don't touch the game: pure logic lives in `Mod/Logic/` (no game or Unity types) and is compiled into
   `Tests/` (net10). UI pure logic is in `*.ts` files next to the components, tested with vitest.
   [testing.md](testing.md).
