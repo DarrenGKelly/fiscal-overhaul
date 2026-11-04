@@ -73,7 +73,7 @@ $row-hover: rgba(255, 255, 255, 0.08);
   flex: 1 1 auto;
   background-color: $panel-bg;
   border-radius: 4rem;
-  padding: 10rem 12rem 8rem 4rem;
+  padding: 10rem 12rem 8rem 10rem;
 }
 
 .span-bar {
@@ -104,19 +104,25 @@ $row-hover: rgba(255, 255, 255, 0.08);
   position: relative;
 }
 
-// Hover detail and stats, under the filter rows (the list column scrolls if they don't fit).
-.info {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 auto;
+// The vanilla item detail, over the chart. pointer-events: none so it never steals the chart's hover.
+.detail-popout {
+  position: absolute;
+  top: 8rem;
+  width: 360rem;
+  max-height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: rgba(14, 20, 32, 0.94);
+  border: 1rem solid rgba(255, 255, 255, 0.15);
+  border-radius: 6rem;
 }
 
-.info-hint {
-  background-color: $panel-bg;
-  border-radius: 4rem;
-  padding: 16rem;
-  font-size: 15rem;
-  color: rgba(255, 255, 255, 0.6);
+.popout-right {
+  right: 8rem;
+}
+
+.popout-left {
+  left: 100rem;
 }
 
 .stats {

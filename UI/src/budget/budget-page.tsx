@@ -14,6 +14,7 @@ import {
   SeriesDef,
   SPAN_OPTIONS,
   itemValue,
+  popoutSideIsLeft,
   TOTAL_COLORS,
 } from "chart/chart-math";
 import { ChartLine, LineChart } from "chart/line-chart";
@@ -25,8 +26,9 @@ let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
 let rememberedSpan = 12;
 
 /**
- * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the vanilla
- * detail panel and span stats for whatever row or line is hovered underneath them; the chart takes the rest.
+ * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the span stats
+ * for the hovered row or line under them; the chart takes the rest, and the vanilla detail panel for a hovered item
+ * pops out over it.
  */
 export const BudgetPage = () => {
   const { translate } = useLocalization();
@@ -42,6 +44,12 @@ export const BudgetPage = () => {
   const [span, setSpanState] = useState(rememberedSpan);
   const [rowHover, setRowHover] = useState<string | null>(null);
   const [lineHover, setLineHover] = useState<string | null>(null);
+  // The detail pop-out sits on the chart's side away from the cursor, so it never covers the hovered point.
+  const [popoutLeft, setPopoutLeft] = useState(false);
+  const onHoverLine = useCallback((key: string | null, xFraction?: number) => {
+    setLineHover(key);
+    if (key !== null && xFraction !== undefined) setPopoutLeft(popoutSideIsLeft(xFraction));
+  }, []);
   const hoverKey = lineHover ?? rowHover;
 
   useEffect(() => {
@@ -103,7 +111,10 @@ export const BudgetPage = () => {
     <div
       key={key}
       className={`${styles.row} ${header ? styles.headerRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
-      onMouseEnter={() => setRowHover(key)}
+      onMouseEnter={() => {
+        setRowHover(key);
+        setPopoutLeft(false);
+      }}
       onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
       onClick={() => toggle(key)}
     >
@@ -134,14 +145,7 @@ export const BudgetPage = () => {
             .map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), itemValue(i, expenseValues)))}
         </div>
         <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], totalIncome + totalExpenses, true)}</div>
-        <div className={styles.info}>
-          {detail?.item ? (
-            <BudgetItemDetail item={detail.item} values={detail.values} />
-          ) : (
-            <div className={styles.infoHint}>Hover a row or a line for details. Click a row to plot it.</div>
-          )}
-          {hoveredSeries && <SeriesStats series={hoveredSeries} negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"} />}
-        </div>
+        {hoveredSeries && <SeriesStats series={hoveredSeries} negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"} />}
       </div>
 
       <div className={styles.chartColumn}>
@@ -153,7 +157,12 @@ export const BudgetPage = () => {
           ))}
         </div>
         <div className={styles.chartArea}>
-          <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={setLineHover} />
+          <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={onHoverLine} />
+          {detail?.item && (
+            <div className={`${styles.detailPopout} ${popoutLeft ? styles.popoutLeft : styles.popoutRight}`}>
+              <BudgetItemDetail item={detail.item} values={detail.values} />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -35,6 +35,22 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void WithLiveNow_EndsOnTheLiveValue()
+        {
+            // Regression: the chart's Now was the last saved sample (Expenses ¢268k) while the row showed the live ¢284,785.
+            var series = BudgetHistoryMath.WithLiveNow(new double[] { 260000, 268000 }, 284785);
+
+            Assert.Equal(new double[] { 260000, 268000, 284785 }, series);
+            Assert.NotEqual(268000, series[series.Length - 1]);
+        }
+
+        [Fact]
+        public void WithLiveNow_GivesASourceWithNoHistoryItsLiveValue()
+        {
+            Assert.Equal(new double[] { 52910 }, BudgetHistoryMath.WithLiveNow(new double[0], 52910));
+        }
+
+        [Fact]
         public void SamplesForSpan_ClampsToAvailableHistory()
         {
             Assert.Equal(33, BudgetHistoryMath.SamplesForSpan(1, 1000));

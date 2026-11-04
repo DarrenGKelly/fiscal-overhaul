@@ -30,6 +30,20 @@ namespace FiscalOverhaul.Logic
         }
 
         /// <summary>
+        /// The rates of the complete samples, then <paramref name="live"/> as the newest point: the game's current
+        /// monthly figure, which the Budget rows show. So the chart's "Now" is the row value by construction, rather
+        /// than the last saved sample, which can be up to 1/32 of a month old (or older while the game is paused).
+        /// </summary>
+        public static double[] WithLiveNow(IReadOnlyList<double> rates, double live)
+        {
+            if (rates == null) throw new ArgumentNullException(nameof(rates));
+            var result = new double[rates.Count + 1];
+            for (int i = 0; i < rates.Count; i++) result[i] = rates[i];
+            result[rates.Count] = live;
+            return result;
+        }
+
+        /// <summary>
         /// How many trailing samples a time span covers. <paramref name="months"/> &lt;= 0 means "all history".
         /// Always at least 1 sample when any exist.
         /// </summary>

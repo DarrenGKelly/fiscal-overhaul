@@ -228,6 +228,11 @@ export function formatMonthsAxis(monthsAgo: number): string {
   return restWeeks === 0 ? `-${months} mo` : `-${months} mo ${restWeeks} wk`;
 }
 
+/** Which side of the chart the item-detail pop-out goes: the left when the cursor is over the right half. */
+export function popoutSideIsLeft(xFraction: number): boolean {
+  return xFraction > 0.5;
+}
+
 export interface SpanOption {
   months: number;
   label: string;

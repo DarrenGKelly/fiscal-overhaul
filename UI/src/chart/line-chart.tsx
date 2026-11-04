@@ -26,11 +26,14 @@ interface Props {
   lines: ChartLine[];
   monthsAgo: number[];
   highlightKey: string | null;
-  onHoverLine: (key: string | null) => void;
+  /** xFraction: the cursor's position across the chart, 0 = left edge, 1 = right edge. */
+  onHoverLine: (key: string | null, xFraction?: number) => void;
 }
 
 // Base sizes in rem. CS2 lays its UI out for 4K, so 1rem is about 0.67 px at 1440p; canvas pixels must be scaled by it.
-const PAD_REM = { left: 92, right: 24, top: 16, bottom: 36 };
+const PAD_REM = { right: 24, top: 16, bottom: 36 };
+/** Gap between the y labels and the plot; the left margin is the widest label plus this. */
+const Y_LABEL_GAP_REM = 10;
 const FONT_REM = 15;
 /** Room each x-axis label needs, so the tick count fits the chart's width. */
 const X_LABEL_SLOT_REM = 120;
@@ -48,8 +51,13 @@ interface Hover {
   key: string;
 }
 
-function scalePad(rem: number) {
-  return { left: PAD_REM.left * rem, right: PAD_REM.right * rem, top: PAD_REM.top * rem, bottom: PAD_REM.bottom * rem };
+function fontFor(rem: number): string {
+  return `${Math.round(FONT_REM * rem)}px Overpass, sans-serif`;
+}
+
+/** The left margin fits the widest y label, so the plot starts right after the labels. */
+function scalePad(rem: number, labelWidth: number) {
+  return { left: labelWidth + Y_LABEL_GAP_REM * rem, right: PAD_REM.right * rem, top: PAD_REM.top * rem, bottom: PAD_REM.bottom * rem };
 }
 
 /** Drawn on a canvas: the game's UI (Coherent Gameface) supports 2D canvas well; inline SVG it does not. */
@@ -76,9 +84,15 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
   }, [measure]);
 
   const geometry = useMemo(() => {
-    const PAD = scalePad(size.rem);
     const [vMin, vMax] = valueRange(lines);
     const ticks = niceTicks(vMin, vMax, 5);
+    const ctx = canvasRef.current?.getContext("2d");
+    let labelWidth = 60 * size.rem;
+    if (ctx) {
+      ctx.font = fontFor(size.rem);
+      labelWidth = Math.max(0, ...ticks.map((t) => ctx.measureText(formatMoneyShort(t)).width));
+    }
+    const PAD = scalePad(size.rem, labelWidth);
     const yMin = Math.min(vMin, ticks[0] ?? vMin);
     const yMax = Math.max(vMax, ticks[ticks.length - 1] ?? vMax);
     const xFirst = monthsAgo.length > 0 ? monthsAgo[0] : -1;
@@ -117,7 +131,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
     }
 
     // Horizontal grid + y labels.
-    ctx.font = `${Math.round(FONT_REM * rem)}px Overpass, sans-serif`;
+    ctx.font = fontFor(rem);
     ctx.textBaseline = "middle";
     ctx.textAlign = "right";
     for (const t of ticks) {
@@ -129,7 +143,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
       ctx.lineTo(size.w - PAD.right, ty);
       ctx.stroke();
       ctx.fillStyle = "rgba(255,255,255,0.8)";
-      ctx.fillText(formatMoneyShort(t), PAD.left - 10 * rem, ty);
+      ctx.fillText(formatMoneyShort(t), PAD.left - Y_LABEL_GAP_REM * rem, ty);
     }
 
     // X labels, centred on their grid line but kept inside the canvas. Ticks are relative to the newest point.
@@ -199,7 +213,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
       const line = nearestSeries(lines, index, value);
       if (!line) return;
       setHover({ x: mx, y: my, index, key: line.key });
-      onHoverLine(line.key);
+      onHoverLine(line.key, rect.width > 0 ? mx / rect.width : undefined);
     },
     [geometry, lines, onHoverLine]
   );
@@ -224,7 +238,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine }: Props
             <div className={styles.tooltipSwatch} style={{ backgroundColor: hoverLine.color }} />
             {hoverLine.label}
           </div>
-          <div className={styles.tooltipValue}>{formatMoney(hoverLine.negateInTooltip ? -hoverValue : hoverValue)} / month</div>
+          <div className={styles.tooltipValue}>{formatMoney(hoverLine.negateInTooltip ? -hoverValue : hoverValue)}/mo</div>
           <div className={styles.tooltipTime}>{formatMonthsAgo(monthsAgo[hover.index] ?? 0)}</div>
         </div>
       )}

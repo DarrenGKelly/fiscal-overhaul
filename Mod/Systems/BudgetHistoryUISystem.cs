@@ -28,12 +28,14 @@ namespace FiscalOverhaul
         private const int kExpenseSources = (int)ExpenseSource.Count;
 
         private CityStatisticsSystem m_StatisticsSystem;
+        private CityServiceBudgetSystem m_BudgetSystem;
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_HistoryBinding;
 
         private int m_SpanMonths = 12;
         private int m_LastSampleCount = -1;
         private int m_LastSpan = int.MinValue;
+        private int m_FramesSinceRebuild;
 
         [Preserve]
         protected override void OnCreate()
@@ -41,6 +43,7 @@ namespace FiscalOverhaul
             base.OnCreate();
             m_StatisticsSystem = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
             m_PanelSystem = World.GetOrCreateSystemManaged<GamePanelUISystem>();
+            m_BudgetSystem = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
             AddBinding(m_HistoryBinding = new RawValueBinding(kGroup, "history", WriteHistory));
             AddBinding(new TriggerBinding<int>(kGroup, "setSpan", months => m_SpanMonths = months));
         }
@@ -51,7 +54,10 @@ namespace FiscalOverhaul
             // Only rebuild while the Economy panel is open and something changed: a new sample or a new span.
             if (!(m_PanelSystem.activePanel is EconomyPanel)) return;
             int samples = m_StatisticsSystem.sampleCount;
-            if (samples == m_LastSampleCount && m_SpanMonths == m_LastSpan) return;
+            // The live "Now" point changes between samples too (a new building, a budget slider, the game paused),
+            // so rebuild at least every 60 frames while the panel is open.
+            if (samples == m_LastSampleCount && m_SpanMonths == m_LastSpan && ++m_FramesSinceRebuild < 60) return;
+            m_FramesSinceRebuild = 0;
             m_LastSampleCount = samples;
             m_LastSpan = m_SpanMonths;
             m_HistoryBinding.Update();
@@ -67,12 +73,13 @@ namespace FiscalOverhaul
             int length = 1;
             for (int i = 0; i < kIncomeSources; i++)
             {
-                income[i] = ReadMonthly(StatisticType.Income, i);
+                income[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Income, i), m_BudgetSystem.GetIncome((IncomeSource)i));
                 if (income[i].Length > length) length = income[i].Length;
             }
             for (int i = 0; i < kExpenseSources; i++)
             {
-                expense[i] = ReadMonthly(StatisticType.Expense, i);
+                // Vanilla shows -GetExpense; the statistics store the cost as a positive amount, as the chart does.
+                expense[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Expense, i), System.Math.Abs(m_BudgetSystem.GetExpense((ExpenseSource)i)));
                 if (expense[i].Length > length) length = expense[i].Length;
             }
 

@@ -14,6 +14,7 @@ import {
   nearestIndex,
   nearestSeries,
   niceTicks,
+  popoutSideIsLeft,
   timeTicks,
   rgbaToCss,
   sumSources,
@@ -202,5 +203,15 @@ describe("formatMonthsAxis", () => {
   it("never shows a fractional number", () => {
     expect(formatMonthsAxis(-2.1)).toBe("-2 mo");
     expect(formatMonthsAxis(-2.1)).not.toContain(".");
+  });
+});
+
+describe("popoutSideIsLeft", () => {
+  it("puts the detail pop-out on the left when hovering the chart's right half", () => {
+    expect(popoutSideIsLeft(0.9)).toBe(true);
+  });
+
+  it("keeps it on the right when hovering the left half", () => {
+    expect(popoutSideIsLeft(0.2)).toBe(false);
   });
 });

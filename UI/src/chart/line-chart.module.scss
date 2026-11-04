@@ -32,6 +32,8 @@
   background-color: rgba(14, 20, 32, 0.94);
   border: 1rem solid rgba(255, 255, 255, 0.15);
   pointer-events: none;
+  // Absolutely positioned without a width, so Gameface shrinks it and wraps "¢57,466 / month" without this.
+  white-space: nowrap;
 }
 
 .tooltip-title {

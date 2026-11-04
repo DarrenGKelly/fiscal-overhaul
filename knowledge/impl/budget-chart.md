@@ -30,8 +30,10 @@ row read ¢52k). It doesn't use `m_TotalValue`, whose meaning depends on the sta
 type (cumulative / point / daily). The deltas mean the same thing for every type.
 
 **The newest sample is still filling up** (the current 1/32 of a month), so `ReadMonthly` drops it; with it, every
-line dipped at "Now". So the chart's "Now" is the last complete sample, 1/32 of a month old, and can differ slightly from
-the vanilla row value, which is live.
+line dipped at "Now". In its place `WithLiveNow` appends the live value (`CityServiceBudgetSystem.GetIncome` /
+`GetExpense`, what the rows show), so "Now" equals the row by construction. The last saved sample alone read ¢268k of
+expenses against the row's ¢284,785 in the playtest. The binding rebuilds on a new sample, a new span, or every 60
+frames while the panel is open, so "Now" follows the rows even while the game is paused.
 
 It sends only the visible span (`setSpan(months)`, 0 = all), downsampled to ≤240 points ending on the newest sample
 (`PickIndices`), as `history = { span, samples, monthsAgo[], income[14][], expense[15][] }`. Expenses are positive
@@ -39,8 +41,8 @@ amounts. It rebuilds only while the Economy panel is open and when the sample co
 
 ## UI
 
-- **Left column**: the filter rows, then the hover info under them (the column scrolls when it doesn't fit). There is
-  no right-hand column, so the chart takes the rest of the width.
+- **Left column**: the filter rows, then the span stats for the hovered row or line (the column scrolls when they
+  don't fit). There is no right-hand column, so the chart takes the rest of the width.
 - **Rows**: Revenues total, each active revenue item, Expenses total, each active expense item, Monthly
   balance. Each row shows the vanilla current value (`NumberField`). Clicking a row toggles its line, and hovering it
   sets the detail. Items group sources exactly as vanilla does (`BudgetItem.sources`), from
@@ -50,15 +52,18 @@ amounts. It rebuilds only while the Economy panel is open and when the sample co
 - **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All. Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
-  (`nearestIndex`/`nearestSeries`). The tooltip shows that line's exact monthly value (signed) and how long ago, next to the cursor.
+  (`nearestIndex`/`nearestSeries`). The tooltip shows that line's exact monthly value (signed, "¢57,466/mo", `nowrap`: Gameface shrinks an
+  absolutely positioned box and wrapped it) and how long ago, next to the cursor. The left margin is the widest
+  y label plus 10rem, measured on the canvas, so there is no gap before the labels.
   The x axis has a tick and a faint vertical grid line (fainter than the horizontal ones) at every whole week, month
   or year back from now (`timeTicks`: a week is a quarter month; the step is the smallest that fits the width,
   ~120rem per label), labelled "-3 wk", "-1 mo 2 wk", "-2 yr" (`formatMonthsAxis`). Canvas text is 15rem.
   Every canvas size is in rem and scaled by the measured px-per-rem
   ([cs2-ui-modding.md § Gameface](../cs2-ui-modding.md#gameface-the-games-browser-limits)): unscaled, labels were
   unreadable; scaled by the root font size, the chart drew off-canvas.
-- **Detail (under the rows)**: the vanilla `BudgetItemDetail` for the hovered row or line (item breakdown by source), plus
-  span stats for the hovered line (now / average / low / high / change). Totals have no vanilla detail.
+- **Detail pop-out**: the vanilla `BudgetItemDetail` for the hovered item (breakdown by source) floats over the
+  chart, on the side away from the cursor (`popoutSideIsLeft`), with `pointer-events: none` so it never steals the
+  chart's hover. Totals have no vanilla detail. The span stats (now / average / low / high / change) sit under the rows.
 
 ## Tests
 
