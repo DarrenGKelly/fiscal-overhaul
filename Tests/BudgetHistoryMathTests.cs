@@ -7,26 +7,47 @@ namespace FiscalOverhaul.Tests
     public class BudgetHistoryMathTests
     {
         [Fact]
-        public void MonthlyRates_SumsTheTrailingWindow()
+        public void MonthlyRates_IsEachSampleTimesSamplesPerMonth()
         {
-            // 40 samples of 10 each: the rate builds up to a full month (320) and then holds.
-            var deltas = Enumerable.Repeat(10.0, 40).ToArray();
-            var rates = BudgetHistoryMath.MonthlyRates(deltas);
+            // A sample holds 1/32 of the monthly rate at its time.
+            var rates = BudgetHistoryMath.MonthlyRates(new[] { 10.0, 0.0, -2.5 });
 
-            Assert.Equal(10, rates[0]);
-            Assert.Equal(320, rates[31]);
-            Assert.Equal(320, rates[39]);
+            Assert.Equal(new double[] { 320, 0, -80 }, rates);
         }
 
         [Fact]
-        public void MonthlyRates_DropsSamplesOlderThanTheWindow()
+        public void MonthlyRates_NewestPointMatchesTheCurrentRateNotTheMonthAverage()
         {
-            // A one-off spike leaves the rate once it is older than the window, and not before.
-            var deltas = new double[5];
-            deltas[0] = 100;
-            var rates = BudgetHistoryMath.MonthlyRates(deltas, window: 3);
+            // Regression: a growing city (rate climbing from 0 to 630/month over two months). The vanilla panel shows
+            // the current rate, 630; the old trailing-month sum gave the past month's average, about 475.
+            var deltas = Enumerable.Range(0, 64).Select(i => i / 3.2).ToArray(); // last sample = 63/3.2 = 19.6875
+            var rates = BudgetHistoryMath.MonthlyRates(deltas);
 
-            Assert.Equal(new double[] { 100, 100, 100, 0, 0 }, rates);
+            Assert.Equal(630, rates[63], 6);
+            Assert.NotEqual(deltas.Skip(32).Sum(), rates[63], 6);
+            Assert.Equal(0, rates[0]);
+        }
+
+        [Fact]
+        public void MonthlyRates_RejectsANonPositiveSamplesPerMonth()
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => BudgetHistoryMath.MonthlyRates(new[] { 1.0 }, 0));
+        }
+
+        [Fact]
+        public void WithLiveNow_EndsOnTheLiveValue()
+        {
+            // Regression: the chart's Now was the last saved sample (Expenses ¢268k) while the row showed the live ¢284,785.
+            var series = BudgetHistoryMath.WithLiveNow(new double[] { 260000, 268000 }, 284785);
+
+            Assert.Equal(new double[] { 260000, 268000, 284785 }, series);
+            Assert.NotEqual(268000, series[series.Length - 1]);
+        }
+
+        [Fact]
+        public void WithLiveNow_GivesASourceWithNoHistoryItsLiveValue()
+        {
+            Assert.Equal(new double[] { 52910 }, BudgetHistoryMath.WithLiveNow(new double[0], 52910));
         }
 
         [Fact]

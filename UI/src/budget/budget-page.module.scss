@@ -73,8 +73,8 @@ $row-hover: rgba(255, 255, 255, 0.08);
   flex: 1 1 auto;
   background-color: $panel-bg;
   border-radius: 4rem;
-  padding: 10rem 12rem 8rem 4rem;
-  margin-right: 12rem;
+  padding: 10rem 12rem 8rem 10rem;
+  position: relative;
 }
 
 .span-bar {
@@ -105,39 +105,46 @@ $row-hover: rgba(255, 255, 255, 0.08);
   position: relative;
 }
 
-.info-column {
-  display: flex;
-  flex-direction: column;
-  width: 380rem;
-  flex: 0 0 auto;
+// The vanilla item detail, down the chart panel's left side, always the panel's full height (top and bottom set, so
+// Gameface gives it a definite height; a percentage max-height alone let it run below the panel). The chart's plot
+// moves right past it (POPOUT_INSET_REM in budget-page.tsx). pointer-events: none so it never steals the chart's hover.
+.detail-popout {
+  position: absolute;
+  top: 6rem;
+  bottom: 6rem;
+  left: 6rem;
+  width: 360rem;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.info-hint {
-  background-color: $panel-bg;
-  border-radius: 4rem;
-  padding: 16rem;
-  font-size: 15rem;
-  color: rgba(255, 255, 255, 0.6);
+.detail-popout-box {
+  height: 100%;
+  overflow: hidden;
+  background-color: rgba(14, 20, 32, 0.96);
+  border: 1rem solid rgba(255, 255, 255, 0.15);
+  border-radius: 6rem;
 }
 
 .stats {
   margin-top: 8rem;
+  flex: 0 0 auto;
   background-color: $panel-bg;
   border-radius: 4rem;
-  padding: 10rem 16rem;
-  font-size: 14rem;
+  padding: 6rem 12rem;
+  font-size: 13rem;
   color: rgba(255, 255, 255, 0.85);
-}
-
-.stats-title {
-  font-size: 12rem;
-  color: rgba(255, 255, 255, 0.55);
-  margin-bottom: 6rem;
+  // Two columns, so the five stats take three rows and fit under the filter rows.
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 
 .stat-row {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  padding: 2rem 0;
+  width: 50%;
+  box-sizing: border-box;
+  padding: 2rem 8rem;
 }

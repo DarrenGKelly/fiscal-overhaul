@@ -8,11 +8,14 @@ import {
   formatMoney,
   formatMoneyShort,
   formatMonthsAgo,
+  formatMonthsAxis,
   INCOME_TOTAL,
   itemValue,
   nearestIndex,
   nearestSeries,
   niceTicks,
+  plotLeft,
+  timeTicks,
   rgbaToCss,
   sumSources,
   valueRange,
@@ -155,5 +158,68 @@ describe("formatting", () => {
 
   it("converts game colours to css", () => {
     expect(rgbaToCss({ r: 1, g: 0.5, b: 0, a: 1 })).toBe("rgba(255, 128, 0, 1)");
+  });
+});
+
+describe("timeTicks", () => {
+  const isWholeWeeks = (m: number) => Math.abs(m * 4 - Math.round(m * 4)) < 1e-9;
+
+  it("uses whole weeks on a one-month span", () => {
+    expect(timeTicks(1, 6)).toEqual([-1, -0.75, -0.5, -0.25, 0]);
+  });
+
+  it("uses whole months on a span of a few months, ending at now", () => {
+    // Regression: the axis was labelled at the start, middle and end, e.g. -4.2 mo / -2.1 mo / Now.
+    const ticks = timeTicks(4.2, 6);
+    expect(ticks).toEqual([-4, -3, -2, -1, 0]);
+    expect(ticks).not.toContain(-2.1);
+  });
+
+  it("steps up to whole years on long spans and never exceeds maxTicks", () => {
+    expect(timeTicks(36, 6)).toEqual([-36, -24, -12, 0]);
+    for (const span of [0.1, 0.7, 1, 3, 4.2, 6, 11.9, 12, 36, 100, 500]) {
+      const ticks = timeTicks(span, 6);
+      expect(ticks.length).toBeLessThanOrEqual(6);
+      expect(ticks[ticks.length - 1]).toBe(0);
+      expect(ticks[0]).toBeGreaterThanOrEqual(-span - 1e-9);
+      expect(ticks.every(isWholeWeeks)).toBe(true);
+    }
+  });
+
+  it("gives just now when the span is under a week", () => {
+    expect(timeTicks(0.1, 6)).toEqual([0]);
+  });
+});
+
+describe("formatMonthsAxis", () => {
+  it("labels whole weeks, months, combos and years", () => {
+    expect(formatMonthsAxis(0)).toBe("Now");
+    expect(formatMonthsAxis(-0.75)).toBe("-3 wk");
+    expect(formatMonthsAxis(-2)).toBe("-2 mo");
+    expect(formatMonthsAxis(-1.5)).toBe("-1 mo 2 wk");
+    expect(formatMonthsAxis(-24)).toBe("-2 yr");
+  });
+
+  it("never shows a fractional number", () => {
+    expect(formatMonthsAxis(-2.1)).toBe("-2 mo");
+    expect(formatMonthsAxis(-2.1)).not.toContain(".");
+  });
+});
+
+
+describe("plotLeft", () => {
+  it("starts the plot right after the widest y label", () => {
+    // Regression: a fixed 92rem margin left a big gap before short labels like "¢0".
+    expect(plotLeft(0.5, 30, 10)).toBe(35);
+    expect(plotLeft(0.5, 30, 10)).not.toBe(92 * 0.5);
+  });
+
+  it("moves the y axis right past a pop-out inset", () => {
+    expect(plotLeft(0.5, 30, 10, 368)).toBe(219);
+    expect(plotLeft(0.5, 30, 10, 368)).toBeGreaterThan(plotLeft(0.5, 30, 10));
+  });
+
+  it("ignores a negative inset", () => {
+    expect(plotLeft(1, 40, 10, -50)).toBe(50);
   });
 });

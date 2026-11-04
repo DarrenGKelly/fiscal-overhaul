@@ -189,12 +189,51 @@ export function formatMonthsAgo(monthsAgo: number): string {
   return `${trim(m / 12)} years ago`;
 }
 
-/** Axis label for a month offset: "Now", "-6 mo", "-2 yr". */
+/** Weeks per in-game month, for the x axis (the game has no weeks; a quarter month reads naturally). */
+export const WEEKS_PER_MONTH = 4;
+
+/** X-axis tick steps in months: whole weeks, then whole months, then whole years. */
+export const TIME_TICK_STEPS = [0.25, 0.5, 1, 2, 3, 6, 12, 24, 36, 60, 120, 240];
+
+/**
+ * X-axis ticks for a span reaching back `spanMonths` from now: multiples of the smallest step in
+ * TIME_TICK_STEPS that gives at most `maxTicks` ticks, as negative month offsets, oldest first, ending at 0 (now).
+ * Every tick is a whole number of weeks, months or years back, never a fraction.
+ */
+export function timeTicks(spanMonths: number, maxTicks = 6): number[] {
+  const span = Math.max(0, spanMonths);
+  const limit = Math.max(2, Math.floor(maxTicks));
+  let step = TIME_TICK_STEPS[TIME_TICK_STEPS.length - 1];
+  for (const s of TIME_TICK_STEPS) {
+    if (Math.floor(span / s + 1e-9) + 1 <= limit) {
+      step = s;
+      break;
+    }
+  }
+  const count = Math.floor(span / step + 1e-9);
+  const ticks: number[] = [];
+  for (let k = count; k >= 1; k--) ticks.push(-k * step);
+  ticks.push(0);
+  return ticks;
+}
+
+/** Axis label for a tick: "Now", "-3 wk", "-1 mo", "-1 mo 2 wk", "-2 yr". Rounds to the nearest week. */
 export function formatMonthsAxis(monthsAgo: number): string {
-  const m = -monthsAgo;
-  if (m < 1e-6) return "Now";
-  if (m < 24) return `-${trim(m)} mo`;
-  return `-${trim(m / 12)} yr`;
+  const weeks = Math.round(-monthsAgo * WEEKS_PER_MONTH);
+  if (weeks <= 0) return "Now";
+  const months = Math.floor(weeks / WEEKS_PER_MONTH);
+  const restWeeks = weeks % WEEKS_PER_MONTH;
+  if (restWeeks === 0 && months >= 12 && months % 12 === 0) return `-${months / 12} yr`;
+  if (months === 0) return `-${restWeeks} wk`;
+  return restWeeks === 0 ? `-${months} mo` : `-${months} mo ${restWeeks} wk`;
+}
+
+/**
+ * Where the plot starts, in pixels: any inset (room for a panel over the chart's left side), then the widest y label,
+ * then the gap before the plot. Sizes in rem are scaled by `rem` (pixels per rem); `labelWidth` is already in pixels.
+ */
+export function plotLeft(rem: number, labelWidth: number, gapRem: number, insetLeftRem = 0): number {
+  return (Math.max(0, insetLeftRem) + gapRem) * rem + labelWidth;
 }
 
 export interface SpanOption {
