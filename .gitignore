@@ -16,3 +16,6 @@ tasks/*/
 # Claude Code: worktrees and per-user settings
 .claude/worktrees/
 .claude/settings.local.json
+
+# Packaged mod zips (tools/build.ps1 -Zip)
+Builds/

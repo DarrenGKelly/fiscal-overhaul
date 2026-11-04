@@ -18,8 +18,8 @@ resource:
   game or Unity types; `Tests/` compiles it in directly), TypeScript in plain modules beside their components
   (`UI/src/chart/chart-math.ts`, `UI/src/taxation/density.ts`) with a `*.test.ts` next to them. A system or component
   then only wires game data to that logic.
-- **UI changes need an in-game screenshot**, looked at: `/playtest` deploys, opens the panel in Cities: Skylines II and
-  judges what it shows. The game is one shared instance
+- **UI changes need an in-game screenshot**, looked at: [the in-game check](#the-in-game-check) deploys, opens the panel in
+  Cities: Skylines II and judges what it shows. The game is one shared instance
   ([orchestration.md](orchestration.md#the-shared-game-instance)).
 
 ## Running tests
@@ -30,7 +30,7 @@ resource:
 | All unit tests | `./tools/test.ps1` | no |
 | C# only / UI only | `./tools/test.ps1 -CSharpOnly` / `-UIOnly` | no |
 | A named C# test | `./tools/test.ps1 -CSharpOnly -Filter "FullyQualifiedName~DensityTaxTable"` | no |
-| In game | `./tools/build.ps1`, then `/playtest` | yes, and the Mods folder |
+| In game | `./tools/build.ps1`, then [the in-game check](#the-in-game-check) | yes, and the Mods folder |
 
 - `tools/test.ps1` runs `dotnet test Tests` (net10.0) and `npm test` in `UI/` (vitest, with `CI=true` so it runs once).
   A part that doesn't exist yet is skipped with a note (exit 0) unless asked for by flag (exit 1). Exit 1 on any
@@ -43,6 +43,34 @@ resource:
 - A fresh worktree has no `UI/node_modules`; both scripts run `npm ci` first.
 - Unit tests and the compile check are safe in any session at any time, in parallel. Deploying and the in-game check
   are not ([the shared game instance](orchestration.md#the-shared-game-instance)).
+
+## The in-game check
+
+How a session or the test agent checks a change in the running game with computer use. The mistakes that cost the
+most: **testing a stale build** (the Mods folder holds whichever checkout deployed last) and **taking the game from
+someone else** ([the shared game instance](orchestration.md#the-shared-game-instance)).
+
+1. **Claim and deploy.** `./tools/check-batch-status.ps1`. `Game: RUNNING` and not yours: the user or another agent has
+   it; ask, never close it. `Game: not running`: `./tools/build.ps1` from the checkout under test; its last line names
+   the branch and commit the game will load. The game doesn't hot-reload mod UI, and a running game locks the DLL, so
+   every new build needs the game closed first.
+2. **Launch.** Load the computer-use tools in one `ToolSearch` (`computer-use`, max 30); `request_access` for
+   `["Cities Skylines II", "paradox launcher.exe"]`, plus `"File Explorer"` (click-only) when a click fails with "The
+   desktop shell is frontmost". Start through Steam only: `Start-Process steam://rungameid/949230`. `Cities2.exe`
+   started directly (`open_application "Cities2"` too) hangs at startup ([cs2-ui-modding.md § Logs](cs2-ui-modding.md#logs)).
+3. **Load.** The Paradox launcher opens first, often behind other windows: `open_application "Paradox launcher"`,
+   screenshot, `zoom`. **Resume** loads the most recent save; **Play** goes to the main menu (Load Game, the plan's save).
+   `Get-Process Cities2` shows the game has started; startup and loading take about two minutes (one long `wait`).
+   Pause (Space) unless the check needs the simulation running.
+4. **Capture.** Open the Economy panel (click the money total in the bottom bar) and the tab: **Budget** for the chart,
+   **Taxation** for the density rows. One screenshot per thing the change should show, each filter, span or hover state
+   (`mouse_move`, not a click). On the ultrawide monitor screenshot at `scale: 0.5`, then `zoom` on the panel
+   (`save_to_disk` for the ones you report); axis labels and tooltips need the zoom.
+5. **Judge** each against the plan's `Expect`, one verdict line each: layout and overlaps, the game's look (fonts,
+   colours, spacing like the vanilla tabs), plausible data for this city, nothing clipped. Don't pixel-diff; read each
+   image once. A crash, hang or error dialog is a finding: screenshot it and read the [logs](cs2-ui-modding.md#logs).
+6. **Close.** Quit from the game's menu (Main Menu, then Quit); a hung instance you launched: `Stop-Process -Name
+   Cities2`. Confirm `./tools/check-batch-status.ps1` says `Game: not running`. Close only an instance you launched.
 
 ## Tool tests
 

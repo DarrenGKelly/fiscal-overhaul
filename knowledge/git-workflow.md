@@ -34,7 +34,7 @@ line there too.
 1. Start from an up-to-date base: `git fetch --prune`, then `git switch -c feature/<name> --no-track origin/master`
    (or `origin/autodev` for autonomous work), or a worktree.
 2. Work and commit. Run the build and tests ([testing.md § Running tests](testing.md#running-tests)); a UI change
-   also needs its in-game screenshot (`/playtest`).
+   also needs its in-game screenshot ([the in-game check](testing.md#the-in-game-check)).
 3. `git push -u origin feature/<name>`, then `gh pr create --base master --title "vX.Y.Z - …" --body-file <file>`
    (the next patch after `master`'s latest, `git log -1 origin/master --format=%s`). The user may call a minor bump;
    Claude only suggests one.
@@ -51,7 +51,7 @@ before any branching or code. What it needs from this project:
 2. **Branch from `autodev`:** `git worktree add --no-track .claude/worktrees/<name> -b feature/<name> origin/autodev`,
    or in a worktree a tool created, `git switch -c feature/<name> --no-track origin/autodev`.
 3. **Fast tier as you work:** `./tools/build.ps1 -NoDeploy` and `./tools/test.ps1`. **Slow tier once at the end:**
-   deploy and check in game through `/playtest`, under [the one-game rule](orchestration.md#the-shared-game-instance).
+   deploy and check in game ([the in-game check](testing.md#the-in-game-check)), under [the one-game rule](orchestration.md#the-shared-game-instance).
    Never land with failing tests.
 4. **Catch up:** `git fetch`, `git merge origin/autodev`; re-run the tests if anything conflicted or the merge touched
    what you changed.

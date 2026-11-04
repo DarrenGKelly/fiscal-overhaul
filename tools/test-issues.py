@@ -244,8 +244,9 @@ check(gh.calls == [], "labels without --apply runs no gh command", gh.calls)
 gh = FakeGh()
 run_main(["labels", "--apply"], gh)
 made = [c[3] for c in gh.calls]
-check(len(made) == len(iss.AREAS) + len(iss.PRIORITIES) + len(iss.STATUS_LABELS) and "area:chart" in made
-      and "priority:high" in made and "needs-plan" in made and "tracking" in made,
+check(len(made) == len(iss.AREAS) + len(iss.TYPE_LABELS) + len(iss.PRIORITIES) + len(iss.STATUS_LABELS)
+      and "area:chart" in made and "priority:high" in made and "needs-plan" in made and "tracking" in made
+      and "needs-decision" in made and "tech-debt" in made,
       "labels --apply creates every label", made)
 check(gh.cwds and all(c == iss.REPO for c in gh.cwds) and not any("--repo" in c for c in gh.calls),
       "gh always runs in the checkout, so it finds the repo from the git remote (no hard-coded owner)", gh.calls)

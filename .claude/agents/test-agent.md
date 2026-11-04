@@ -27,8 +27,8 @@ branch's `In-game`, `Expect` and `Risk` lines. Don't read docs beyond the sectio
 2. Unit tests: `./tools/test.ps1`. Red is reported, and the in-game part still runs unless the build is broken.
 3. Deploy: `./tools/build.ps1` (no `-NoDeploy`). It refuses while the game runs (exit 2). Read its last line: the
    deployed branch and commit must be the plan's.
-4. In game: follow [/playtest](../skills/playtest/SKILL.md)'s steps (launch, load the save, open the panel, one
-   screenshot per `In-game` step, quit). Judge each screenshot against `Expect`: layout, data, overlaps, the game's
+4. In game: follow [the in-game check](../../knowledge/testing.md#the-in-game-check) (launch, load the save, open the
+   panel, one screenshot per `In-game` step, quit). Judge each screenshot against `Expect`: layout, data, overlaps, the game's
    look; one verdict line each. Read each image once.
 5. Quit the game from its menu and confirm `./tools/check-batch-status.ps1` says `Game: not running` again.
 

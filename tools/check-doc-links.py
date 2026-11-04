@@ -171,7 +171,7 @@ TESTED_BY = {
 # Top-level tools/ scripts with no test at all, a ratchet: an unlisted one fails, and one that gains a test must leave
 # the list, so it only shrinks. *-common.ps1 helpers are tested through the scripts that dot-source them.
 NO_TEST_TWIN = {
-    "build.ps1": "a thin wrapper over dotnet build and npm run build; exercised by every /build",
+    "build.ps1": "a wrapper over git worktree, dotnet build, npm and Compress-Archive whose every path needs the game's toolchain; exercised by real runs (-Ref, -Zip, -NoDeploy and the running-game refusal against origin/autodev)",
 }
 
 
