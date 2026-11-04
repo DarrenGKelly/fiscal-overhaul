@@ -72,6 +72,14 @@ someone else** ([the shared game instance](orchestration.md#the-shared-game-inst
 6. **Close.** Quit from the game's menu (Main Menu, then Quit); a hung instance you launched: `Stop-Process -Name
    Cities2`. Confirm `./tools/check-batch-status.ps1` says `Game: not running`. Close only an instance you launched.
 
+**On the Linux PC** (the game under Proton, X11) there are no computer-use tools; drive it from the shell. Install with
+`sh tools/build-linux.sh`, launch with `xdg-open steam://rungameid/949230` (Steam then asks for a launch option: the
+plain "Play", mods enabled), screenshot with `gnome-screenshot -f <file>` (2560x1440) and click with
+`xdotool mousemove X Y click 1`. **Hover needs relative moves**: an absolute `xdotool mousemove` jump reaches clicks
+but not Gameface's hover, so the chart tooltip and the row pop-out only appear after a few
+`xdotool mousemove_relative -- 8 -1` steps onto the target. Escape closes a panel first, then opens the pause menu
+(Exit, then Exit to desktop). Logs are under the Proton prefix ([cs2-ui-modding.md § Building](cs2-ui-modding.md#building)).
+
 ## Tool tests
 
 Every script under `tools/` has a test twin (`tools/test-<name>.py`, `.ps1` or `.sh`), and the hooks have
