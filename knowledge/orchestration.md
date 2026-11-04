@@ -68,7 +68,7 @@ The "Run" lines of the test agent's prompt, from the owner worktree (the batch's
 
 | Plan | Run |
 |---|---|
-| Test batch (`.claude/worktrees/batch-<name>`) | `./tools/new-test-batch.ps1 -Name <name> -Branch <b1>,<b2> -Check` first (the orchestrator, no game); then the test agent: `./tools/test.ps1`, `./tools/build.ps1`, then [/playtest](../.claude/skills/playtest/SKILL.md) with every branch's `In-game` steps in one game session |
+| Test batch (`.claude/worktrees/batch-<name>`) | `./tools/new-test-batch.ps1 -Name <name> -Branch <b1>,<b2> -Check` first (the orchestrator, no game); then the test agent: `./tools/test.ps1`, `./tools/build.ps1`, then [the in-game check](testing.md#the-in-game-check) with every branch's `In-game` steps in one game session |
 | Per-branch plan | the same from the branch's worktree |
 | Unit tests only (no `In-game` steps) | `./tools/test.ps1`: any session, no game needed, no test agent needed |
 

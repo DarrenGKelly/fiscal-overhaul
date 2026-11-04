@@ -46,7 +46,7 @@ bar, don't file: ask the user the questions that would make it buildable.
 **Change:** <enhancement or tech-debt, instead of Seen: what should change, and why it matters>
 **Where:** `<path>:<line>` per site, or `unknown: investigate`
 **Fix:** <the change; the filer's or user's suggestion first. Options, if it's open (then `needs-decision`)>
-**Test:** <per behaviour: the pass case and the fail case; "UI change: in-game screenshot (/playtest)" when it draws>
+**Test:** <per behaviour: the pass case and the fail case; "UI change: in-game screenshot (the in-game check)" when it draws>
 **Done when:** <the observable end state>
 
 Related: #<n>. Found by: <session, playtest, review>.

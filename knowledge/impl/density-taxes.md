@@ -58,5 +58,7 @@ The Taxation tab wraps each vanilla `TaxationGroup` and adds a collapsible "By d
 
 ## Follow-ups
 
+- Check in game that a non-zero offset changes the zone's tax revenue (so far only the rows, sliders and payer
+  counts are seen working, 2026-11-03).
 - Per-save storage.
 - Demand/happiness reacting to density rates would mean replacing several vanilla systems with patched copies.

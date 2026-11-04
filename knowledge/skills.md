@@ -13,8 +13,8 @@ resource:
 
 | Skill | Where | For |
 |---|---|---|
-| [/build](../.claude/skills/build/SKILL.md) | project | Build and deploy the mod, or the compile check |
-| [/playtest](../.claude/skills/playtest/SKILL.md) | project | Deploy, launch the game, open the Economy panel, screenshot and judge it (computer use) |
+| [/build](../.claude/skills/build/SKILL.md) | project | A build for the user to play or send: `origin/autodev` (or a ref) deployed or zipped, from the build worktree |
+| [/playtest](../.claude/skills/playtest/SKILL.md) | project | The user's playtest notes into grouped, de-duplicated issues and comments (never launches the game) |
 | [/plan-feature](../.claude/skills/plan-feature/SKILL.md) | project | A feature issue into a reviewed plan and spelled-out slice issues |
 | [/promote](../.claude/skills/promote/SKILL.md) | project | The `autodev` → `master` promotion PR and the sync back |
 | `/autodev`, `/orchestrate` | global (`~/.claude/skills/`) | One autonomous task, or a batch of briefs. Generic: they read this project's specifics from [git-workflow.md](git-workflow.md), [testing.md](testing.md), [orchestration.md](orchestration.md) and [issues.md](issues.md). Don't copy them into the project |

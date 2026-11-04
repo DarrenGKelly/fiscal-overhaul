@@ -29,7 +29,7 @@ The usual first stops: [repo-structure.md](knowledge/repo-structure.md) (where e
 
 - **Every feature ships with tests**, and every bug fix with a regression test; each test has a pass case and a fail case. The request is the test contract.
 - **Pure logic lives in testable classes** (`Mod/Logic/`, plain TS modules beside their components), so tests need neither the game nor the UI host ([patterns.md § Pure logic](knowledge/patterns.md#pure-logic)).
-- **UI changes need an in-game screenshot**, looked at, before the work is done: `/playtest` deploys, opens the Economy panel and judges it.
+- **UI changes need an in-game screenshot**, looked at, before the work is done: [the in-game check](knowledge/testing.md#the-in-game-check) deploys, opens the Economy panel and judges it. `/playtest` is the other direction: it files the user's own playtest notes as issues.
 - Run: `./tools/build.ps1 -NoDeploy` (compile check) and `./tools/test.ps1` (xunit and vitest) as you work; `./tools/build.ps1` deploys ([testing.md § Running tests](knowledge/testing.md#running-tests)). The game is one shared instance: never deploy or launch it while another session holds it ([orchestration.md](knowledge/orchestration.md#the-shared-game-instance)).
 
 ## Layout

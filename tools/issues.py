@@ -49,8 +49,14 @@ PRIORITIES = {
     "priority:low": ("c5def5", "Do last: nice to have, no current cost"),
 }
 
+# The one type label GitHub doesn't create by default (bug and enhancement are built in).
+TYPE_LABELS = {
+    "tech-debt": ("bfdadc", "Cleanup or restructuring with no visible change"),
+}
+
 # Labels that change how an issue is briefed (knowledge/issues.md#labels).
 STATUS_LABELS = {
+    "needs-decision": ("d876e3", "The fix changes behaviour the user hasn't decided: held back until they do"),
     "needs-plan": ("fbca04", "A feature whose code isn't worked out yet: /plan-feature slices it first"),
     "tracking": ("5319e7", "A planned feature's parent: its slices are the work, so batches skip it"),
 }
@@ -331,11 +337,11 @@ def write_batch(issues, area, out_dir, limit=None, include_decisions=False, toda
 
 
 def label_commands():
-    """The gh label create --force argument lists for every area, priority and status label."""
+    """The gh label create --force argument lists for every area, non-default type, priority and status label."""
     cmds = [["label", "create", AREA_PREFIX + name, "--color", AREA_COLOUR, "--description", text, "--force"]
             for name, text in AREAS.items()]
     cmds += [["label", "create", name, "--color", colour, "--description", text, "--force"]
-             for name, (colour, text) in list(PRIORITIES.items()) + list(STATUS_LABELS.items())]
+             for name, (colour, text) in list(TYPE_LABELS.items()) + list(PRIORITIES.items()) + list(STATUS_LABELS.items())]
     return cmds
 
 
