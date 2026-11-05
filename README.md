@@ -1,7 +1,7 @@
 # Fiscal Overhaul
 
 A Cities: Skylines II mod that reworks the Economy panel: a line chart of your city's budget history in place of
-the Budget tab's bar chart, and tax offsets by building density on the Taxation tab.
+the Budget tab's bar chart, and (as an optional beta feature) tax offsets by building density on the Taxation tab.
 
 ![The Budget tab's line chart](Mod/Properties/Screenshots/01-budget-chart.png)
 
@@ -23,7 +23,10 @@ the Budget tab's bar chart, and tax offsets by building density on the Taxation 
 
 ![The tooltip and span stats](Mod/Properties/Screenshots/02-budget-tooltip.png)
 
-### Taxation tab: tax offsets by density
+### Taxation tab: tax offsets by density (BETA)
+
+This is a beta feature and is **off by default**: turn it on with **Enable density taxes (BETA)** in Options >
+Fiscal Overhaul.
 
 - Under each zone, an offset per building density, added on top of the vanilla rate: residential low / medium /
   high, commercial low / high, office low / high, and industrial.
@@ -39,8 +42,8 @@ the Budget tab's bar chart, and tax offsets by building density on the Taxation 
 The mod has its own page in the game's Options menu:
 
 - **Enable budget chart** (default on). Turned off, the Budget tab is the vanilla one.
-- **Enable density taxes** (default on). Turned off, the Taxation tab is the vanilla one and every building pays the
-  vanilla rate.
+- **Enable density taxes (BETA)** (default off). A beta feature: tick it to get the density rows on the Taxation tab.
+  Off, the Taxation tab is the vanilla one and every building pays the vanilla rate; your offsets are kept.
 - **Reset density tax offsets**: sets every density offset back to 0, after a confirmation.
 
 ![The Options page](Mod/Properties/Screenshots/04-options.png)
@@ -79,7 +82,7 @@ So you can compare them with revenue on one axis. The monthly balance line can g
 drawn brighter.
 
 **How do I turn off one half of the mod?**
-Use **Enable budget chart** or **Enable density taxes** in the mod's Options page. Each restores the vanilla
+Use **Enable budget chart** or **Enable density taxes (BETA)** in the mod's Options page. Each restores the vanilla
 behaviour for its tab.
 
 ## Bug reports and suggestions

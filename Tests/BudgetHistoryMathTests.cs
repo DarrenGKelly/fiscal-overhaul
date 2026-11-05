@@ -51,6 +51,23 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void CompleteSamples_LeavesOutTheSampleStillFillingUp()
+        {
+            Assert.Equal(31, BudgetHistoryMath.CompleteSamples(32));
+            Assert.Equal(1, BudgetHistoryMath.CompleteSamples(2));
+        }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(0)]
+        public void CompleteSamples_NoneInANewCitysFirstSample(int sampleCount)
+        {
+            // Regression: a lone sample was kept although it's the one still filling up, so a new city's lines
+            // started at a partial value and jumped to the live one.
+            Assert.Equal(0, BudgetHistoryMath.CompleteSamples(sampleCount));
+        }
+
+        [Fact]
         public void SamplesForSpan_ClampsToAvailableHistory()
         {
             Assert.Equal(33, BudgetHistoryMath.SamplesForSpan(1, 1000));

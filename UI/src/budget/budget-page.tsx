@@ -51,6 +51,7 @@ export const BudgetPage = () => {
   const [lineHover, setLineHover] = useState<string | null>(null);
   const hoverKey = lineHover ?? rowHover;
 
+  // Sent on mount too: the C# side builds history only for the span it was last told.
   useEffect(() => {
     rememberedSpan = span;
     sendSpan(span);

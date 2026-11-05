@@ -8,21 +8,32 @@ using System.Collections.Generic;
 namespace FiscalOverhaul
 {
     /// <summary>
-    /// Mod options. Density tax offsets are stored here (global, not per save) — set from the Taxation tab,
-    /// shown read-only-ish in Options with a reset button.
+    /// Mod options: a switch per feature, and the density tax offsets (global, not per save) — set from the
+    /// Taxation tab, shown in Options only as a reset button. The switches take effect live: the options page calls
+    /// <see cref="Game.Settings.Setting.ApplyAndSave"/> on every change, and <see cref="Mod"/> pushes the new values
+    /// out from <c>onSettingsApplied</c>.
     /// </summary>
     [FileLocation(nameof(FiscalOverhaul))]
-    [SettingsUIGroupOrder(kTaxGroup)]
-    [SettingsUIShowGroupName(kTaxGroup)]
+    [SettingsUIGroupOrder(kFeaturesGroup, kTaxGroup)]
+    [SettingsUIShowGroupName(kFeaturesGroup, kTaxGroup)]
     public class Setting : ModSetting
     {
         public const string kSection = "Main";
+        public const string kFeaturesGroup = "Features";
         public const string kTaxGroup = "DensityTax";
 
         public Setting(IMod mod) : base(mod)
         {
             SetDefaults();
         }
+
+        /// <summary>Off: the Budget tab is the vanilla page and no history is built.</summary>
+        [SettingsUISection(kSection, kFeaturesGroup)]
+        public bool EnableBudgetChart { get; set; } = FeatureGates.BudgetChartDefault;
+
+        /// <summary>Off: buildings pay the vanilla rates and the Taxation tab has no density rows. The offsets are kept.</summary>
+        [SettingsUISection(kSection, kFeaturesGroup)]
+        public bool EnableDensityTaxes { get; set; } = FeatureGates.DensityTaxesDefault;
 
         /// <summary>Serialized <see cref="DensityTaxTable"/>; edited through the Taxation tab, not shown directly.</summary>
         [SettingsUIHidden]
@@ -43,6 +54,8 @@ namespace FiscalOverhaul
 
         public override void SetDefaults()
         {
+            EnableBudgetChart = FeatureGates.BudgetChartDefault;
+            EnableDensityTaxes = FeatureGates.DensityTaxesDefault;
             DensityTaxOffsets = string.Empty;
         }
     }
@@ -62,7 +75,13 @@ namespace FiscalOverhaul
             {
                 { m_Setting.GetSettingsLocaleID(), "Fiscal Overhaul" },
                 { m_Setting.GetOptionTabLocaleID(Setting.kSection), "Main" },
+                { m_Setting.GetOptionGroupLocaleID(Setting.kFeaturesGroup), "Features" },
                 { m_Setting.GetOptionGroupLocaleID(Setting.kTaxGroup), "Density taxes" },
+
+                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.EnableBudgetChart)), "Enable budget chart" },
+                { m_Setting.GetOptionDescLocaleID(nameof(Setting.EnableBudgetChart)), "Replaces the bar chart in Economy > Budget with a line chart of each revenue and expense over time. Off: the Budget tab is the vanilla one." },
+                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.EnableDensityTaxes)), "Enable density taxes (BETA)" },
+                { m_Setting.GetOptionDescLocaleID(nameof(Setting.EnableDensityTaxes)), "A beta feature, off by default. Adds per-density tax offsets (set in Economy > Taxation) to what buildings pay; income only, demand and happiness are unchanged. Off: buildings pay the vanilla rates and the Taxation tab hides the density rows; your offsets are kept for when you switch it back on." },
 
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ResetDensityTaxes)), "Reset density tax offsets" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.ResetDensityTaxes)), "Sets every density offset (set in Economy > Taxation) back to 0, so buildings pay the vanilla rates again." },

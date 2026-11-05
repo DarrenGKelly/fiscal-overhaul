@@ -21,11 +21,11 @@ First public release, for Cities: Skylines II 1.6.x.
 - A tooltip with the hovered line's exact monthly value and how long ago it was, and the span's now / average / low /
   high / change under the rows.
 - The vanilla detail panel (breakdown by source) when hovering a budget item.
-- **Taxation tab:** a tax offset per building density under each zone (residential low / medium / high, commercial
+- **Taxation tab (BETA, off by default; enable it in Options > Fiscal Overhaul):** a tax offset per building density under each zone (residential low / medium / high, commercial
   low / high, office low / high, industrial), capped at ±5 points, with an estimate of the revenue it adds. Offsets
   change tax revenue only, not demand or happiness, and are a global mod setting, not stored in saves.
-- **Options:** Enable budget chart and Enable density taxes (both on by default; turning one off restores the vanilla
-  tab), and Reset density tax offsets.
+- **Options:** Enable budget chart (on by default) and Enable density taxes (BETA, off by default); turning one off restores
+  the vanilla tab, and Reset density tax offsets.
 
 [Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/DarrenGKelly/fiscal-overhaul/releases/tag/v1.0.0

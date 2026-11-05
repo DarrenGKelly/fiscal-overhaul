@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { densityLabel, zoneForAreaIndex } from "./density";
+import { cellsForArea, densityLabel, zoneForAreaIndex } from "./density";
 
 describe("zoneForAreaIndex", () => {
   it("maps the four zoned tax areas to the C# TaxZone order", () => {
@@ -20,5 +20,29 @@ describe("densityLabel", () => {
     expect(densityLabel(0)).toBe("Low density");
     expect(densityLabel(2)).toBe("High density");
     expect(densityLabel(7)).toBe("Density 7");
+  });
+});
+
+describe("cellsForArea", () => {
+  const cells = [
+    { zone: 0, density: 0 },
+    { zone: 0, density: 2 },
+    { zone: 1, density: 0 },
+  ];
+
+  it("gives the area's zone cells while density taxes are enabled", () => {
+    expect(cellsForArea(cells, 1, false, true)).toEqual([cells[0], cells[1]]);
+    expect(cellsForArea(cells, 2, false, true)).toEqual([cells[2]]);
+  });
+
+  it("gives no cells while density taxes are disabled", () => {
+    expect(cellsForArea(cells, 1, false, false)).toEqual([]);
+    expect(cellsForArea(cells, 2, false, false)).toEqual([]);
+  });
+
+  it("gives no cells for a locked zone, the city-wide area or missing data", () => {
+    expect(cellsForArea(cells, 1, true, true)).toEqual([]);
+    expect(cellsForArea(cells, 0, false, true)).toEqual([]);
+    expect(cellsForArea(null, 1, false, true)).toEqual([]);
   });
 });
