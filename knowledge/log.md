@@ -2,6 +2,7 @@
 
 ## 2026-11-05
 
+* **Tool fixes #10, #11**: `tools/remove-worktree.ps1` runs git against the worktree's owning repo (`-C`), so it works from any folder and `publish.ps1` no longer needs its Push-Location; webpack bumped to 5.112.2 so `npm ci` no longer prints ERESOLVE peer-dependency overrides.
 * **The in-game check without computer use**: `tools/game-control.ps1` (and its twin) drives the game from the shell on Windows (screenshots, clicks, hover, scan-code keys, window focus, waiting for the save to load); proven in two runs on the Odiham save, and now the test agent's method ([testing.md § On Windows without computer use](testing.md#on-windows-without-computer-use)). The Linux PC's xdotool note joined it.
 
 ## 2026-11-04
