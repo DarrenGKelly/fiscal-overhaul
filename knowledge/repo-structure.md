@@ -20,6 +20,7 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 | `UI/` | The UI module (TypeScript, React, SCSS; the CS2 UI template's webpack build): `src/`, `types/`, `webpack.config.js` |
 | `Tests/` | xunit tests for the mod's pure logic (net10.0; compiles `Mod/Logic/` in directly, no game DLLs) |
 | `knowledge/` | This OKF bundle ([knowledge-format.md](knowledge-format.md)) |
+| `art/` | Source art: `icon/` renders the mod icon `Mod/Properties/Thumbnail.png` (1024x1024, Paradox Mods covers are square) and alternative concepts with `make_icon.py` (Pillow); its `README.md` says how |
 | `tasks/` | `/orchestrate` batch folders (`tasks/<batch>/`, gitignored; `.gitkeep` keeps the folder) |
 | `tools/` | Scripts (below) |
 | `.githooks/` | The branch policy and doc checks ([git-workflow.md § Hooks](git-workflow.md#hooks)) |
