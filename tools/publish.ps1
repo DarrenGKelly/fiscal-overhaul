@@ -73,6 +73,11 @@ function Write-Publish([string]$Message, [string]$Colour = 'Gray') { Write-Host 
 
 $ConfigRelative = 'Mod\Properties\PublishConfiguration.xml'
 $LongDescriptionPlaceholder = 'This is a long description'
+# Files kept out of the upload (matched in the content folder, which is a temporary copy of the build: deleting is safe).
+# Only Burst's debug symbols, FiscalOverhaul_win_x86_64.pdb: the Burst post-processor writes one per target and they are
+# large and useless to players. KEPT on purpose: the managed FiscalOverhaul.pdb (gives line numbers in players' error
+# logs) and FiscalOverhaul.mjs.LICENSE.txt (third-party licence notices the bundled UI must ship).
+$UploadExcludePatterns = @('*_x86_64.pdb')
 $ExternalLinkTypes = @('discord', 'github', 'youtube', 'twitch', 'x', 'paypal', 'patreon', 'buymeacoffee', 'kofi', 'crowdin', 'gitlab', 'gofundme')
 
 # The config's elements (comments skipped). ModPublisher reads Value="..." or, for multi-line fields, the text.
@@ -260,6 +265,12 @@ function Invoke-Publish {
         if ($hasUI) { $expected += "$($project.BaseName).mjs" }
         $missing = @($expected | Where-Object { -not (Test-Path -LiteralPath (Join-Path $content $_)) })
         if ($missing.Count) { Write-Publish "The build left no $($missing -join ' or ') in $content`: nothing was uploaded." 'Red'; $script:exitCode = 1; return }
+        foreach ($pattern in $UploadExcludePatterns) {
+            foreach ($file in @(Get-ChildItem -LiteralPath $content -File -Filter $pattern)) {
+                Remove-Item -LiteralPath $file.FullName -Force
+                Write-Publish "Left out of the upload: $($file.Name) (Burst debug symbols)."
+            }
+        }
         Write-Publish "Built $content." 'Green'
     }
     else { New-Item -ItemType Directory -Force $content | Out-Null }
@@ -271,6 +282,8 @@ function Invoke-Publish {
     Write-Publish "Command (from $modFolder, DOTNET_ROOT=$env:DOTNET_ROOT):"
     Write-Host "  $command"
     if ($DryRun) {
+        Write-Publish "Files that would be uploaded from ${content}:"
+        foreach ($file in @(Get-ChildItem -LiteralPath $content -File -ErrorAction SilentlyContinue | Sort-Object Name)) { Write-Host "  $($file.Name)" }
         $after = if ($isTest) { ' (a private test: no tag)' } elseif ($Mode -ne 'Update') { ", then tag $tag" } else { '' }
         Write-Publish "Dry run: nothing uploaded. $Mode of $uploadVersion from $Ref ($($sha.Substring(0, 10)))$after." 'Green'
         return
