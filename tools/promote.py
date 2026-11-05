@@ -2,20 +2,27 @@
 
     python tools/promote.py plan [--out FILE] [--since PR]
         (this round's PRs, the issues they fix, the next version, the PR body; --since replays from an older promotion)
+    python tools/promote.py stamp VERSION --body FILE
+        (on the promotion branch: VERSION into ModVersion and UI/mod.json, and a ChangeLog drafted from the body's
+        Included list into Mod/Properties/PublishConfiguration.xml, for tools/publish.ps1)
     python tools/promote.py verify PR
         (after the user merged PR: autodev synced, and every issue its listed PRs fix is closed)
 
 A round is the autodev commits since the last promotion PR's head (its headRefOid), not `master..autodev`: the repo
 squash-merges, so git sees every past round as missing from master. "Fixes #N" lines in PRs merged into autodev never
 close anything (GitHub only acts on merges into the default branch), so the promotion body repeats them.
+The promotion branch carries one commit of its own (the stamp), so its head isn't in autodev's history: the body
+records the autodev commit it was cut from ("Round head: `<sha>`") and the next round starts there (an older
+promotion, without the line, starts at its head).
 The first promotion has no earlier one: its round is every autodev commit since autodev left master, and its version
-is FIRST_VERSION.
+is FIRST_VERSION, or the version autodev's PublishConfiguration.xml already declares when that is higher.
 gh finds the repo from this checkout's git remote (or the GH_REPO environment variable), so it needs a GitHub remote
 and `gh` signed in. Tests: python tools/test-promote.py
 """
 
 import argparse
 import json
+from xml.sax.saxutils import escape
 import os
 import re
 import subprocess
@@ -32,6 +39,15 @@ PR_SUFFIX = re.compile(r"\(#(\d+)\)\s*$")
 CLOSING = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b", re.IGNORECASE)
 # Commits that ride along on autodev but aren't this round's work.
 SKIP_SUBJECT = re.compile(r"^Merge ")
+ROUND_HEAD = re.compile(r"^Round head: `([0-9a-f]{7,40})`", re.MULTILINE)
+CONFIG = os.path.join("Mod", "Properties", "PublishConfiguration.xml")
+MOD_JSON = os.path.join("UI", "mod.json")
+
+
+def round_head(pr):
+    """The autodev commit a promotion was cut from: the body's "Round head" line, else the PR's head."""
+    match = ROUND_HEAD.search(pr.get("body") or "")
+    return match.group(1) if match else pr["headRefOid"]
 
 
 def is_promotion(pr):
@@ -42,7 +58,7 @@ def last_promotion(prs, in_autodev=lambda sha: True):
     """The most recently merged promotion PR among merged master PRs, or None.
 
     A promotion's head was cut from autodev, so a candidate whose head isn't in autodev's history isn't one."""
-    promotions = [p for p in prs if p.get("mergedAt") and is_promotion(p) and in_autodev(p["headRefOid"])]
+    promotions = [p for p in prs if p.get("mergedAt") and is_promotion(p) and in_autodev(round_head(p))]
     return max(promotions, key=lambda p: p["mergedAt"]) if promotions else None
 
 
@@ -82,22 +98,102 @@ def closing_issues(body):
     return seen
 
 
-def next_version(master_subject, first=False):
+def version_key(version):
+    """(major, minor, patch) of "v1.2.3" or "1.2.3"; None for anything else."""
+    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)$", (version or "").strip())
+    return tuple(int(g) for g in match.groups()) if match else None
+
+
+def next_version(master_subject, first=False, declared=None):
     """The next patch after master's latest version-tagged subject ("v0.3.8 - ..." -> "v0.3.9"); FIRST_VERSION for
-    the first promotion (master holds no version-tagged commit yet)."""
+    the first promotion (master holds no version-tagged commit yet). A higher version autodev already declares (its
+    ModVersion, raised by hand for a release) wins."""
     match = VERSION_SUBJECT.match(master_subject)
     if not match and first:
-        return FIRST_VERSION
-    if not match:
+        computed = FIRST_VERSION
+    elif not match:
         raise ValueError("not a version-tagged subject: " + master_subject)
-    major, minor, patch = (int(g) for g in match.groups())
-    return "v%d.%d.%d" % (major, minor, patch + 1)
+    else:
+        major, minor, patch = (int(g) for g in match.groups())
+        computed = "v%d.%d.%d" % (major, minor, patch + 1)
+    if version_key(declared) and version_key(declared) > version_key(computed):
+        return "v%d.%d.%d" % version_key(declared)
+    return computed
 
 
-def render_body(entries, fixes, last):
+COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+MOD_VERSION = re.compile(r'(<ModVersion\s+Value=")([^"]*)(")')
+CHANGELOG = re.compile(r"<ChangeLog\b[^>]*?/>|<ChangeLog\b[^>]*>.*?</ChangeLog>", re.DOTALL)
+MOD_JSON_VERSION = re.compile(r'("version"\s*:\s*")([^"]*)(")')
+
+
+def _live_matches(pattern, text):
+    """pattern's matches in text outside XML comments (the template keeps commented-out examples)."""
+    spans = [m.span() for m in COMMENT.finditer(text)]
+    return [m for m in pattern.finditer(text) if not any(a <= m.start() < b for a, b in spans)]
+
+
+def declared_version(config_text):
+    """The ModVersion a PublishConfiguration.xml declares, or None."""
+    found = _live_matches(MOD_VERSION, config_text or "")
+    return found[0].group(2).strip() if found else None
+
+
+def changelog_from_body(body):
+    """A ChangeLog draft from a promotion body: one "- <subject>" line per Included entry."""
+    lines, inside = [], False
+    for line in (body or "").splitlines():
+        if line.startswith("## "):
+            inside = line.strip() == "## Included"
+        elif inside and line.startswith("- "):
+            entry = re.sub(r"^- #\d+ ", "- ", line.rstrip())
+            lines.append(re.sub(r" \(direct commit\)$", "", entry))
+    return "\n".join(lines)
+
+
+def _cut(text, match):
+    """text without match, and without its line when nothing else is on it."""
+    line_start = text.rfind("\n", 0, match.start()) + 1
+    line_end = text.find("\n", match.end())
+    line_end = len(text) if line_end < 0 else line_end + 1
+    if not text[line_start:match.start()].strip() and not text[match.end():line_end].strip():
+        return text[:line_start] + text[line_end:]
+    return text[:match.start()] + text[match.end():]
+
+
+def stamp_config(text, version, changelog):
+    """PublishConfiguration.xml text with ModVersion set to version and one <ChangeLog> element holding changelog
+    (XML-escaped); everything else, comments included, kept as it is."""
+    found = _live_matches(MOD_VERSION, text)
+    if not found:
+        raise ValueError('no <ModVersion Value="..." /> element in ' + CONFIG)
+    text = text[:found[0].start(2)] + version + text[found[0].end(2):]
+    nl = "\r\n" if "\r\n" in text else "\n"   # the file's own line endings
+    block = "<ChangeLog>%s%s%s\t</ChangeLog>" % (nl, nl.join(escape(changelog.strip()).splitlines()), nl)
+    logs = _live_matches(CHANGELOG, text)
+    if not logs:
+        end = text.rindex("</Publish>")
+        return text[:end] + "\t" + block + nl + text[end:]
+    # ModPublisher keeps the last ChangeLog it reads: leave exactly one.
+    for extra in reversed(logs[1:]):
+        text = _cut(text, extra)
+    return text[:logs[0].start()] + block + text[logs[0].end():]
+
+
+def stamp_mod_json(text, version):
+    """UI/mod.json text with its "version" set; the rest kept as it is."""
+    match = MOD_JSON_VERSION.search(text)
+    if not match:
+        raise ValueError('no "version" in ' + MOD_JSON)
+    return text[:match.start(2)] + version + text[match.end(2):]
+
+
+def render_body(entries, fixes, last, head=None):
     since = "since the last promotion (#%d)" % last["number"] if last else "since it branched from `master` (the first promotion)"
-    lines = ["Promotes `autodev` to `master`: everything merged into `autodev` %s." % since, "",
-             "## Included"]
+    lines = ["Promotes `autodev` to `master`: everything merged into `autodev` %s." % since, ""]
+    if head:
+        lines += ["Round head: `%s` (the `autodev` commit this promotion was cut from; the next round starts after it)." % head, ""]
+    lines += ["## Included"]
     for entry in entries:
         subject = PR_SUFFIX.sub("", entry["subject"]).rstrip()
         lines.append("- #%d %s" % (entry["pr"], subject) if entry["pr"] else "- %s (direct commit)" % subject)
@@ -121,7 +217,7 @@ def gh_json(*args):
 
 def merged_master_prs():
     return gh_json("pr", "list", "--base", "master", "--state", "merged", "--limit", "100",
-                   "--json", "number,title,headRefName,headRefOid,mergedAt")
+                   "--json", "number,title,headRefName,headRefOid,mergedAt,body")
 
 
 def issues_fixed_by(numbers):
@@ -144,20 +240,27 @@ def plan(out, since=None):
     last = next((p for p in prs if p["number"] == since), None) if since else last_promotion(prs, in_autodev)
     if since and not last:
         sys.exit("#%d isn't a merged master PR" % since)
-    if last and not in_autodev(last["headRefOid"]):
-        sys.exit("#%d's head %s isn't in autodev's history, so it can't start a round" % (last["number"], last["headRefOid"][:9]))
-    start = last["headRefOid"] if last else run("git", "merge-base", "origin/master", "origin/autodev").strip()
+    if last and not in_autodev(round_head(last)):
+        sys.exit("#%d's round head %s isn't in autodev's history, so it can't start a round" % (last["number"], round_head(last)[:9]))
+    start = round_head(last) if last else run("git", "merge-base", "origin/master", "origin/autodev").strip()
+    head = run("git", "rev-parse", "origin/autodev").strip()
     subjects = run("git", "log", "--no-merges", "--format=%s", start + "..origin/autodev").splitlines()
     entries = round_entries(subjects)
     fixes = issues_fixed_by([e["pr"] for e in entries if e["pr"]])
-    version = next_version(run("git", "log", "-1", "--format=%s", "origin/master").strip(), first=last is None)
-    body = render_body(entries, fixes, last)
+    try:
+        declared = declared_version(run("git", "show", "origin/autodev:" + CONFIG.replace(os.sep, "/")))
+    except subprocess.CalledProcessError:
+        declared = None
+    version = next_version(run("git", "log", "-1", "--format=%s", "origin/master").strip(), first=last is None,
+                           declared=declared)
+    body = render_body(entries, fixes, last, head)
     print("autodev synced with master: " + ("yes" if synced else "NO - sync before promoting"))
     if last:
-        print("last promotion: #%d (autodev head %s)" % (last["number"], last["headRefOid"][:9]))
+        print("last promotion: #%d (round head %s)" % (last["number"], round_head(last)[:9]))
     else:
         print("last promotion: none (the first promotion: the round starts where autodev left master)")
-    print("next version:   " + version)
+    print("autodev head:   " + head + " (cut the promotion branch here)")
+    print("next version:   " + version + (" (autodev declares ModVersion %s)" % declared if declared else ""))
     print("this round:     %d entries, %d issues" % (len(entries), len(fixes)))
     if out:
         with open(out, "w", encoding="utf-8") as f:
@@ -166,6 +269,32 @@ def plan(out, since=None):
     else:
         print("\n" + body)
     return 0 if synced and entries else 1
+
+
+def stamp(version, body_file):
+    """Writes version and the body's ChangeLog draft into this checkout's config and UI/mod.json."""
+    if not version_key(version):
+        sys.exit("%s isn't a version (vX.Y.Z)" % version)
+    bare = "%d.%d.%d" % version_key(version)
+    with open(body_file, encoding="utf-8") as f:
+        changelog = changelog_from_body(f.read())
+    if not changelog:
+        sys.exit("%s has no Included entries to draft the ChangeLog from" % body_file)
+    config_path, mod_json_path = os.path.join(REPO, CONFIG), os.path.join(REPO, MOD_JSON)
+    with open(config_path, encoding="utf-8-sig", newline="") as f:
+        config = f.read()
+    current = declared_version(config)
+    if version_key(current) and version_key(current) > version_key(bare):
+        sys.exit("ModVersion is already %s: a release can't go back to %s" % (current, bare))
+    with open(mod_json_path, encoding="utf-8", newline="") as f:
+        mod_json = f.read()
+    with open(config_path, "w", encoding="utf-8-sig", newline="") as f:
+        f.write(stamp_config(config, bare, changelog))
+    with open(mod_json_path, "w", encoding="utf-8", newline="") as f:
+        f.write(stamp_mod_json(mod_json, bare))
+    print("stamped %s (ModVersion was %s) into %s and %s, with this ChangeLog:" % (bare, current or "unset", CONFIG, MOD_JSON))
+    print(changelog)
+    return 0
 
 
 def verify(number):
@@ -195,10 +324,17 @@ def main(argv=None):
     p = sub.add_parser("plan")
     p.add_argument("--out")
     p.add_argument("--since", type=int, help="replay the round after this promotion PR instead of the latest")
+    s = sub.add_parser("stamp")
+    s.add_argument("version", help="the promotion's version, vX.Y.Z")
+    s.add_argument("--body", required=True, help="the promotion body from plan --out (its Included list)")
     v = sub.add_parser("verify")
     v.add_argument("pr", type=int)
     args = parser.parse_args(argv)
-    return plan(args.out, args.since) if args.command == "plan" else verify(args.pr)
+    if args.command == "plan":
+        return plan(args.out, args.since)
+    if args.command == "stamp":
+        return stamp(args.version, args.body)
+    return verify(args.pr)
 
 
 if __name__ == "__main__":

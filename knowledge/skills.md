@@ -16,7 +16,8 @@ resource:
 | [/build](../.claude/skills/build/SKILL.md) | project | A build for the user to play or send: `origin/autodev` (or a ref) deployed or zipped, from the build worktree |
 | [/playtest](../.claude/skills/playtest/SKILL.md) | project | The user's playtest notes into grouped, de-duplicated issues and comments (never launches the game) |
 | [/plan-feature](../.claude/skills/plan-feature/SKILL.md) | project | A feature issue into a reviewed plan and spelled-out slice issues |
-| [/promote](../.claude/skills/promote/SKILL.md) | project | The `autodev` → `master` promotion PR and the sync back |
+| [/promote](../.claude/skills/promote/SKILL.md) | project | The `autodev` → `master` promotion PR (the version and ChangeLog stamped) and the sync back |
+| [/publish](../.claude/skills/publish/SKILL.md) | project | A promoted release uploaded to Paradox Mods: dry run, the user's yes, upload, the `v<version>` tag and a new mod's ModId ([releasing.md](releasing.md)) |
 | `/autodev`, `/orchestrate` | global (`~/.claude/skills/`) | One autonomous task, or a batch of briefs. Generic: they read this project's specifics from [git-workflow.md](git-workflow.md), [testing.md](testing.md), [orchestration.md](orchestration.md) and [issues.md](issues.md). Don't copy them into the project |
 
 The agents a batch spawns (`batch-child`, `researcher`, `test-agent`) are in `.claude/agents/`

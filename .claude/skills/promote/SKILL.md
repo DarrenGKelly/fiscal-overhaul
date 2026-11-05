@@ -10,7 +10,7 @@ paperwork: a PR whose description says what the round contains and closes what i
 
 The two mistakes that cost the most:
 - **Listing `git log master..autodev`.** The repo squash-merges, so git thinks every past round is missing from
-  `master`. A round is the commits since the **last promotion PR's head**; `tools/promote.py` works that out.
+  `master`. A round is the commits since the **last promotion's round head**; `tools/promote.py` works that out.
 - **Dropping the "Fixes #N" lines.** A "Fixes #N" in a PR merged into `autodev` closes nothing: GitHub only acts on
   merges into the default branch. The promotion PR's description repeats them.
 
@@ -41,9 +41,10 @@ python tools/promote.py plan --out <scratchpad>/promote-body.md
 ```
 
 It prints whether `autodev` is synced, the last promotion PR (none before the first: then the round is everything
-since `autodev` left `master`, version `v0.1.0`), the next patch version and the round's size, and writes the PR
-description: an Included list and one `Fixes #N` line per issue the listed PRs fix. Exit 1 means `autodev` isn't
-synced, or the round is empty. Read the body before using it:
+since `autodev` left `master`, version `v0.1.0`), the `autodev` head the round ends at, the next patch version (or
+the higher `ModVersion` autodev already declares) and the round's size, and writes the PR description: the round
+head, an Included list and one `Fixes #N` line per issue the listed PRs fix. Exit 1 means `autodev` isn't synced, or
+the round is empty. Read the body before using it:
 - The Included list should look like one round. One that runs back weeks means the last promotion wasn't found
   (`--since <PR>` names it).
 - Never trim the Included list by hand: a PR left out loses its `Fixes` lines.
@@ -54,15 +55,31 @@ synced, or the round is empty. Read the body before using it:
 only what's in the Included list. A minor bump is the user's call: suggest one when the round adds a feature players
 will notice, but don't pick it yourself.
 
-## 3. Open the promotion PR
+## 3. Stamp the release and open the promotion PR
 
-Open it from a throwaway branch, never with `autodev` as the head (deleting the head on merge would delete `autodev`):
+Open it from a throwaway branch, never with `autodev` as the head (deleting the head on merge would delete `autodev`).
+The branch is the round head plus one commit stamping the version and ChangeLog that `/publish` uploads
+([releasing.md § The version and ChangeLog](../../../knowledge/releasing.md#the-version-and-changelog)):
 
 ```
-git push origin origin/autodev:refs/heads/feature/promote-vX-Y-Z
+git switch --detach <autodev head plan printed>
+python tools/promote.py stamp vX.Y.Z --body <scratchpad>/promote-body.md
+```
+
+The ChangeLog it drafts (`<ChangeLog>` in `Mod/Properties/PublishConfiguration.xml`) lists every Included PR. Edit it
+to what players will notice, in plain words, one `- ` line each; drop tooling and docs-only lines (keep at least one).
+Then:
+
+```
+git commit -am "Stamp vX.Y.Z: ModVersion, UI/mod.json version and ChangeLog"
+git push origin HEAD:refs/heads/feature/promote-vX-Y-Z
+git switch -
 gh pr create --base master --head feature/promote-vX-Y-Z --title "vX.Y.Z - … (autodev promotion)" --body-file <scratchpad>/promote-body.md
 ```
 
+- The version is the title's: a minor bump the user chose is stamped as that version. `stamp` refuses one below the
+  `ModVersion` already declared.
+- Keep the body's `Round head` line: the stamp commit isn't in `autodev`, so the next round starts from that line.
 - Name the branch `feature/promote-vX-Y-Z` exactly: `promote.py` finds the last promotion by that prefix (or the
   "(autodev promotion)" title).
 - `--body-file` is required (the merge guard refuses `gh pr create` without it). To change the title or body later:
@@ -96,3 +113,5 @@ Tell the user the sync is pushed, the branches match, and which issues closed.
 - **The permission check refuses a step**: stop, say what you were doing, and give the user the command.
 - **Tests:** a promotion carries only code tested when it landed, so this skill runs none. After changing
   `tools/promote.py`, run `python tools/test-promote.py`.
+
+Next: once the user has merged and the sync is done, `/publish` uploads the release to Paradox Mods.

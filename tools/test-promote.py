@@ -6,7 +6,10 @@ Each behaviour has a pass case and a fail case. Run after changing promote.py:
 
 import importlib.util
 import os
+import shutil
 import sys
+import tempfile
+import xml.etree.ElementTree as ET
 
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -112,6 +115,126 @@ check("the first promotion" in first and "#749" not in first, "the first promoti
 # included_prs: reads back the Included list render_body writes, and nothing else.
 check(pm.included_prs(rendered) == [762], "included PRs read back from a rendered body", pm.included_prs(rendered))
 check(pm.included_prs("- Minor ui changes (direct commit)\nSee #5\n -#6 x") == [], "direct commits and stray references aren't PRs")
+
+# round_head: a promotion cut from autodev plus a stamp commit records where the round ended.
+stamped = dict(pr(810, "v1.0.0 - Release (autodev promotion)", "feature/promote-v1-0-0", "2026-11-01T10:00:00Z"),
+               body="Promotes ...\n\nRound head: `abc1234def` (the `autodev` commit ...).\n")
+check(pm.round_head(stamped) == "abc1234def", "the body's Round head line names the round's end", pm.round_head(stamped))
+check(pm.round_head(prs[0]) == "sha749", "without the line the round ends at the PR's head")
+check(pm.last_promotion(prs + [stamped], lambda sha: sha != "sha810")["number"] == 810,
+      "a promotion whose head (the stamp commit) isn't in autodev is still found by its round head")
+check(pm.last_promotion(prs + [stamped], lambda sha: sha != "abc1234def")["number"] == 749,
+      "a promotion whose round head isn't in autodev is skipped")
+headed = pm.render_body(entries, [], {"number": 749}, head="0123456789abcdef")
+check(pm.round_head(dict(prs[0], body=headed)) == "0123456789abcdef", "render_body's Round head line reads back", headed)
+check("Round head" not in rendered, "no Round head line without a head")
+
+# next_version with the version autodev declares.
+check(pm.version_key("v1.2.3") == (1, 2, 3) and pm.version_key("1.2.3") == (1, 2, 3), "versions parse with or without the v")
+check(pm.version_key("1.0") is None and pm.version_key(None) is None, "a two-part or missing version doesn't parse")
+check(pm.next_version("Initial", first=True, declared="1.0.0") == "v1.0.0",
+      "the first promotion takes autodev's declared 1.0.0 over v0.1.0")
+check(pm.next_version("v1.0.0 - Release (#9)", declared="1.0.0") == "v1.0.1",
+      "a declared version already released loses to the next patch")
+check(pm.next_version("v1.0.3 - x", declared="1.1.0") == "v1.1.0", "a declared minor bump wins")
+check(pm.next_version("v1.0.3 - x", declared="1.0") == "v1.0.4", "an unparseable declared version is ignored")
+
+# stamp_config: ModVersion and one ChangeLog, the template's comments kept.
+CONFIG = """<Publish>
+	<!--Version of the mod-->
+	<!--<ModVersion Value="9.9.9" />-->
+	<ModVersion Value="1.0" />
+	<GameVersion Value="1.6.*" />
+	<!--Change log for new version. Single line or multi line.-->
+	<ChangeLog Value="" />
+	<!--<ChangeLog>
+	</ChangeLog>-->
+	<AccessLevel Value="Public" />
+</Publish>
+"""
+check(pm.declared_version(CONFIG) == "1.0", "declared_version skips a commented-out ModVersion", pm.declared_version(CONFIG))
+check(pm.declared_version("<Publish />") is None, "no ModVersion declares nothing")
+changelog = "- Budget chart: legend toggles\n- Taxes & fees <per density>"
+out = pm.stamp_config(CONFIG, "1.2.3", changelog)
+tree = ET.fromstring(out)
+check(tree.find("ModVersion").get("Value") == "1.2.3", "stamp_config sets ModVersion", out)
+check(len(tree.findall("ChangeLog")) == 1 and tree.find("ChangeLog").text.strip() == changelog,
+      "... leaving one ChangeLog element whose text is the changelog (escaped, so it parses)", out)
+check("<!--<ChangeLog>\n\t</ChangeLog>-->" in out and '<!--<ModVersion Value="9.9.9" />-->' in out,
+      "... keeping the commented-out examples untouched", out)
+check(out.count("\n") == CONFIG.count("\n") + changelog.count("\n") + 2,
+      "... and every other line (the ChangeLog block adds its own)", out)
+again = pm.stamp_config(out, "1.2.4", "- Other")
+check(ET.fromstring(again).find("ChangeLog").text.strip() == "- Other" and len(ET.fromstring(again).findall("ChangeLog")) == 1,
+      "re-stamping replaces the element ChangeLog", again)
+two = CONFIG.replace("<AccessLevel", "<ChangeLog>stale</ChangeLog>\n\t<AccessLevel")
+check(len(ET.fromstring(pm.stamp_config(two, "1.2.3", changelog)).findall("ChangeLog")) == 1,
+      "a second live ChangeLog (ModPublisher would read the last) is removed")
+none = CONFIG.replace('\t<ChangeLog Value="" />\n', "")
+check(ET.fromstring(pm.stamp_config(none, "1.2.3", changelog)).find("ChangeLog").text.strip() == changelog,
+      "a config without a ChangeLog gets one")
+crlf = pm.stamp_config(CONFIG.replace("\n", "\r\n"), "1.2.3", changelog)
+check(crlf.count("\n") == crlf.count("\r\n") == out.count("\n"), "a CRLF config keeps CRLF line endings throughout", repr(crlf))
+check(pm.stamp_config(CONFIG, "1.2.3", changelog).count("\r") == 0, "an LF config gets no CR")
+try:
+    pm.stamp_config('<Publish>\n\t<!--<ModVersion Value="1" />-->\n</Publish>', "1.2.3", changelog)
+    check(False, "a config without a live ModVersion raises")
+except ValueError:
+    check(True, "a config without a live ModVersion raises")
+
+# stamp_mod_json: the version only.
+mod_json = '{\n  "id": "FiscalOverhaul",\n  "version": "0.1.0",\n  "dependencies": []\n}\n'
+check(pm.stamp_mod_json(mod_json, "1.2.3") == mod_json.replace("0.1.0", "1.2.3"), "stamp_mod_json sets the version, nothing else")
+try:
+    pm.stamp_mod_json('{ "id": "x" }', "1.2.3")
+    check(False, "a mod.json without a version raises")
+except ValueError:
+    check(True, "a mod.json without a version raises")
+
+# changelog_from_body: the Included entries, nothing else.
+check(pm.changelog_from_body(rendered) == "- Density tax curve\n- Minor ui changes",
+      "the ChangeLog draft lists the Included entries", pm.changelog_from_body(rendered))
+check(pm.changelog_from_body("## Issues closed\n- not this\nFixes #1") == "", "a body without Included entries drafts nothing")
+
+# stamp: writes a checkout's files, keeping the config's BOM; refuses going backwards or an empty round.
+tmp = tempfile.mkdtemp(prefix="fo-test-promote-")
+saved_repo = pm.REPO
+try:
+    pm.REPO = tmp
+    os.makedirs(os.path.join(tmp, "Mod", "Properties"))
+    os.makedirs(os.path.join(tmp, "UI"))
+    config_path = os.path.join(tmp, pm.CONFIG)
+    with open(config_path, "w", encoding="utf-8-sig", newline="") as f:
+        f.write(CONFIG)
+    with open(os.path.join(tmp, pm.MOD_JSON), "w", encoding="utf-8", newline="") as f:
+        f.write(mod_json)
+    body_path = os.path.join(tmp, "body.md")
+    with open(body_path, "w", encoding="utf-8") as f:
+        f.write(rendered)
+    check(pm.stamp("v1.0.0", body_path) == 0, "stamp v1.0.0 succeeds")
+    with open(config_path, "rb") as f:
+        raw = f.read()
+    check(raw.startswith(b"\xef\xbb\xbf") and pm.declared_version(raw.decode("utf-8-sig")) == "1.0.0",
+          "... writing ModVersion 1.0.0 and keeping the BOM")
+    with open(os.path.join(tmp, pm.MOD_JSON), encoding="utf-8") as f:
+        check('"version": "1.0.0"' in f.read(), "... and UI/mod.json's version")
+    for args, why in ((("v0.9.0", body_path), "fail case: a version below the declared one is refused"),
+                      (("1.0", body_path), "fail case: a version that isn't vX.Y.Z is refused")):
+        try:
+            pm.stamp(*args)
+            check(False, why)
+        except SystemExit:
+            check(True, why)
+    with open(body_path, "w", encoding="utf-8") as f:
+        f.write("## Included\n\n")
+    try:
+        pm.stamp("v1.0.1", body_path)
+        check(False, "fail case: a body with no Included entries is refused")
+    except SystemExit:
+        check(True, "fail case: a body with no Included entries is refused")
+finally:
+    pm.REPO = saved_repo
+    shutil.rmtree(tmp, ignore_errors=True)
 
 print("\n%s" % ("all passed" if not failures else "%d FAILED" % failures))
 sys.exit(1 if failures else 0)
