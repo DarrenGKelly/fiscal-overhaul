@@ -24,7 +24,8 @@ automatic: the user runs it, after the promotion PR has merged.
 the `ChangeLog`. The promotion stamps it, so the version on `master` is always the one its promotion PR is titled:
 
 - `python tools/promote.py plan` picks the version: the next patch after `master`'s last `vX.Y.Z - ` commit, or the
-  `ModVersion` autodev already declares when that is higher (a hand-made minor or major bump, or the first release).
+  `ModVersion` autodev already declares when that is higher (a hand-made minor or major bump, or the first release),
+  and never one already published: with a `v<version>` tag at or above it, the next patch after the highest tag.
 - On the promotion branch, `python tools/promote.py stamp vX.Y.Z --body <body>` writes `X.Y.Z` into `ModVersion` and
   `UI/mod.json`'s `version`, and drafts the `ChangeLog` (one line per Included PR); the `/promote` skill trims it to
   what players notice and commits it as the branch's one extra commit. It refuses a version below the declared one.

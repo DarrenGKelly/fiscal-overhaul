@@ -104,10 +104,11 @@ def version_key(version):
     return tuple(int(g) for g in match.groups()) if match else None
 
 
-def next_version(master_subject, first=False, declared=None):
+def next_version(master_subject, first=False, declared=None, published=()):
     """The next patch after master's latest version-tagged subject ("v0.3.8 - ..." -> "v0.3.9"); FIRST_VERSION for
     the first promotion (master holds no version-tagged commit yet). A higher version autodev already declares (its
-    ModVersion, raised by hand for a release) wins."""
+    ModVersion, raised by hand for a release) wins. A version already published (a v<version> tag from
+    tools/publish.ps1, in published) is never offered again: the next patch after the highest one is."""
     match = VERSION_SUBJECT.match(master_subject)
     if not match and first:
         computed = FIRST_VERSION
@@ -117,7 +118,11 @@ def next_version(master_subject, first=False, declared=None):
         major, minor, patch = (int(g) for g in match.groups())
         computed = "v%d.%d.%d" % (major, minor, patch + 1)
     if version_key(declared) and version_key(declared) > version_key(computed):
-        return "v%d.%d.%d" % version_key(declared)
+        computed = "v%d.%d.%d" % version_key(declared)
+    tags = [version_key(t) for t in published if version_key(t)]
+    if tags and max(tags) >= version_key(computed):
+        major, minor, patch = max(tags)
+        computed = "v%d.%d.%d" % (major, minor, patch + 1)
     return computed
 
 
@@ -251,8 +256,9 @@ def plan(out, since=None):
         declared = declared_version(run("git", "show", "origin/autodev:" + CONFIG.replace(os.sep, "/")))
     except subprocess.CalledProcessError:
         declared = None
+    published = run("git", "ls-remote", "--tags", "--refs", "origin", "v*").split()[1::2]
     version = next_version(run("git", "log", "-1", "--format=%s", "origin/master").strip(), first=last is None,
-                           declared=declared)
+                           declared=declared, published=[t.rsplit("/", 1)[-1] for t in published])
     body = render_body(entries, fixes, last, head)
     print("autodev synced with master: " + ("yes" if synced else "NO - sync before promoting"))
     if last:

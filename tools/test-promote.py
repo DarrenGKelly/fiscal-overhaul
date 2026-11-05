@@ -138,6 +138,10 @@ check(pm.next_version("v1.0.0 - Release (#9)", declared="1.0.0") == "v1.0.1",
       "a declared version already released loses to the next patch")
 check(pm.next_version("v1.0.3 - x", declared="1.1.0") == "v1.1.0", "a declared minor bump wins")
 check(pm.next_version("v1.0.3 - x", declared="1.0") == "v1.0.4", "an unparseable declared version is ignored")
+check(pm.next_version("Initial", first=True, declared="1.0.0", published=["v1.0.0"]) == "v1.0.1",
+      "a declared version already published (a private test upload tagged it) moves to the next patch")
+check(pm.next_version("v1.0.3 - x", published=["v1.0.1", "v0.9.0", "junk"]) == "v1.0.4",
+      "published tags below the computed version change nothing")
 
 # stamp_config: ModVersion and one ChangeLog, the template's comments kept.
 CONFIG = """<Publish>
