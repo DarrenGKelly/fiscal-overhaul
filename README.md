@@ -35,7 +35,7 @@ Fiscal Overhaul.
 - **Income only:** an offset changes the tax a building pays, not demand or happiness. The vanilla zone rates keep
   doing that job.
 
-![Density offsets on the Taxation tab](Mod/Properties/Screenshots/03-taxation-density.png)
+![Density offsets on the Taxation tab, with density taxes enabled](Mod/Properties/Screenshots/03-taxation-density.png)
 
 ## Options
 
@@ -46,7 +46,7 @@ The mod has its own page in the game's Options menu:
   Off, the Taxation tab is the vanilla one and every building pays the vanilla rate; your offsets are kept.
 - **Reset density tax offsets**: sets every density offset back to 0, after a confirmation.
 
-![The Options page](Mod/Properties/Screenshots/04-options.png)
+![The Options page, with the budget chart and density taxes (BETA) ticked](Mod/Properties/Screenshots/04-options.png)
 
 ## Install
 
