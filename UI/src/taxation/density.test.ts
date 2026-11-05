@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Translate } from "../l10n";
 import {
   arrowFor,
   formatCount,
@@ -7,9 +8,21 @@ import {
   densityExtraTotal,
   densityLabel,
   estimatedTotalValue,
+  offsetSummary,
+  payersSuffix,
   zoneForAreaIndex,
   zoneTotalIncome,
 } from "./density";
+
+const french: Translate = (id, fallback) =>
+  ({
+    "FiscalOverhaul.UI.DensityLow": "Faible densité",
+    "FiscalOverhaul.UI.DensityOther": "Densité {NUMBER}",
+    "FiscalOverhaul.UI.OffsetsSet": "{COUNT} ajustements",
+    "FiscalOverhaul.UI.Payers": "{COUNT} contribuables",
+  })[id] ??
+  fallback ??
+  null;
 
 describe("zoneForAreaIndex", () => {
   it("maps the four zoned tax areas to the C# TaxZone order", () => {
@@ -27,9 +40,41 @@ describe("zoneForAreaIndex", () => {
 
 describe("densityLabel", () => {
   it("names the three densities", () => {
-    expect(densityLabel(0)).toBe("Low density");
-    expect(densityLabel(2)).toBe("High density");
-    expect(densityLabel(7)).toBe("Density 7");
+    expect(densityLabel(0, null)).toBe("Low density");
+    expect(densityLabel(1, null)).toBe("Medium density");
+    expect(densityLabel(2, null)).toBe("High density");
+    expect(densityLabel(7, null)).toBe("Density 7");
+  });
+
+  it("reads the label through translate, English where it has none", () => {
+    expect(densityLabel(0, french)).toBe("Faible densité");
+    expect(densityLabel(0, french)).not.toBe("Low density");
+    expect(densityLabel(7, french)).toBe("Densité 7");
+    expect(densityLabel(2, french)).toBe("High density");
+  });
+});
+
+describe("offsetSummary", () => {
+  it("reads as before in English", () => {
+    expect(offsetSummary(0, null)).toBe("no offsets");
+    expect(offsetSummary(1, null)).toBe("1 offset set");
+    expect(offsetSummary(3, null)).toBe("3 offsets set");
+  });
+
+  it("fills the count into the translation", () => {
+    expect(offsetSummary(3, french)).toBe("3 ajustements");
+    expect(offsetSummary(0, french)).toBe("no offsets");
+  });
+});
+
+describe("payersSuffix", () => {
+  it("shows the count with separators, and nothing for no payers", () => {
+    expect(payersSuffix(1234, null)).toBe(" · 1,234 payers");
+    expect(payersSuffix(0, null)).toBe("");
+  });
+
+  it("uses the translation", () => {
+    expect(payersSuffix(1234, french)).toBe(" · 1,234 contribuables");
   });
 });
 

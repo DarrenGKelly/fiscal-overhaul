@@ -1,4 +1,6 @@
+import { useLocalization } from "cs2/l10n";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { localize } from "l10n";
 import {
   formatMoney,
   formatPerMonth,
@@ -65,6 +67,7 @@ function scalePad(rem: number, labelWidth: number, insetLeftRem = 0) {
 
 /** Drawn on a canvas: the game's UI (Coherent Gameface) supports 2D canvas well; inline SVG it does not. */
 export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLeftRem = 0 }: Props) => {
+  const { translate } = useLocalization();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const probeRef = useRef<HTMLDivElement>(null);
@@ -155,7 +158,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
     ctx.fillStyle = "rgba(255,255,255,0.8)";
     const newest = xTicks[xTicks.length - 1] ?? 0;
     for (const t of xTicks) {
-      const text = formatMonthsAxis(t - newest);
+      const text = formatMonthsAxis(t - newest, translate);
       const half = ctx.measureText(text).width / 2;
       const cx = Math.min(Math.max(x(t), half), size.w - half);
       ctx.fillText(text, cx, plotBottom + 9 * rem);
@@ -199,7 +202,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
         ctx.fill();
       }
     }
-  }, [geometry, lines, highlightKey, hover, size]);
+  }, [geometry, lines, highlightKey, hover, size, translate]);
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -234,15 +237,15 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
     <div ref={containerRef} className={styles.chart} onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}>
       <canvas ref={canvasRef} className={styles.canvas} />
       <div ref={probeRef} className={styles.remProbe} />
-      {lines.length === 0 && <div className={styles.empty}>Tick a row on the left to plot it.</div>}
+      {lines.length === 0 && <div className={styles.empty}>{localize(translate, "ChartEmpty")}</div>}
       {hover && hoverLine && hoverValue !== undefined && (
         <div className={styles.tooltip} style={{ left: `${tooltipLeft}px`, top: `${Math.max(0, hover.y - 30)}px` }}>
           <div className={styles.tooltipTitle}>
             <div className={styles.tooltipSwatch} style={{ backgroundColor: hoverLine.color }} />
             {hoverLine.label}
           </div>
-          <div className={styles.tooltipValue}>{formatPerMonth(hoverLine.negateInTooltip ? -hoverValue : hoverValue)}</div>
-          <div className={styles.tooltipTime}>{formatMonthsAgo(monthsAgo[hover.index] ?? 0)}</div>
+          <div className={styles.tooltipValue}>{formatPerMonth(hoverLine.negateInTooltip ? -hoverValue : hoverValue, translate)}</div>
+          <div className={styles.tooltipTime}>{formatMonthsAgo(monthsAgo[hover.index] ?? 0, translate)}</div>
         </div>
       )}
     </div>

@@ -1,11 +1,14 @@
 ---
 type: Reference
 title: CS2 modding
-description: How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale).
+description: How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale), and how the mod localizes its text.
 resource:
   - Mod/FiscalOverhaul.csproj
   - UI/webpack.config.js
   - UI/src/vanilla.ts
+  - UI/src/l10n.ts
+  - Mod/LocaleRegistry.cs
+  - l10n/en-US.json
 ---
 
 # CS2 modding
@@ -122,6 +125,38 @@ Coherent Gameface isn't Chrome:
   (which it shrinks). Build the string first (`formatPerMonth` in `chart-math.ts`).
 - **A percentage `max-height` on an absolutely positioned box doesn't constrain it.** Set both `top` and `bottom` to
   give it a definite height (the Budget tab's item pop-out).
+
+## Localization
+
+Every player-facing string, in the Options page and the panel, is a locale key with its text in
+`l10n/<locale>.json` (one flat JSON object per language; en-US is the only one shipped).
+
+- **Keys.** UI strings are `FiscalOverhaul.UI.<Name>` and go to the game as they are. Options strings are
+  `FiscalOverhaul.Options.<Kind>[.<Name>]` (`Title`, `Tab.<section>`, `Group.<group>`, and `Label`/`Desc`/`Warning`
+  `.<property>`); `Mod/LocaleRegistry.cs` maps them to the ids the Options page asks for
+  (`Setting.GetOptionLabelLocaleID(…)` and the like), so a file needs no generated ids. Any other key is skipped with
+  a warning in the log, so a file can't override a game string.
+- **Registering.** The csproj embeds every `l10n/*.json` in the DLL; `LocaleRegistry.Register` adds each as a source
+  for the locale its file is named after. en-US is the game's fallback locale (`LocalizationManager` merges its
+  entries into the active language for every key that language lacks), so a language with no file, or a missing key,
+  shows the English.
+- **Reading in the UI.** `UI/src/l10n.ts`: `localize(translate, "<Name>", { COUNT: n })` asks the game's
+  `translate` (`useLocalization()` from `cs2/l10n`) for `FiscalOverhaul.UI.<Name>`, with the English from
+  `l10n/en-US.json` (bundled by webpack) as fallback, and fills `{PLACEHOLDER}`s (the game's own style: `{COUNT}`,
+  `{VALUE}`, `{NUMBER}`). `<Name>` is typed from the JSON, so a typo is a compile error. Pure modules take the
+  `translate` as a parameter (`null` gives English), so vitest runs them without the game.
+- **Plurals** are separate keys, chosen in code (`OneOffsetSet`/`OffsetsSet` in `offsetSummary`, `density.ts`).
+- **Reuse vanilla keys** where the game already has the string: `VANILLA` in `l10n.ts` (`EconomyPanel.*` titles,
+  `StatisticsPanel.TIME_SCALE_NOW`). The game's locale is packed in `Cities2_Data/Content/Game/Locale.cok`; its keys
+  and texts are readable with `grep -a`. Most look reusable but aren't: `CityInfoPanel.DEMAND_TITLE[ResidentialLow]`
+  reads "Low Density" in English but "low-density residential demand" in other languages.
+
+**A new string**: add `FiscalOverhaul.UI.<Name>` with its English to `l10n/en-US.json`, then
+`localize(translate, "<Name>")`. A string literal in JSX fails the `UI source` test in `UI/src/l10n.test.ts`.
+
+**A new language**: copy `l10n/en-US.json` to `l10n/<locale>.json` (the game's locale id: `de-DE`, `fr-FR`,
+`zh-HANS`, …) and translate the values; keep the keys and placeholders. Nothing else changes: the csproj picks the
+file up, `LocaleFileTests` checks it parses and holds only known keys, and keys it leaves out stay English.
 
 ## Scheduling simulation systems
 

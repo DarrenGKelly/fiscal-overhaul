@@ -1,9 +1,7 @@
-﻿using Colossal;
-using Colossal.IO.AssetDatabase;
+﻿using Colossal.IO.AssetDatabase;
 using FiscalOverhaul.Logic;
 using Game.Modding;
 using Game.Settings;
-using System.Collections.Generic;
 
 namespace FiscalOverhaul
 {
@@ -57,40 +55,6 @@ namespace FiscalOverhaul
             EnableBudgetChart = FeatureGates.BudgetChartDefault;
             EnableDensityTaxes = FeatureGates.DensityTaxesDefault;
             DensityTaxOffsets = string.Empty;
-        }
-    }
-
-    public class LocaleEN : IDictionarySource
-    {
-        private readonly Setting m_Setting;
-
-        public LocaleEN(Setting setting)
-        {
-            m_Setting = setting;
-        }
-
-        public IEnumerable<KeyValuePair<string, string>> ReadEntries(IList<IDictionaryEntryError> errors, Dictionary<string, int> indexCounts)
-        {
-            return new Dictionary<string, string>
-            {
-                { m_Setting.GetSettingsLocaleID(), "Fiscal Overhaul" },
-                { m_Setting.GetOptionTabLocaleID(Setting.kSection), "Main" },
-                { m_Setting.GetOptionGroupLocaleID(Setting.kFeaturesGroup), "Features" },
-                { m_Setting.GetOptionGroupLocaleID(Setting.kTaxGroup), "Density taxes" },
-
-                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.EnableBudgetChart)), "Enable budget chart" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.EnableBudgetChart)), "Replaces the bar chart in Economy > Budget with a line chart of each revenue and expense over time. Off: the Budget tab is the vanilla one." },
-                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.EnableDensityTaxes)), "Enable density taxes (BETA)" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.EnableDensityTaxes)), "A beta feature, off by default. Adds per-density tax offsets (set in Economy > Taxation) to what buildings pay; income only, demand and happiness are unchanged. Off: buildings pay the vanilla rates and the Taxation tab hides the density rows; your offsets are kept for when you switch it back on." },
-
-                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ResetDensityTaxes)), "Reset density tax offsets" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ResetDensityTaxes)), "Sets every density offset (set in Economy > Taxation) back to 0, so buildings pay the vanilla rates again." },
-                { m_Setting.GetOptionWarningLocaleID(nameof(Setting.ResetDensityTaxes)), "Reset all density tax offsets to 0?" },
-            };
-        }
-
-        public void Unload()
-        {
         }
     }
 }

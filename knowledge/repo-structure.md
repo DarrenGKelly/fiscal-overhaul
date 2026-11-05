@@ -16,8 +16,9 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 
 | Folder | What |
 |---|---|
-| `Mod/` | The C# mod (`FiscalOverhaul.csproj`, net48, built with the game's csiimod toolchain): `Mod.cs`, `Setting.cs` |
+| `Mod/` | The C# mod (`FiscalOverhaul.csproj`, net48, built with the game's csiimod toolchain): `Mod.cs`, `Setting.cs`, `LocaleRegistry.cs` (registers `l10n/`) |
 | `UI/` | The UI module (TypeScript, React, SCSS; the CS2 UI template's webpack build): `src/`, `types/`, `webpack.config.js` |
+| `l10n/` | The mod's text, one `<locale>.json` per language (en-US only so far): embedded in the DLL for the game, bundled into the UI as the English fallback ([cs2-ui-modding.md § Localization](cs2-ui-modding.md#localization)) |
 | `Tests/` | xunit tests for the mod's pure logic (net10.0; compiles `Mod/Logic/` in directly, no game DLLs) |
 | `knowledge/` | This OKF bundle ([knowledge-format.md](knowledge-format.md)) |
 | `art/` | Source art: `icon/` renders the mod icon `Mod/Properties/Thumbnail.png` (1024x1024, Paradox Mods covers are square) and alternative concepts with `make_icon.py` (Pillow), lettered in the game's UI font Overpass Bold (`icon/fonts/`, with its SIL OFL licence); its `README.md` says how |
@@ -44,6 +45,7 @@ screenshots), `LICENSE` (MIT), `CHANGELOG.md` (Keep a Changelog; one entry per r
 | `budget/` | The replacement Budget tab page |
 | `chart/` | The line chart component and its pure maths (`chart-math.ts`, tested by vitest) |
 | `taxation/` | The density rows on the Taxation tab and their pure logic (`density.ts`, tested) |
+| `l10n.ts` | `localize()`: a UI string by key through the game's translate, English fallback (tested) |
 
 ## Tests/
 

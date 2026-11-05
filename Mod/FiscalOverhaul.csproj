@@ -65,6 +65,11 @@
 		</Reference>
 	</ItemGroup>
 
+	<!-- The mod's text, one file per language (l10n/<locale>.json), read by LocaleRegistry; the UI bundles en-US too. -->
+	<ItemGroup>
+		<EmbeddedResource Include="..\l10n\*.json" LogicalName="FiscalOverhaul.l10n.%(Filename)%(Extension)" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<None Include="$(ModPropsFile)" Link="Properties\Mod.props" />
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
