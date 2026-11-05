@@ -25,12 +25,16 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 | `.githooks/` | The branch policy and doc checks ([git-workflow.md § Hooks](git-workflow.md#hooks)) |
 | `.claude/` | `settings.json` (the merge guard), `agents/`, `skills/` ([skills.md](skills.md)) |
 
+Root files: `README.md` (the public page players and contributors read, which embeds the Paradox Mods
+screenshots), `LICENSE` (MIT), `CHANGELOG.md` (Keep a Changelog; one entry per release) and `CLAUDE.md`.
+
 ## Mod/
 
 | Folder | What |
 |---|---|
 | `Logic/` | Pure logic with no game or Unity types (budget history maths, the density tax table): unit-tested in `Tests/` |
 | `Systems/` | The game systems: ECS systems that read the city's statistics, apply density taxes, and the UI systems that bind data to the panel ([impl/](impl/index.md)) |
+| `Properties/` | `PublishConfiguration.xml` (the Paradox Mods page: name, descriptions, tags, links, `ModVersion` and the release's `ChangeLog`), `Thumbnail.png`, `PublishProfiles/`. The version is in step with `UI/mod.json` and `CHANGELOG.md` |
 
 ## `UI/src/`
 
