@@ -336,11 +336,8 @@ $script:exitCode = 0
 try { Invoke-Publish }
 finally {
     $env:CSII_USERDATAPATH = $savedUserData
-    # remove-worktree.ps1 runs git worktree remove in the current folder: run it from the repo that owns the worktree.
     if (Test-Path -LiteralPath $worktree) {
-        Push-Location -LiteralPath $main
-        try { & (Join-Path $PSScriptRoot 'remove-worktree.ps1') -Path $worktree -Force | Out-Null }
-        finally { Pop-Location }
+        & (Join-Path $PSScriptRoot 'remove-worktree.ps1') -Path $worktree -Force | Out-Null
         if (Test-Path -LiteralPath $worktree) { Write-Publish "Couldn't remove the temporary worktree $worktree`: ./tools/remove-worktree.ps1 -Path $worktree -Force" 'Yellow' }
     }
     Invoke-Git -Path $main -Arguments @('worktree', 'prune') -AllowFailure | Out-Null

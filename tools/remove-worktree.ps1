@@ -53,7 +53,11 @@ if ($dotGit -and -not $dotGit.PSIsContainer) {
     }
 }
 
-$gitArgs = @('worktree', 'remove', $worktree)
+# Run git against the repo that owns the worktree, so the caller's current folder doesn't matter.
+$common = [string](& $gitExe -C $worktree rev-parse --path-format=absolute --git-common-dir 2>$null)
+$gitArgs = @()
+if ($common) { $gitArgs += @('-C', (Split-Path -Parent $common)) }
+$gitArgs += @('worktree', 'remove', $worktree)
 if ($Force) { $gitArgs += '--force' }
 & $gitExe @gitArgs
 exit $LASTEXITCODE
