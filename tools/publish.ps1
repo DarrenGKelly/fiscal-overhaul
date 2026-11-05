@@ -23,13 +23,22 @@
       - the Thumbnail or any Screenshot file is missing; a template placeholder is left ("This is a long description",
         an empty Tag, ExternalLink, Screenshot, Dependency or RequiredDLC); a required field is empty; AccessLevel
         isn't Public, Private or Unlisted (ModPublisher would quietly make it Public);
-      - for Publish and NewVersion, the version is already published: a v<ModVersion> git tag exists.
+      - for a release (Publish or NewVersion without -AccessLevel Private), the version is already published: a
+        v<ModVersion> git tag exists;
+      - a private test (-AccessLevel Private) of a mod that has had a release (ModId set and any v* tag): the access
+        level belongs to the whole mod, so it would hide the public mod.
 
     -DryRun does everything but run ModPublisher: validation, the Release build, and the exact command it would run.
-    -AccessLevel Private (or Unlisted) overrides the config's AccessLevel for this run only, on a temporary copy of
-    the config: for a test upload. The tracked config is never changed.
 
-    After a successful Publish or NewVersion it tags the built commit v<ModVersion> and pushes the tag. ModPublisher
+    -AccessLevel Private is a test upload, which never uses up the release: from a temporary copy of the config
+    (the tracked one is never changed) whose AccessLevel is Private and whose ModVersion carries a pre-release
+    suffix, <ModVersion>-<TestSuffix> (default test.<MMddHHmm>, so 1.0.0-test.11042130; Paradox refuses a new version
+    whose version string equals the current one, so each test needs its own). It is not tagged and needs no free
+    tag, and the later public release of <ModVersion> is a NewVersion that also switches the page to the config's
+    Public (every ModPublisher request carries the access level).
+
+    After a successful release (Publish or NewVersion, not a private test) it tags the built commit v<ModVersion> and
+    pushes the tag. ModPublisher
     never writes the new mod's id back into the config: it prints "Mod published with Id=<n>". So after a Publish
     this prints the id (or, failing that, any ModId the config was given back) and the follow-up: commit ModId to
     Mod/Properties/PublishConfiguration.xml through a PR into autodev.
@@ -42,7 +51,7 @@
 .EXAMPLE
     ./tools/publish.ps1 -DryRun                          # validate, build origin/master, print the command
     ./tools/publish.ps1                                  # upload origin/master (Publish or NewVersion by ModId)
-    ./tools/publish.ps1 -AccessLevel Private             # a test upload only the account can see
+    ./tools/publish.ps1 -AccessLevel Private -Ref origin/autodev   # a private test upload (1.0.0-test.<time>)
     ./tools/publish.ps1 -Mode Update                     # the page only
 
 .NOTES
@@ -53,7 +62,8 @@ param(
     [ValidateSet('Publish', 'NewVersion', 'Update')] [string]$Mode,
     [string]$Ref = 'origin/master',
     [switch]$DryRun,
-    [ValidateSet('Private', 'Unlisted')] [string]$AccessLevel
+    [ValidateSet('Private')] [string]$AccessLevel,
+    [string]$TestSuffix
 )
 
 $ErrorActionPreference = 'Stop'
@@ -143,6 +153,15 @@ if (-not $publisher -or -not (Test-Path -LiteralPath $publisher -PathType Leaf))
     exit 2
 }
 
+# A private test upload: its own pre-release version string, no tag (see the help).
+$isTest = [bool]$AccessLevel
+if ($TestSuffix -and -not $isTest) { Write-Publish '-TestSuffix is for a private test upload: add -AccessLevel Private, or drop it for a release.' 'Red'; exit 2 }
+if ($isTest -and -not $TestSuffix) { $TestSuffix = 'test.' + (Get-Date -Format 'MMddHHmm') }
+if ($isTest -and ($TestSuffix -notmatch '^[0-9A-Za-z][0-9A-Za-z.-]*$' -or $TestSuffix.Length -gt 20)) {
+    Write-Publish "-TestSuffix '$TestSuffix' isn't a short pre-release label (letters, digits, dots and hyphens, at most 20): use something like test.2." 'Red'
+    exit 2
+}
+
 $context = Get-RepoContext $PSScriptRoot
 $main = $context.MainCheckout
 Invoke-Git -Path $main -Arguments @('fetch', '-q', '--tags', 'origin') | Out-Null
@@ -178,9 +197,14 @@ function Invoke-Publish {
     foreach ($problem in (Get-PublishProblems $worktree $elements $Mode $level)) { $problems.Add($problem) }
     $version = Get-ConfigValue $elements 'ModVersion'
     $tag = "v$version"
-    if ($version -and $Mode -ne 'Update') {
+    $uploadVersion = if ($isTest) { "$version-$TestSuffix" } else { $version }
+    if ($version -and $Mode -ne 'Update' -and -not $isTest) {
         $tagged = (Invoke-Git -Path $main -Arguments @('rev-parse', '--verify', '--quiet', "refs/tags/$tag^{commit}") -AllowFailure).Text
         if ($tagged) { $problems.Add("$tag is already published (tagged at $($tagged.Substring(0, 10))): bump the version (/promote) for a new release, or use -Mode Update for page-only changes. If that upload never happened, delete the tag (git tag -d $tag; git push origin :refs/tags/$tag).") }
+    }
+    if ($isTest -and $modId) {
+        $releases = (Invoke-Git -Path $main -Arguments @('tag', '--list', 'v*') -AllowFailure).Text
+        if ($releases) { $problems.Add("A private test of mod $modId, which has had a release ($((($releases -split "`n") | Select-Object -Last 1).Trim()) and others): the access level is the whole mod's, so the upload would hide it from players. Test without uploading (-DryRun), or as a separate mod.") }
     }
     if ($problems.Count) {
         Write-Publish "Refused: $Ref isn't ready to $Mode." 'Red'
@@ -188,16 +212,19 @@ function Invoke-Publish {
         $script:exitCode = 2
         return
     }
-    Write-Publish "$Mode $(Get-ConfigValue $elements 'DisplayName') $version (AccessLevel $level$(if ($AccessLevel) { ', this run only' }))."
+    $kind = if ($isTest) { 'a private test upload: not tagged, the release stays unused' } else { 'a release' }
+    Write-Publish "$Mode $(Get-ConfigValue $elements 'DisplayName') $uploadVersion (AccessLevel $level; $kind)."
 
-    # --- the effective config: a temporary copy when -AccessLevel overrides it ---
+    # --- the effective config: a temporary copy for a private test (its access level and version string) ---
     New-Item -ItemType Directory -Force (Join-Path $package 'Mods') | Out-Null
     $publishConfig = $configPath
-    if ($AccessLevel) {
+    if ($isTest) {
         $copy = $config.Clone()
-        $node = $copy.DocumentElement.SelectSingleNode('AccessLevel')
-        if (-not $node) { $node = $copy.DocumentElement.AppendChild($copy.CreateElement('AccessLevel')) }
-        $node.SetAttribute('Value', $AccessLevel)
+        foreach ($pair in @(@('AccessLevel', $AccessLevel), @('ModVersion', $uploadVersion))) {
+            $node = $copy.DocumentElement.SelectSingleNode($pair[0])
+            if (-not $node) { $node = $copy.DocumentElement.AppendChild($copy.CreateElement($pair[0])) }
+            $node.SetAttribute('Value', $pair[1])
+        }
         $publishConfig = Join-Path $package 'PublishConfiguration.xml'
         $copy.Save($publishConfig)
     }
@@ -244,7 +271,8 @@ function Invoke-Publish {
     Write-Publish "Command (from $modFolder, DOTNET_ROOT=$env:DOTNET_ROOT):"
     Write-Host "  $command"
     if ($DryRun) {
-        Write-Publish "Dry run: nothing uploaded. $Mode of $version from $Ref ($($sha.Substring(0, 10)))$(if ($Mode -ne 'Update') { ", then tag $tag" })." 'Green'
+        $after = if ($isTest) { ' (a private test: no tag)' } elseif ($Mode -ne 'Update') { ", then tag $tag" } else { '' }
+        Write-Publish "Dry run: nothing uploaded. $Mode of $uploadVersion from $Ref ($($sha.Substring(0, 10)))$after." 'Green'
         return
     }
 
@@ -258,7 +286,7 @@ function Invoke-Publish {
         $script:exitCode = 1
         return
     }
-    Write-Publish "ModPublisher: $Mode done." 'Green'
+    Write-Publish "ModPublisher: $Mode done; uploaded version string $uploadVersion, AccessLevel $level." 'Green'
 
     # --- the new mod's id ---
     if ($Mode -eq 'Publish') {
@@ -271,13 +299,14 @@ function Invoke-Publish {
         }
         if ($newId) {
             Write-Publish "New ModId: $newId" 'Green'
-            Write-Host "  Follow-up: commit it through a PR into autodev: on a branch from origin/autodev set <ModId Value=`"$newId`" /> in $ConfigRelative, then land it (./tools/land-pr.ps1). Later releases are -Mode NewVersion."
+            Write-Host "  Follow-up: commit it through a PR into autodev: on a branch from origin/autodev set <ModId Value=`"$newId`" /> in $ConfigRelative, then land it (./tools/land-pr.ps1). Later uploads, the public release after a private test included, are NewVersion."
         }
         else { Write-Publish "ModPublisher printed no ModId: find it in the mod's Paradox Mods page address, then commit it to $ConfigRelative through a PR into autodev." 'Yellow' }
     }
 
-    # --- the tag ---
-    if ($Mode -ne 'Update') {
+    # --- the tag (a release only: a private test leaves the version free) ---
+    if ($isTest) { Write-Publish "A private test upload: not tagged; $version is still unreleased." 'Green' }
+    elseif ($Mode -ne 'Update') {
         $message = "Fiscal Overhaul $version on Paradox Mods ($Mode, AccessLevel $level)"
         $made = Invoke-Git -Path $main -Arguments @('tag', '-a', $tag, $sha, '-m', $message) -AllowFailure
         $pushed = if ($made.ExitCode -eq 0) { Invoke-Git -Path $main -Arguments @('push', '-q', 'origin', "refs/tags/$tag") -AllowFailure } else { $made }

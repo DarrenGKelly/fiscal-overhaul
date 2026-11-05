@@ -12,9 +12,11 @@
     What must hold, each with a pass and a fail case: every refusal (the game running, no ModPublisher, an unknown ref,
     the mode against ModId, the version against UI/mod.json and the csproj, the ChangeLog, the Thumbnail and
     Screenshots, template placeholders, AccessLevel, an existing v<version> tag); the dry run builds but never uploads
-    or tags; the mode follows ModId; -AccessLevel Private reaches ModPublisher on a copy, never the tracked config; a
-    successful upload tags and pushes v<version> at the built commit and reports the new ModId (printed, or written
-    back); a failed build or upload tags nothing; the temporary worktree is always removed.
+    or tags; the mode follows ModId; a private test (-AccessLevel Private) uploads <version>-test.<n> and Private from a
+    copy, never the tracked config, tags nothing and ignores the release tag, but is refused once the mod has had a
+    release; the public release after it is a NewVersion of the plain version with AccessLevel Public; a successful
+    release tags and pushes v<version> at the built commit and reports the new ModId (printed, or written back); a
+    failed build or upload tags nothing; the temporary worktree is always removed.
         ./tools/test-publish.ps1     (exit 0 = all passed)
 #>
 $ErrorActionPreference = 'Stop'
@@ -256,25 +258,49 @@ try {
     $r = Invoke-Publish @('-DryRun')
     Check ($r.ExitCode -eq 2 -and $r.Output -match "ModId 'abc' isn't a number") 'fail case: a ModId that isn''t a number is refused' $r.Output
 
-    Write-Host '--- a new version, privately ---'
-    $sha = Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- Fixed the chart' }
+    Write-Host '--- a private test upload ---'
+    Remove-Tags
+    Set-Release | Out-Null
     $tracked = Get-Content -Raw -LiteralPath (Join-Path $repo 'Mod\Properties\PublishConfiguration.xml')
-    $r = Invoke-Publish @('-AccessLevel', 'Private')
-    Check ($r.ExitCode -eq 0 -and $r.Calls -match '(?m)^publisher NewVersion ') 'a new version publishes with NewVersion' $r.Output
-    Check ($r.Seen -match '<AccessLevel Value="Private"') '-AccessLevel Private reaches ModPublisher' $r.Seen
-    Check ($r.Calls -match 'publisher NewVersion \S*fo-publish-content-\S*\\PublishConfiguration\.xml') '... through a temporary copy of the config' $r.Calls
+    $r = Invoke-Publish @('-AccessLevel', 'Private') -ModIdOut '4242'
+    Check ($r.ExitCode -eq 0 -and $r.Calls -match '(?m)^publisher Publish ') 'a private test of a new mod publishes (exit 0)' $r.Output
+    Check ($r.Seen -match '<AccessLevel Value="Private"') '... with AccessLevel Private' $r.Seen
+    Check ($r.Seen -match '<ModVersion Value="1\.0\.0-test\.\d{8}"' -and $r.Output -match 'uploaded version string 1\.0\.0-test\.\d{8}') '... and a pre-release version string, 1.0.0-test.<MMddHHmm>, reported' $r.Output
+    Check ($r.Calls -match 'publisher Publish \S*fo-publish-content-\S*\\PublishConfiguration\.xml') '... from a temporary copy of the config' $r.Calls
     $after = Get-Content -Raw -LiteralPath (Join-Path $repo 'Mod\Properties\PublishConfiguration.xml')
     $onOrigin = Git $repo @('show', 'origin/master:Mod/Properties/PublishConfiguration.xml')
-    Check ($after -eq $tracked -and $onOrigin -match 'AccessLevel Value="Public"' -and -not (Git $repo @('status', '--porcelain'))) '... leaving the tracked config Public and the checkout clean' (Git $repo @('status', '--porcelain'))
-    Check ((Get-RemoteTag 'v1.0.1') -eq $sha) '... and tags v1.0.1' "$(Get-RemoteTag 'v1.0.1')"
+    Check ($after -eq $tracked -and $onOrigin -match 'AccessLevel Value="Public"' -and $onOrigin -match 'ModVersion Value="1\.0\.0"' -and -not (Git $repo @('status', '--porcelain'))) '... leaving the tracked config (Public, 1.0.0) and the checkout clean' (Git $repo @('status', '--porcelain'))
+    Check (-not (Git $repo @('tag', '--list')) -and -not (Get-RemoteTag 'v1.0.0') -and $r.Output -match 'not tagged') '... tagging nothing: the release stays unused' (Git $repo @('tag', '--list'))
+    Check ($r.Output -match 'New ModId: 4242') '... and reporting the new ModId' $r.Output
+    $r = Invoke-Publish @('-AccessLevel', 'Private', '-TestSuffix', 'test.7') -ModIdOut '4242'
+    Check ($r.ExitCode -eq 0 -and $r.Seen -match '<ModVersion Value="1\.0\.0-test\.7"') '-TestSuffix names the pre-release label' $r.Seen
+    $r = Invoke-Publish @('-DryRun', '-AccessLevel', 'Private', '-TestSuffix', 'a b')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match "isn't a short pre-release label") 'fail case: a -TestSuffix with a space is refused' $r.Output
+    $r = Invoke-Publish @('-DryRun', '-TestSuffix', 'test.1')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match 'add -AccessLevel Private') 'fail case: -TestSuffix without -AccessLevel Private is refused' $r.Output
+    Git $repo @('tag', '-a', 'v1.0.0', 'HEAD', '-m', 'x') | Out-Null
+    $r = Invoke-Publish @('-DryRun', '-AccessLevel', 'Private')
+    Check ($r.ExitCode -eq 0 -and $r.Output -notmatch 'already published') 'a private test makes no "already published" claim from a v1.0.0 tag' $r.Output
     $r = Invoke-Publish @('-DryRun')
-    Check ($r.ExitCode -eq 2 -and $r.Output -match 'v1\.0\.1 is already published') 'fail case: a published version can''t go again as a NewVersion' $r.Output
+    Check ($r.ExitCode -eq 2 -and $r.Output -match 'v1\.0\.0 is already published') 'fail case: the same tag refuses a release' $r.Output
+    Git $repo @('tag', '-d', 'v1.0.0') | Out-Null
+
+    Write-Host '--- the public release after a private test ---'
+    $sha = Set-Release @{ ModId = '4242' }
+    $r = Invoke-Publish @()
+    Check ($r.ExitCode -eq 0 -and $r.Calls -match '(?m)^publisher NewVersion \S*fo-publish-[0-9a-f]{8}\\Mod\\Properties\\PublishConfiguration\.xml') 'with the test''s ModId committed, the release is a NewVersion from the tracked config' $r.Calls
+    Check ($r.Seen -match '<ModVersion Value="1\.0\.0" />' -and $r.Seen -match '<AccessLevel Value="Public" />') '... uploading 1.0.0 with AccessLevel Public (which switches the page to Public)' $r.Seen
+    Check ((Get-RemoteTag 'v1.0.0') -eq $sha) '... and tags v1.0.0' "$(Get-RemoteTag 'v1.0.0')"
+    $r = Invoke-Publish @('-DryRun')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match 'v1\.0\.0 is already published') 'fail case: a published version can''t go again as a NewVersion' $r.Output
+    $r = Invoke-Publish @('-DryRun', '-AccessLevel', 'Private')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match 'hide it from players') 'fail case: a private test of a mod with a release is refused (it would hide the mod)' $r.Output
 
     Write-Host '--- a page update ---'
     $r = Invoke-Publish @('-Mode', 'Update')
     Check ($r.ExitCode -eq 0 -and $r.Calls -match '(?m)^publisher Update ') 'Update runs ModPublisher Update even though the version is tagged' $r.Output
     Check ($r.Calls -notmatch '(?m)^(dotnet|npm) ') '... without building' $r.Calls
-    Check ((Git $repo @('tag', '--list')).Trim() -eq 'v1.0.1') '... and tags nothing' (Git $repo @('tag', '--list'))
+    Check ((Git $repo @('tag', '--list')).Trim() -eq 'v1.0.0') '... and tags nothing' (Git $repo @('tag', '--list'))
     Check ($r.Seen -match 'AccessLevel Value="Public"') 'without -AccessLevel the config''s own level is used' $r.Seen
 
     Write-Host '--- failures tag nothing ---'
