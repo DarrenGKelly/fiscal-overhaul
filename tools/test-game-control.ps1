@@ -111,6 +111,10 @@ try {
     Check ($r.ExitCode -eq 2 -and $r.Output -match 'Scale') 'a -Scale above 1 exits 2' $r.Output
     $r = Invoke-Tool @('screenshot', '-Out', "$root\x.png", '-Region', '0,0,5,5', '-Window')
     Check ($r.ExitCode -eq 2 -and $r.Output -match 'not both') '-Region with -Window exits 2' $r.Output
+    $r = Invoke-Tool @('screenshot', '-Out', "$root\x.png", '-Delay', '20000')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match 'Delay') 'a -Delay over 10 s exits 2' $r.Output
+    $r = Invoke-Tool @('wait-process', '-Gone', '-Title', 'x')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match 'not both') 'wait-process with -Gone and -Title exits 2' $r.Output
     Check (-not (Test-Path "$root\x.png")) 'no screenshot is written after a bad argument'
     $r = Invoke-Tool @('click', '-X', '5')
     Check ($r.ExitCode -eq 2 -and $r.Output -match 'needs -Y') 'click without -Y exits 2' $r.Output
@@ -133,7 +137,7 @@ try {
         $png.Image.Dispose()
     }
     $half = Join-Path $root 'half.png'
-    $r = Invoke-Tool @('screenshot', '-Out', $half, '-Scale', '0.5')
+    $r = Invoke-Tool @('screenshot', '-Out', $half, '-Scale', '0.5', '-Delay', '100')
     if (Test-Path $half) {
         $png = Read-Png $half
         Check ($png.Width -eq [Math]::Round($primary.Width / 2) -and $png.Height -eq [Math]::Round($primary.Height / 2)) '-Scale 0.5 halves the screenshot' "got $($png.Width)x$($png.Height)"
@@ -233,9 +237,34 @@ try {
     $r = Invoke-Tool @('wait-process', '-Timeout', '1')
     Check ($r.ExitCode -eq 1 -and $r.Output -match 'timed out after 1 s') 'wait-process times out when the game never starts' $r.Output
     $r = Invoke-Tool @('wait-process', '-Timeout', '5') -GameName $formProcess.ProcessName
-    Check ($r.ExitCode -eq 0 -and $r.Output -match "window '$([regex]::Escape($formTitle))' up") 'wait-process returns once a process of that name has a window' $r.Output
+    Check ($r.ExitCode -eq 0 -and $r.Output -match "window '$([regex]::Escape($formTitle))' \(.+\) up after") 'wait-process returns once a process of that name has a window' $r.Output
     $r = Invoke-Tool @('wait-process', '-Gone', '-Timeout', '5')
     Check ($r.ExitCode -eq 0 -and $r.Output -match 'gone') 'wait-process -Gone returns when the game is not running' $r.Output
+    $r = Invoke-Tool @('wait-process', '-Title', [regex]::Escape($formTitle), '-Timeout', '5')
+    Check ($r.ExitCode -eq 0 -and $r.Output -match "window '$([regex]::Escape($formTitle))'") 'wait-process -Title returns once a window with that title is up' $r.Output
+    $r = Invoke-Tool @('wait-process', '-Title', 'fo-no-window-has-this-title', '-Timeout', '1')
+    Check ($r.ExitCode -eq 1 -and $r.Output -match 'timed out after 1 s waiting for a window titled') 'wait-process -Title times out when no such window appears' $r.Output
+
+    # --- wait-loaded, against a stand-in log folder ----------------------------------------------------------------
+    $logDir = Join-Path $root 'logs'
+    New-Item -ItemType Directory -Force $logDir | Out-Null
+    $sceneFlow = Join-Path $logDir 'SceneFlow.log'
+    Set-Content -LiteralPath $sceneFlow "[INFO]  Starting game from 'Odiham (SaveGameMetadata:1)'`n[INFO]  Loading mode Game with purpose LoadGame"
+    $env:FO_GAME_LOG_DIR = $logDir
+    try {
+        $r = Invoke-Tool @('wait-loaded', '-Timeout', '2') -GameName $formProcess.ProcessName
+        Check ($r.ExitCode -eq 1 -and $r.Output -match 'timed out after 2 s waiting for the save to load') 'wait-loaded times out while the log has no "Loading completed"' $r.Output
+        Add-Content -LiteralPath $sceneFlow '[INFO]  Loading completed'
+        (Get-Item -LiteralPath $sceneFlow).LastWriteTime = [datetime]'2020-01-01'
+        $r = Invoke-Tool @('wait-loaded', '-Timeout', '2') -GameName $formProcess.ProcessName
+        Check ($r.ExitCode -eq 1) 'wait-loaded ignores a log older than the game process (an earlier launch)' $r.Output
+        (Get-Item -LiteralPath $sceneFlow).LastWriteTime = Get-Date
+        $r = Invoke-Tool @('wait-loaded', '-Timeout', '5') -GameName $formProcess.ProcessName
+        Check ($r.ExitCode -eq 0 -and $r.Output -match 'the save \(Odiham\) loaded') 'wait-loaded returns once this launch''s log says "Loading completed"' $r.Output
+        $r = Invoke-Tool @('wait-loaded', '-Timeout', '1')
+        Check ($r.ExitCode -eq 1 -and $r.Output -match 'not running') 'wait-loaded with no game process times out and says it is not running' $r.Output
+    }
+    finally { $env:FO_GAME_LOG_DIR = $null }
 }
 finally {
     if ($formProcess -and -not $formProcess.HasExited) { Stop-Process -Id $formProcess.Id -Force -ErrorAction SilentlyContinue }

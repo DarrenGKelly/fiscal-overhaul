@@ -9,8 +9,9 @@
     -Scale s or of a -Region/-Window prints its origin: screen = origin + pixel / s.
 
     Commands (each prints what it did; exit 0 done, 1 failed, 2 bad arguments):
-      screenshot -Out <png> [-Region x,y,w,h | -Window [-Title <regex>]] [-Scale <0.1-1>]
-                     the primary monitor, a screen region, or the game window (or the window -Title matches)
+      screenshot -Out <png> [-Region x,y,w,h | -Window [-Title <regex>]] [-Scale <0.1-1>] [-Delay <ms>]
+                     the primary monitor, a screen region, or the game window's client area (or the window
+                     -Title matches); -Delay waits first (a panel takes about a second to fade in)
       click -X <x> -Y <y> [-Right] [-Double]   move there, then press and release the button
       move -X <x> -Y <y>                       put the cursor there (a real input event, checked with GetCursorPos)
       move-relative -Dx <dx> -Dy <dy> [-Steps <n>]
@@ -22,7 +23,11 @@
       focus [-Title <regex>]                   bring the game window (or the window -Title matches) to the front
       window [-Title <regex>]                  print the window's rect and client rect as x,y,w,h
       windows                                  list visible top-level windows (title and process)
-      wait-process [-Timeout <s>] [-Gone]      wait for the game's window to appear (or the process to end)
+      wait-process [-Timeout <s>] [-Gone | -Title <regex>]
+                     wait for the game's window to appear, a window -Title matches to appear (the
+                     Paradox launcher), or the game process to end
+      wait-loaded [-Timeout <s>]               wait for the save to finish loading ("Loading completed" in this
+                                               launch's Logs/SceneFlow.log; $env:FO_GAME_LOG_DIR overrides the folder)
       cursor                                   print the cursor position
 
     The game window is the main window of the process Get-GameProcess names (Cities2, or $env:FO_GAME_PROCESS_NAME).
@@ -38,7 +43,7 @@ param(
     [Parameter(Position = 0)][string]$Command,
     [Parameter(Position = 1)][string]$Name,
     [string]$Out,
-    [string]$Region,
+    [string[]]$Region,
     [double]$Scale = 1,
     [switch]$Window,
     [string]$Title,
@@ -50,6 +55,7 @@ param(
     [int]$Dy,
     [int]$Steps = 1,
     [int]$Hold = 60,
+    [int]$Delay = 0,
     [int]$Timeout = 300,
     [switch]$Gone
 )
@@ -67,7 +73,7 @@ function Assert-Bound([string[]]$Names) {
 }
 
 $commands = 'screenshot', 'click', 'move', 'move-relative', 'hover', 'key', 'focus', 'window', 'windows',
-    'wait-process', 'cursor'
+    'wait-process', 'wait-loaded', 'cursor'
 if (-not $Command) { Stop-With "no command; one of: $($commands -join ', ') (Get-Help $PSCommandPath -Full)" 2 }
 if ($Command -notin $commands) { Stop-With "unknown command '$Command'; one of: $($commands -join ', ')" 2 }
 
@@ -255,7 +261,9 @@ switch ($Command) {
         Assert-Bound 'Out'
         if ($Scale -lt 0.1 -or $Scale -gt 1) { Stop-With "-Scale must be between 0.1 and 1, not $Scale" 2 }
         if ($Region -and $Window) { Stop-With 'give -Region or -Window, not both' 2 }
+        if ($Delay -lt 0 -or $Delay -gt 10000) { Stop-With "-Delay must be 0 to 10000 ms, not $Delay" 2 }
         if ($Region) {
+            $Region = $Region -join ','
             $parts = @($Region -split '[,\s]+' | Where-Object { $_ -ne '' })
             $numbers = @($parts | Where-Object { $_ -match '^-?\d+$' } | ForEach-Object { [int]$_ })
             if ($numbers.Count -ne 4 -or $parts.Count -ne 4) { Stop-With "-Region must be x,y,w,h (four integers), not '$Region'" 2 }
@@ -277,6 +285,7 @@ switch ($Command) {
         $outPath = [IO.Path]::GetFullPath($Out, (Get-Location).Path)
         $parent = Split-Path -Parent $outPath
         if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Force $parent | Out-Null }
+        if ($Delay) { Start-Sleep -Milliseconds $Delay }   # let a panel finish fading in
         $bitmap = [System.Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
         try {
             $g = [System.Drawing.Graphics]::FromImage($bitmap)
@@ -398,19 +407,51 @@ switch ($Command) {
     }
     'wait-process' {
         if ($Timeout -lt 1) { Stop-With "-Timeout must be at least 1 second, not $Timeout" 2 }
+        if ($Title -and $Gone) { Stop-With 'give -Title or -Gone, not both' 2 }
         $name = if ($env:FO_GAME_PROCESS_NAME) { $env:FO_GAME_PROCESS_NAME } else { 'Cities2' }
+        $what = if ($Title) { "a window titled '$Title'" } elseif ($Gone) { "$name to exit" } else { "$name to show a window" }
         $clock = [Diagnostics.Stopwatch]::StartNew()
         while ($true) {
             $process = Get-Process -Name $name -ErrorAction SilentlyContinue
             if ($Gone -and -not $process) { "wait-process: $name gone after $([int]$clock.Elapsed.TotalSeconds) s"; break }
-            $withWindow = @(Get-GameWindow $name) | Select-Object -First 1
-            if (-not $Gone -and $withWindow) {
-                "wait-process: $name window '$([FoGameControl.Native]::Text($withWindow))' up after $([int]$clock.Elapsed.TotalSeconds) s"
+            $found = if ($Title) {
+                [FoGameControl.Native]::VisibleWindows() | Where-Object { [FoGameControl.Native]::Text($_) -match $Title } | Select-Object -First 1
+            }
+            elseif (-not $Gone) { @(Get-GameWindow $name) | Select-Object -First 1 }
+            if ($found) {
+                "wait-process: window '$([FoGameControl.Native]::Text($found))' ($(Get-ProcessName $found)) up after $([int]$clock.Elapsed.TotalSeconds) s"
                 break
             }
             if ($clock.Elapsed.TotalSeconds -ge $Timeout) {
                 $state = if ($process) { 'running' } else { 'not running' }
-                Stop-With "timed out after $Timeout s waiting for $name to $(if ($Gone) { 'exit' } else { 'show a window' }) ($state)"
+                Stop-With "timed out after $Timeout s waiting for $what ($name $state)"
+            }
+            Start-Sleep -Seconds 1
+        }
+    }
+    'wait-loaded' {
+        # The game writes Logs/SceneFlow.log afresh each launch; "Loading completed" ends a save's load.
+        if ($Timeout -lt 1) { Stop-With "-Timeout must be at least 1 second, not $Timeout" 2 }
+        $name = if ($env:FO_GAME_PROCESS_NAME) { $env:FO_GAME_PROCESS_NAME } else { 'Cities2' }
+        $logDir = if ($env:FO_GAME_LOG_DIR) { $env:FO_GAME_LOG_DIR } else { Join-Path $env:USERPROFILE 'AppData\LocalLow\Colossal Order\Cities Skylines II\Logs' }
+        $log = Join-Path $logDir 'SceneFlow.log'
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        $seen = $false
+        while ($true) {
+            $process = Get-Process -Name $name -ErrorAction SilentlyContinue | Sort-Object StartTime | Select-Object -First 1
+            if ($process) { $seen = $true }
+            elseif ($seen) { Stop-With "$name exited while loading (read the logs: knowledge/cs2-ui-modding.md#logs)" }
+            if ($process -and (Test-Path -LiteralPath $log) -and (Get-Item -LiteralPath $log).LastWriteTime -ge $process.StartTime.AddSeconds(-2)) {
+                $text = Get-Content -LiteralPath $log -Raw -ErrorAction SilentlyContinue
+                if ($text -match 'Loading completed') {
+                    $save = if ($text -match "Starting game from '([^ ']+)") { " ($($Matches[1]))" } else { '' }
+                    "wait-loaded: the save$save loaded after $([int]$clock.Elapsed.TotalSeconds) s"
+                    break
+                }
+            }
+            if ($clock.Elapsed.TotalSeconds -ge $Timeout) {
+                $state = if ($process) { 'running, no "Loading completed" in ' + $log } else { 'not running' }
+                Stop-With "timed out after $Timeout s waiting for the save to load ($name $state)"
             }
             Start-Sleep -Seconds 1
         }
