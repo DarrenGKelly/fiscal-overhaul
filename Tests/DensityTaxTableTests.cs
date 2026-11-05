@@ -82,5 +82,69 @@ namespace FiscalOverhaul.Tests
             var table = DensityTaxTable.Parse("99,0,0,0,0,0,0,0,0,0,0,0");
             Assert.Equal(DensityTaxTable.MaxOffset, table.Get(TaxZone.Residential, Density.Low));
         }
+
+        [Fact]
+        public void EffectiveOffsets_AreTheStoredOnesWhileEnabled()
+        {
+            var table = new DensityTaxTable();
+            table.Set(TaxZone.Residential, Density.High, 3);
+            table.Set(TaxZone.Commercial, Density.Low, -2);
+
+            int[] effective = table.EffectiveOffsets(enabled: true);
+
+            Assert.Equal(table.ToArray(), effective);
+            Assert.Equal(3, effective[DensityTaxTable.Index(TaxZone.Residential, Density.High)]);
+            Assert.Equal(-2, effective[DensityTaxTable.Index(TaxZone.Commercial, Density.Low)]);
+        }
+
+        [Fact]
+        public void EffectiveOffsets_AreAllZeroWhileDisabled()
+        {
+            var table = new DensityTaxTable();
+            table.Set(TaxZone.Residential, Density.High, 3);
+            table.Set(TaxZone.Commercial, Density.Low, -2);
+
+            int[] effective = table.EffectiveOffsets(enabled: false);
+
+            Assert.Equal(DensityTaxTable.ZoneCount * DensityTaxTable.DensityCount, effective.Length);
+            Assert.All(effective, offset => Assert.Equal(0, offset));
+        }
+
+        [Fact]
+        public void DisablingAndEnabling_KeepsTheStoredOffsets()
+        {
+            var table = new DensityTaxTable();
+            table.Set(TaxZone.Office, Density.High, 4);
+            string stored = table.Serialize();
+
+            table.EffectiveOffsets(enabled: false);
+            Assert.Equal(4, table.Get(TaxZone.Office, Density.High));
+            Assert.Equal(stored, table.Serialize());
+
+            Assert.Equal(4, table.EffectiveOffsets(enabled: true)[DensityTaxTable.Index(TaxZone.Office, Density.High)]);
+        }
+
+        [Fact]
+        public void EffectiveOffsets_IsACopy()
+        {
+            var table = new DensityTaxTable();
+            table.Set(TaxZone.Residential, Density.Low, 2);
+
+            table.EffectiveOffsets(enabled: true)[DensityTaxTable.Index(TaxZone.Residential, Density.Low)] = 5;
+
+            Assert.Equal(2, table.Get(TaxZone.Residential, Density.Low));
+        }
+
+        [Fact]
+        public void IsCharged_OnlyWhenEnabledWithAnOffsetSet()
+        {
+            var table = new DensityTaxTable();
+            Assert.False(table.IsCharged(enabled: true));  // nothing set
+            Assert.False(table.IsCharged(enabled: false));
+
+            table.Set(TaxZone.Industrial, Density.Low, 1);
+            Assert.True(table.IsCharged(enabled: true));
+            Assert.False(table.IsCharged(enabled: false)); // set, but switched off
+        }
     }
 }

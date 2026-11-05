@@ -1,8 +1,8 @@
 import { useValue } from "cs2/api";
 import { useCallback, useState } from "react";
-import { densityTaxes$, DensityTaxCell, setDensityTax } from "bindings";
+import { densityTaxes$, densityTaxesEnabled$, DensityTaxCell, setDensityTax } from "bindings";
 import { TaxSlider } from "vanilla";
-import { densityLabel, zoneForAreaIndex } from "./density";
+import { cellsForArea, densityLabel } from "./density";
 import styles from "./density-rows.module.scss";
 
 interface AreaTypeLike {
@@ -18,13 +18,12 @@ interface AreaTypeLike {
  */
 export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
   const data = useValue(densityTaxes$);
+  const enabled = useValue(densityTaxesEnabled$);
   const [open, setOpen] = useState(false);
-  const zone = zoneForAreaIndex(areaType.index);
   const toggle = useCallback(() => setOpen((o) => !o), []);
 
-  if (zone < 0 || areaType.locked || !data) return null;
-  const cells = data.cells.filter((c) => c.zone === zone);
-  if (cells.length === 0) return null;
+  const cells = cellsForArea(data?.cells, areaType.index, areaType.locked, enabled);
+  if (!data || cells.length === 0) return null;
   const active = cells.filter((c) => c.offset !== 0).length;
 
   return (

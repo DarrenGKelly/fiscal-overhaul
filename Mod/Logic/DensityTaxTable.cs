@@ -77,6 +77,15 @@ namespace FiscalOverhaul.Logic
         public int[] ToArray() => (int[])m_Offsets.Clone();
 
         /// <summary>
+        /// The offsets the tax systems charge, indexed by <see cref="Index"/>: the stored ones while density taxes are
+        /// enabled, all 0 while disabled. The stored offsets are never touched, so enabling again restores them.
+        /// </summary>
+        public int[] EffectiveOffsets(bool enabled) => enabled ? ToArray() : new int[m_Offsets.Length];
+
+        /// <summary>Whether any building pays a density offset: density taxes enabled and at least one offset set.</summary>
+        public bool IsCharged(bool enabled) => enabled && !IsEmpty;
+
+        /// <summary>
         /// The rate actually charged: base + offset, never below 0 (a negative rate would pay citizens).
         /// Returns the delta applied so it can be undone exactly.
         /// </summary>

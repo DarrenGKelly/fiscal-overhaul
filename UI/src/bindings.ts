@@ -4,6 +4,9 @@ import { BudgetHistory } from "chart/chart-math";
 // Bindings published by the C# systems in Mod/Systems (group "fiscalOverhaul").
 const GROUP = "fiscalOverhaul";
 
+/** Options > Enable budget chart. Off: the Budget tab is the vanilla page. */
+export const budgetChartEnabled$ = bindValue<boolean>(GROUP, "budgetChartEnabled", true);
+
 export const history$ = bindValue<BudgetHistory | null>(GROUP, "history", null);
 
 /** Months of history the chart shows; 0 = all. */
@@ -23,6 +26,9 @@ export interface DensityTaxes {
   maxOffset: number;
   cells: DensityTaxCell[];
 }
+
+/** Options > Enable density taxes. Off: the Taxation tab has no density rows. */
+export const densityTaxesEnabled$ = bindValue<boolean>(GROUP, "densityTaxesEnabled", true);
 
 export const densityTaxes$ = bindValue<DensityTaxes | null>(GROUP, "densityTaxes", null);
 

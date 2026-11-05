@@ -18,10 +18,12 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// Taxation tab bindings for density offsets (group "fiscalOverhaul"):
-    ///   densityTaxes    raw { maxOffset, cells: [{ zone, density, offset, estimate, buildings }] } (supported cells only)
-    ///   setDensityTax   trigger(int zone, int density, int offset)
+    ///   densityTaxesEnabled  bool  <see cref="Setting.EnableDensityTaxes"/>; false = the UI shows no density rows
+    ///   densityTaxes         raw   { maxOffset, cells: [{ zone, density, offset, estimate, payers }] } (supported cells only)
+    ///   setDensityTax        trigger(int zone, int density, int offset)
     /// The estimate is the extra (or lost) monthly revenue the offset brings, from what each cell's tax payers
-    /// paid last month at their average rate. Refreshed every ~2 s while the Economy panel is open.
+    /// paid last month at their average rate. Refreshed every ~2 s while the Economy panel is open and density
+    /// taxes are enabled.
     /// </summary>
     public partial class DensityTaxUISystem : UISystemBase
     {
@@ -29,6 +31,7 @@ namespace FiscalOverhaul
 
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_Binding;
+        private ValueBinding<bool> m_EnabledBinding;
         private EntityQuery m_PayerQuery;
         private Setting m_Setting;
 
@@ -50,6 +53,7 @@ namespace FiscalOverhaul
                 All = new[] { ComponentType.ReadOnly<TaxPayer>(), ComponentType.ReadOnly<PropertyRenter>() },
                 None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() },
             });
+            AddBinding(m_EnabledBinding = new ValueBinding<bool>(BudgetHistoryUISystem.kGroup, "densityTaxesEnabled", true));
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "densityTaxes", Write));
             AddBinding(new TriggerBinding<int, int, int>(BudgetHistoryUISystem.kGroup, "setDensityTax", SetDensityTax));
         }
@@ -57,7 +61,13 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
-            if (!(m_PanelSystem.activePanel is EconomyPanel)) return;
+            bool enabled = DensityTaxState.Enabled;
+            m_EnabledBinding.Update(enabled);
+            if (!FeatureGates.BuildsPanelData(enabled, m_PanelSystem.activePanel is EconomyPanel))
+            {
+                m_FramesSinceRefresh = kRefreshFrames; // refresh as soon as the rows show again
+                return;
+            }
 
             bool changed = DensityTaxState.Version != m_LastVersion;
             if (++m_FramesSinceRefresh >= kRefreshFrames)

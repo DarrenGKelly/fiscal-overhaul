@@ -84,7 +84,7 @@ namespace FiscalOverhaul
             m_AppliedReaders.Complete();
             m_AppliedReaders = default;
             m_Applied.Clear();
-            if (DensityTaxState.Table.IsEmpty) return;
+            if (!DensityTaxState.IsCharged) return; // disabled in Options, or no offset set: vanilla rates
 
             uint updateFrame = SimulationUtils.GetUpdateFrame(m_SimulationSystem.frameIndex, TaxSystem.kUpdatesPerDay, 16);
             m_PayerQuery.ResetFilter();
