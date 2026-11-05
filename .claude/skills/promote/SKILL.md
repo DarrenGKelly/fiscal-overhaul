@@ -66,12 +66,13 @@ git switch --detach <autodev head plan printed>
 python tools/promote.py stamp vX.Y.Z --body <scratchpad>/promote-body.md
 ```
 
-The ChangeLog it drafts (`<ChangeLog>` in `Mod/Properties/PublishConfiguration.xml`) lists every Included PR. Edit it
-to what players will notice, in plain words, one `- ` line each; drop tooling and docs-only lines (keep at least one).
-Then:
+It gives `CHANGELOG.md` a `## [X.Y.Z]` section (the `Unreleased` entries, or else a draft listing every Included PR;
+an existing section is kept) and copies that section into the config's `<ChangeLog>`. Edit the section to what
+players will notice, in plain words; drop tooling and docs-only lines (keep at least one). Then run the same `stamp`
+again, which copies the edited section into the config, and:
 
 ```
-git commit -am "Stamp vX.Y.Z: ModVersion, UI/mod.json version and ChangeLog"
+git commit -am "Stamp vX.Y.Z: ModVersion, UI/mod.json version, CHANGELOG.md and ChangeLog"
 git push origin HEAD:refs/heads/feature/promote-vX-Y-Z
 git switch -
 gh pr create --base master --head feature/promote-vX-Y-Z --title "vX.Y.Z - … (autodev promotion)" --body-file <scratchpad>/promote-body.md

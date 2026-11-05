@@ -3,8 +3,9 @@
     python tools/promote.py plan [--out FILE] [--since PR]
         (this round's PRs, the issues they fix, the next version, the PR body; --since replays from an older promotion)
     python tools/promote.py stamp VERSION --body FILE
-        (on the promotion branch: VERSION into ModVersion and UI/mod.json, and a ChangeLog drafted from the body's
-        Included list into Mod/Properties/PublishConfiguration.xml, for tools/publish.ps1)
+        (on the promotion branch: VERSION into ModVersion and UI/mod.json; its CHANGELOG.md section, made from
+        Unreleased or drafted from the body's Included list unless it exists; and that section as the ChangeLog in
+        Mod/Properties/PublishConfiguration.xml, for tools/publish.ps1. Rerun after editing the section.)
     python tools/promote.py verify PR
         (after the user merged PR: autodev synced, and every issue its listed PRs fix is closed)
 
@@ -21,6 +22,7 @@ and `gh` signed in. Tests: python tools/test-promote.py
 """
 
 import argparse
+import datetime
 import json
 from xml.sax.saxutils import escape
 import os
@@ -193,6 +195,51 @@ def stamp_mod_json(text, version):
     return text[:match.start(2)] + version + text[match.end(2):]
 
 
+CHANGELOG_MD = "CHANGELOG.md"
+MD_SECTION = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
+MD_LINK = re.compile(r"^\[[^\]]+\]: ", re.MULTILINE)
+UNRELEASED_LINK = re.compile(r"^\[Unreleased\]: (\S+?)/compare/(v[^.\s]+\.[^.\s]+\.[^.\s]+)\.\.\.HEAD[ \t]*$", re.MULTILINE)
+
+
+def _md_section(text, heading):
+    """(start of the body, end of the body) of the "## [heading]" section: up to the next "## " or link reference."""
+    match = next((m for m in MD_SECTION.finditer(text) if m.group(1) == heading), None)
+    if not match:
+        return None
+    start = text.find("\n", match.end())
+    start = len(text) if start < 0 else start + 1
+    ends = [m.start() for m in (re.compile(r"^## ", re.MULTILINE).search(text, start), MD_LINK.search(text, start)) if m]
+    return start, min(ends) if ends else len(text)
+
+
+def stamp_changelog_md(text, version, date, draft):
+    """CHANGELOG.md (Keep a Changelog) with a "## [version] - date" section, and that section's body.
+
+    A section for version that already exists is kept as it is (so an edited one survives a second stamp). Otherwise
+    the new section takes the Unreleased section's entries, or the draft when Unreleased is empty, goes right under
+    "## [Unreleased]" (left empty), and gets its link reference beside [Unreleased]'s, which moves on to the version."""
+    nl = "\r\n" if "\r\n" in text else "\n"
+    text = text.replace("\r\n", "\n")
+    existing = _md_section(text, version)
+    if existing:
+        return text.replace("\n", nl), text[existing[0]:existing[1]].strip()
+    unreleased = _md_section(text, "Unreleased")
+    body = (text[unreleased[0]:unreleased[1]].strip() if unreleased else "") or draft.strip()
+    section = "## [%s] - %s\n\n%s\n\n" % (version, date, body)
+    if unreleased:
+        text = text[:unreleased[0]] + "\n" + section + text[unreleased[1]:]
+    else:
+        first = MD_SECTION.search(text) or MD_LINK.search(text)
+        at = first.start() if first else len(text)
+        text = text[:at] + section + text[at:]
+    link = UNRELEASED_LINK.search(text)
+    if link:
+        base, previous = link.group(1), link.group(2)
+        lines = "[Unreleased]: %s/compare/v%s...HEAD\n[%s]: %s/compare/%s...v%s" % (base, version, version, base, previous, version)
+        text = text[:link.start()] + lines + text[link.end():]
+    return text.replace("\n", nl), body
+
+
 def render_body(entries, fixes, last, head=None):
     since = "since the last promotion (#%d)" % last["number"] if last else "since it branched from `master` (the first promotion)"
     lines = ["Promotes `autodev` to `master`: everything merged into `autodev` %s." % since, ""]
@@ -277,15 +324,23 @@ def plan(out, since=None):
     return 0 if synced and entries else 1
 
 
-def stamp(version, body_file):
-    """Writes version and the body's ChangeLog draft into this checkout's config and UI/mod.json."""
+def stamp(version, body_file, date=None):
+    """Writes version into this checkout's config and UI/mod.json, its section into CHANGELOG.md (from Unreleased or
+    the body's Included list, unless it exists), and that section into the config's ChangeLog."""
     if not version_key(version):
         sys.exit("%s isn't a version (vX.Y.Z)" % version)
     bare = "%d.%d.%d" % version_key(version)
     with open(body_file, encoding="utf-8") as f:
         changelog = changelog_from_body(f.read())
+    md_path = os.path.join(REPO, CHANGELOG_MD)
+    if os.path.exists(md_path):
+        with open(md_path, encoding="utf-8", newline="") as f:
+            md = f.read()
+        md, changelog = stamp_changelog_md(md, bare, date or datetime.date.today().isoformat(), changelog)
+    else:
+        md = None
     if not changelog:
-        sys.exit("%s has no Included entries to draft the ChangeLog from" % body_file)
+        sys.exit("%s has no Included entries (and %s nothing for %s) to make the ChangeLog from" % (body_file, CHANGELOG_MD, bare))
     config_path, mod_json_path = os.path.join(REPO, CONFIG), os.path.join(REPO, MOD_JSON)
     with open(config_path, encoding="utf-8-sig", newline="") as f:
         config = f.read()
@@ -298,7 +353,11 @@ def stamp(version, body_file):
         f.write(stamp_config(config, bare, changelog))
     with open(mod_json_path, "w", encoding="utf-8", newline="") as f:
         f.write(stamp_mod_json(mod_json, bare))
-    print("stamped %s (ModVersion was %s) into %s and %s, with this ChangeLog:" % (bare, current or "unset", CONFIG, MOD_JSON))
+    if md is not None:
+        with open(md_path, "w", encoding="utf-8", newline="") as f:
+            f.write(md)
+    print("stamped %s (ModVersion was %s) into %s, %s%s, with this ChangeLog:"
+          % (bare, current or "unset", CONFIG, MOD_JSON, "" if md is None else " and " + CHANGELOG_MD))
     print(changelog)
     return 0
 

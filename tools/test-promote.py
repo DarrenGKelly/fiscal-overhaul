@@ -240,5 +240,81 @@ finally:
     pm.REPO = saved_repo
     shutil.rmtree(tmp, ignore_errors=True)
 
+# stamp_changelog_md: a Keep a Changelog section per version, from Unreleased or the draft; an existing one kept.
+MD = """# Changelog
+
+Intro.
+
+## [Unreleased]
+
+## [1.0.0] - 2026-11-04
+
+First public release.
+
+### Added
+
+- **Budget tab:** a line chart.
+
+[Unreleased]: https://github.com/o/r/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/o/r/releases/tag/v1.0.0
+"""
+md, body = pm.stamp_changelog_md(MD, "1.0.0", "2026-12-01", "- draft")
+check(md == MD and body.startswith("First public release.") and body.endswith("a line chart."),
+      "an existing section is kept as it is, and is the ChangeLog", body)
+md, body = pm.stamp_changelog_md(MD, "1.0.1", "2026-12-01", "- Fixed the tooltip")
+check("## [Unreleased]\n\n## [1.0.1] - 2026-12-01\n\n- Fixed the tooltip\n\n## [1.0.0] - 2026-11-04" in md,
+      "a new version gets its section under an empty Unreleased, from the draft", md)
+check(body == "- Fixed the tooltip", "... which is the ChangeLog", body)
+check("[Unreleased]: https://github.com/o/r/compare/v1.0.1...HEAD\n[1.0.1]: https://github.com/o/r/compare/v1.0.0...v1.0.1\n[1.0.0]:" in md,
+      "... and its link reference, with Unreleased moved on", md)
+again, body2 = pm.stamp_changelog_md(md, "1.0.1", "2026-12-02", "- other")
+check(again == md and body2 == body, "stamping the same version twice changes nothing (an edited section survives)")
+pending = MD.replace("## [Unreleased]\n", "## [Unreleased]\n\n### Fixed\n\n- The legend\n")
+md, body = pm.stamp_changelog_md(pending, "1.1.0", "2026-12-01", "- draft")
+check(body == "### Fixed\n\n- The legend" and "## [Unreleased]\n\n## [1.1.0] - 2026-12-01\n\n### Fixed\n\n- The legend\n\n## [1.0.0]" in md,
+      "Unreleased entries move into the new section instead of the draft", md)
+check("draft" not in md, "... and the draft isn't used then")
+crlf, _ = pm.stamp_changelog_md(MD.replace("\n", "\r\n"), "1.0.1", "2026-12-01", "- x")
+check(crlf.count("\n") == crlf.count("\r\n"), "a CRLF changelog keeps CRLF")
+bare, body = pm.stamp_changelog_md("# Changelog\n\n", "0.2.0", "2026-12-01", "- y")
+check("## [0.2.0] - 2026-12-01\n\n- y" in bare and body == "- y", "a changelog without sections or links gets the section", bare)
+
+# stamp with a CHANGELOG.md: the section is written and becomes the config's ChangeLog.
+tmp = tempfile.mkdtemp(prefix="fo-test-promote-")
+saved_repo = pm.REPO
+try:
+    pm.REPO = tmp
+    os.makedirs(os.path.join(tmp, "Mod", "Properties"))
+    os.makedirs(os.path.join(tmp, "UI"))
+    with open(os.path.join(tmp, pm.CONFIG), "w", encoding="utf-8-sig", newline="") as f:
+        f.write(CONFIG.replace('Value="1.0"', 'Value="1.0.0"'))
+    with open(os.path.join(tmp, pm.MOD_JSON), "w", encoding="utf-8", newline="") as f:
+        f.write(mod_json)
+    with open(os.path.join(tmp, pm.CHANGELOG_MD), "w", encoding="utf-8", newline="") as f:
+        f.write(MD)
+    body_path = os.path.join(tmp, "body.md")
+    with open(body_path, "w", encoding="utf-8") as f:
+        f.write(rendered)
+    check(pm.stamp("v1.0.1", body_path, date="2026-12-01") == 0, "stamp v1.0.1 with a CHANGELOG.md succeeds")
+    with open(os.path.join(tmp, pm.CHANGELOG_MD), encoding="utf-8") as f:
+        written = f.read()
+    check("## [1.0.1] - 2026-12-01\n\n- Density tax curve\n- Minor ui changes" in written,
+          "... adding the version's section, drafted from the Included list", written)
+    with open(os.path.join(tmp, pm.CONFIG), encoding="utf-8-sig") as f:
+        config_log = ET.fromstring(f.read()).find("ChangeLog").text.strip()
+    check(config_log == "- Density tax curve\n- Minor ui changes", "... and copying it into the config's ChangeLog", config_log)
+    with open(os.path.join(tmp, pm.CHANGELOG_MD), "w", encoding="utf-8") as f:
+        f.write(written.replace("- Minor ui changes\n", ""))
+    pm.stamp("v1.0.1", body_path, date="2026-12-09")
+    with open(os.path.join(tmp, pm.CONFIG), encoding="utf-8-sig") as f:
+        config_log = ET.fromstring(f.read()).find("ChangeLog").text.strip()
+    with open(os.path.join(tmp, pm.CHANGELOG_MD), encoding="utf-8") as f:
+        rewritten = f.read()
+    check(config_log == "- Density tax curve" and "2026-12-09" not in rewritten,
+          "a second stamp after editing the section copies the edit, keeping the section and its date", config_log)
+finally:
+    pm.REPO = saved_repo
+    shutil.rmtree(tmp, ignore_errors=True)
+
 print("\n%s" % ("all passed" if not failures else "%d FAILED" % failures))
 sys.exit(1 if failures else 0)

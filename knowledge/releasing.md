@@ -27,8 +27,11 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
   `ModVersion` autodev already declares when that is higher (a hand-made minor or major bump, or the first release),
   and never one already published: with a `v<version>` tag at or above it, the next patch after the highest tag.
 - On the promotion branch, `python tools/promote.py stamp vX.Y.Z --body <body>` writes `X.Y.Z` into `ModVersion` and
-  `UI/mod.json`'s `version`, and drafts the `ChangeLog` (one line per Included PR); the `/promote` skill trims it to
-  what players notice and commits it as the branch's one extra commit. It refuses a version below the declared one.
+  `UI/mod.json`'s `version`, and gives `CHANGELOG.md` (Keep a Changelog) a `## [X.Y.Z] - <date>` section unless it
+  has one: the `Unreleased` entries, or when there are none a draft with one line per Included PR, plus its link
+  reference. That section, as it stands, becomes the config's `ChangeLog`. The `/promote` skill edits the section to
+  what players notice and stamps again (an existing section is kept, so the edit is what gets copied), then commits
+  it as the branch's one extra commit. `stamp` refuses a version below the declared one.
 - That commit is on the promotion branch only, so the PR's head isn't in `autodev`'s history. The PR body records
   the `autodev` commit it was cut from (`Round head: <sha>`), and the next round starts there. The sync back after the
   merge brings the stamp into `autodev`.
@@ -37,7 +40,7 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
 
 ## tools/publish.ps1
 
-`./tools/publish.ps1 [-Mode Publish|NewVersion|Update] [-Ref origin/master] [-DryRun] [-AccessLevel Private|Unlisted]`
+`./tools/publish.ps1 [-Mode Publish|NewVersion|Update] [-Ref origin/master] [-DryRun] [-AccessLevel Private [-TestSuffix <label>]]`
 (its help has every detail).
 
 - **Where it builds.** It fetches, checks the ref out detached in a temporary worktree under TEMP (never the user's
@@ -49,14 +52,31 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
 - **It refuses before uploading**, each refusal naming its fix: `ModVersion` other than `UI/mod.json`'s version; an
   empty `ChangeLog` for `NewVersion` or `Update`; a missing `Thumbnail` or `Screenshot` file; a template leftover
   ("This is a long description", an empty `Tag`, `ExternalLink`, `Screenshot`, `Dependency` or `RequiredDLC`); an
-  `AccessLevel` other than `Public`, `Private` or `Unlisted`; and, for an upload of a version, a `v<version>` tag that
-  already exists. A refusal on `master` is fixed on `autodev` and promoted again.
+  `AccessLevel` other than `Public`, `Private` or `Unlisted`; for a release, a `v<version>` tag that already exists;
+  for a private test, a mod that has had a release. A refusal on `master` is fixed on `autodev` and promoted again.
 - **`-DryRun`** does all of that and the Release build, then prints the exact command and stops.
-- **`-AccessLevel Private`** uploads with that access level for this run only, from a temporary copy of the config:
-  a test upload only the account can see. Making it public later is `-Mode Update` with the config's `Public`; the
-  version is already uploaded, so its tag stays.
-- **After a successful upload** of a version it tags the built commit `v<version>` (an annotated tag naming the mode
-  and access level) and pushes the tag. A failed build or upload tags nothing.
+- **After a successful release** (not a private test) it tags the built commit `v<version>` (an annotated tag naming
+  the mode and access level) and pushes the tag. A failed build or upload tags nothing.
+
+## Private test uploads
+
+`-AccessLevel Private` is a test of the pipeline or a build, and never uses up the release:
+
+- It uploads from a temporary copy of the config with `AccessLevel` `Private` and `ModVersion`
+  `<version>-<TestSuffix>`, by default `test.<MMddHHmm>` (`1.0.0-test.11042130`). Paradox refuses a new version whose
+  version string equals the mod's current one, so each test needs its own; `-TestSuffix test.2` names one (letters,
+  digits, dots, hyphens, at most 20).
+- It tags nothing and ignores an existing `v<version>` tag, so `<version>` stays free for the release.
+- It is refused once the mod has had a release (`ModId` set and any `v*` tag): the access level belongs to the whole
+  mod, not a version, so a private upload would hide the public mod.
+- A test of a new mod still creates the mod: record its `ModId` as for any `Publish` (below).
+
+**The first public release after a private test** is then an ordinary release from the promoted `master`: `ModId` is
+set, so the mode is `NewVersion`, with the plain version (`1.0.0`, different from the test's string) and the
+config's `AccessLevel` `Public`. ModPublisher sends the access level with every request (`NewVersion` and `Publish`
+as well as `Update`; read from its code and the SDK's `FillPublishMetadata`), so that one upload replaces the test
+build and switches the page to Public; no separate `-Mode Update` is needed. Check the page afterwards: if it still
+reads Private, `./tools/publish.ps1 -Mode Update` sets it again from the config.
 
 ## The new mod's ModId
 

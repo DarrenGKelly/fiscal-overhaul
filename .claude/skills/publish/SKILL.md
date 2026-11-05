@@ -39,13 +39,22 @@ git merge-base --is-ancestor origin/master origin/autodev || echo "autodev not s
 ./tools/publish.ps1 -DryRun
 ```
 
-Add `-AccessLevel Private` for a test upload only the account can see, `-Mode Update` for a page-only change. Exit 2
-is a refusal: relay each reason and its fix, and stop. Exit 1 is a failed build: show the error and stop.
+Add `-AccessLevel Private` for a private test upload (it may build an unpromoted ref, e.g. `-Ref origin/autodev`):
+it uploads `<version>-test.<time>`, tags nothing, and leaves the release unused
+([releasing.md § Private test uploads](../../../knowledge/releasing.md#private-test-uploads)). `-Mode Update` is a
+page-only change. Exit 2 is a refusal: relay each reason and its fix, and stop. Exit 1 is a failed build: show the
+error and stop.
+
+**The first public release after a private test** needs nothing special: the test's ModId is committed and promoted,
+so the dry run shows `NewVersion` with the plain version and `AccessLevel Public`. That upload replaces the test build
+and switches the page to Public. If step 1 finds `master` without the ModId, record it first (step 5): a `Publish`
+would make a second mod.
 
 ## 3. Ask the user
 
 Show, in a few lines, and ask whether to upload:
-- the mode (`Publish` = a new mod, `NewVersion`, `Update`), the version, the access level, and the commit (`Ref`);
+- the mode (`Publish` = a new mod, `NewVersion`, `Update`), the uploaded version string, the access level, whether
+  it is a release (tagged) or a private test, and the commit (`Ref`);
 - the ChangeLog: `git show origin/master:Mod/Properties/PublishConfiguration.xml` (between `<ChangeLog>` tags);
 - the command the dry run printed.
 
@@ -59,22 +68,22 @@ Run the same command without `-DryRun` (same `-AccessLevel` and `-Mode`):
 ./tools/publish.ps1
 ```
 
-- Exit 0: it uploaded, and for `Publish`/`NewVersion` tagged the commit `vX.Y.Z` and pushed the tag.
+- Exit 0: it uploaded, and for a release (`Publish`/`NewVersion`, not a private test) tagged the commit `vX.Y.Z`
+  and pushed the tag.
 - Exit 1 from ModPublisher: nothing was tagged. "Could not auto log in": the user launches the game, logs in, closes
   it, and you rerun step 4. Anything else: show the output and stop.
 - Uploaded but the tag push failed: run the `git tag`/`git push` line the script printed.
 
 ## 5. Record it
 
-- Check the tag: `git ls-remote --tags origin vX.Y.Z`.
-- **A new mod (`Publish`)**: the script printed `New ModId: <n>`. Commit it at once, through the autodev flow
+- A release: check the tag, `git ls-remote --tags origin vX.Y.Z`. A private test has none.
+- **A new mod (`Publish`, a private test included)**: the script printed `New ModId: <n>`. Commit it at once,
+  through the autodev flow
   ([git-workflow.md](../../../knowledge/git-workflow.md#autonomous-sessions-autodev)): a branch
   `feature/record-mod-id` from `origin/autodev`, `<ModId Value="<n>" />` in `Mod/Properties/PublishConfiguration.xml`,
   a PR into `autodev` (`gh pr create --base autodev --body-file <file>`), landed with `./tools/land-pr.ps1 <PR>`. It
-  reaches `master` with the next promotion, whose release is then a `NewVersion` (a rerun before that is refused by
-  the version's tag).
-- Tell the user: what was uploaded (mode, version, access level), the tag, and the ModId PR if any. A private test
-  upload goes public later with `./tools/publish.ps1 -Mode Update` once the config says `Public`.
+  reaches `master` with the next promotion, whose release is then a `NewVersion`.
+- Tell the user: what was uploaded (mode, version string, access level), the tag if any, and the ModId PR if any.
 
 ## When something doesn't fit
 

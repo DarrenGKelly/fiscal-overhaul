@@ -2,7 +2,7 @@
 
 ## 2026-11-04
 
-* **Creation**: releasing to Paradox Mods ([releasing.md](releasing.md)): `tools/publish.ps1` and its twin, the [/publish](../.claude/skills/publish/SKILL.md) skill, and `tools/promote.py stamp`, which writes the version and ChangeLog into the promotion branch. Promotion bodies now record their round head, since the stamp commit keeps the PR's head out of `autodev`.
+* **Creation**: releasing to Paradox Mods ([releasing.md](releasing.md)): `tools/publish.ps1` and its twin, the [/publish](../.claude/skills/publish/SKILL.md) skill, and `tools/promote.py stamp`, which writes the version, the `CHANGELOG.md` section and the ChangeLog into the promotion branch. Promotion bodies now record their round head, since the stamp commit keeps the PR's head out of `autodev`. A private test upload (`-AccessLevel Private`) uploads `<version>-test.<n>` and tags nothing, so the release stays unused ([releasing.md § Private test uploads](releasing.md#private-test-uploads)).
 
 ## 2026-11-03
 
