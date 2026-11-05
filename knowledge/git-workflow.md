@@ -88,8 +88,10 @@ landed meanwhile, start again from `git fetch`.
 The [`/promote` skill](../.claude/skills/promote/SKILL.md) does the Claude side: it syncs, writes the PR body with
 `tools/promote.py plan` (only this round's PRs, and every `Fixes #N` they carry, since a merge into `autodev` closes
 nothing), opens the PR from a throwaway `feature/promote-vX-Y-Z` branch (never from `autodev`: the repo deletes a
-merged PR's head), and after the user merges, syncs back and checks the issues closed (`tools/promote.py verify`).
-Only the user merges into `master`.
+merged PR's head) carrying one commit that stamps the release's version and ChangeLog (`tools/promote.py stamp`), and
+after the user merges, syncs back and checks the issues closed (`tools/promote.py verify`). Only the user merges into
+`master`. Uploading the release to Paradox Mods is a separate step the user runs: `/publish`
+([releasing.md](releasing.md)), which tags it `vX.Y.Z`.
 
 ## Worktrees
 
