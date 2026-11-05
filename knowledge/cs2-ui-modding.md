@@ -88,6 +88,10 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
 
 - `override(path, export, Component)` replaces a component everywhere it's used, for good: the vanilla one is gone.
 - `extend(path, export, Wrapped => props => …)` wraps one. The Taxation tab adds rows after each `TaxationGroup` this way.
+  The registry's setter reassigns the bundle's own variable, so other vanilla components that use the export get the
+  wrapper too: extending `TaxSlider`/`NumberField` reaches the ones `TaxationGroup`/`TaxationPage` draw. To change one
+  value a vanilla component computes itself, wrap its parent in a React context provider and let the extended child
+  read it (the Taxation totals: [impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
   It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
   the Options switch (a bool binding) is off.
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
