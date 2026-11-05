@@ -83,8 +83,10 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
 
 `cs2/modding`'s registrar (`UI/src/index.tsx`) gets the module registry:
 
-- `override(path, export, Component)` replaces a component everywhere it's used. The Budget tab does this.
+- `override(path, export, Component)` replaces a component everywhere it's used, for good: the vanilla one is gone.
 - `extend(path, export, Wrapped => props => …)` wraps one. The Taxation tab adds rows after each `TaxationGroup` this way.
+  It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
+  the Options switch (a bool binding) is off.
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
   `BudgetItemDetail`, `TaxSlider`) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.

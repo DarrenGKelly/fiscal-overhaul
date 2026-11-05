@@ -5,14 +5,18 @@ description: The replacement Budget tab — where its history data comes from (t
 resource:
   - Mod/Systems/BudgetHistoryUISystem.cs
   - Mod/Logic/BudgetHistoryMath.cs
+  - Mod/Logic/FeatureGates.cs
   - UI/src/budget
   - UI/src/chart
 ---
 
 # Budget tab line chart
 
-The vanilla Budget tab (bar chart + revenue/expense lists + detail) is replaced wholesale with
-`moduleRegistry.override(".../budget-page/budget-page.tsx", "BudgetPage", BudgetPage)`.
+The vanilla Budget tab (bar chart + revenue/expense lists + detail) is replaced wholesale:
+`moduleRegistry.extend(".../budget-page/budget-page.tsx", "BudgetPage", …)` renders our `BudgetPage` in its place, or
+the vanilla page while **Options > Enable budget chart** (`Setting.EnableBudgetChart`, default on) is off. The switch is
+live: `BudgetHistoryUISystem` publishes it as `budgetChartEnabled` (a `ValueBinding<bool>` read from the setting every
+frame), and while it is off the system builds no history (`FeatureGates.BuildsPanelData`).
 
 ## Data: the game already keeps the history
 
@@ -37,7 +41,8 @@ frames while the panel is open, so "Now" follows the rows even while the game is
 
 It sends only the visible span (`setSpan(months)`, 0 = all), downsampled to ≤240 points ending on the newest sample
 (`PickIndices`), as `history = { span, samples, monthsAgo[], income[14][], expense[15][] }`. Expenses are positive
-amounts. It rebuilds only while the Economy panel is open and when the sample count or span changed.
+amounts. It rebuilds only while the chart is enabled and the Economy panel is open, and then when the sample count or
+span changed (and straight away when the panel opens or the chart is switched back on).
 
 ## UI
 
@@ -71,5 +76,5 @@ amounts. It rebuilds only while the Economy panel is open and when the sample co
 
 ## Tests
 
-`Tests/BudgetHistoryMathTests.cs` covers the C# maths. `UI/src/chart/chart-math.test.ts` covers series building,
+`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gate. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting.

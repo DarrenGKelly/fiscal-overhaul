@@ -52,10 +52,14 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
 ## Architecture
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
-  (`history`, `setSpan`, `densityTaxes`, `setDensityTax`) and compute only while the Economy panel is open. The UI
-  reads them through `UI/src/bindings.ts`, alongside the vanilla `economyBudget`/`taxation` bindings.
+  (`budgetChartEnabled`, `history`, `setSpan`, `densityTaxesEnabled`, `densityTaxes`, `setDensityTax`) and compute
+  only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
+  the vanilla `economyBudget`/`taxation` bindings.
+- **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
+  `EnableDensityTaxes`): off is vanilla behaviour and vanilla UI; the stored offsets are kept.
 - **Budget tab:** `BudgetHistoryUISystem` turns the game's saved per-source income/expense statistics into per-month
-  series; `UI/src/budget/budget-page.tsx` overrides vanilla `BudgetPage` and draws `UI/src/chart/line-chart.tsx` (canvas).
+  series; `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
+  while the chart is off) and draws `UI/src/chart/line-chart.tsx` (canvas).
   [impl/budget-chart.md](knowledge/impl/budget-chart.md)
 - **Density taxes:** an apply/restore system pair around vanilla `TaxSystem` adds each building's density offset only
   while tax is charged; offsets live in `Setting.DensityTaxOffsets`; the Taxation tab extends vanilla `TaxationGroup`.

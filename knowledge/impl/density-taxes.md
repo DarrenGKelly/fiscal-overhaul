@@ -8,6 +8,8 @@ resource:
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/DensityTaxState.cs
   - Mod/Logic/DensityTaxTable.cs
+  - Mod/Logic/FeatureGates.cs
+  - Mod/Setting.cs
   - UI/src/taxation
 ---
 
@@ -51,7 +53,15 @@ Offsets live in the mod's settings (`Setting.DensityTaxOffsets`, 12 comma-separa
 save**: a known v1 limit. Options has a reset button. `DensityTaxUISystem` publishes
 `densityTaxes = { maxOffset, cells[{ zone, density, offset, estimate, payers }] }` and `setDensityTax(zone, density, offset)`.
 The estimate is `EstimateExtraRevenue`: each cell's last-month tax paid scaled back to its taxable base, times the offset.
-Recomputed every ~2 s while the panel is open.
+Recomputed every ~2 s while the panel is open and density taxes are on.
+
+**Options > Enable density taxes** (`Setting.EnableDensityTaxes`, default on) switches the feature off live. The options
+page calls `ApplyAndSave` on every change; `Mod` listens on `onSettingsApplied` and calls
+`DensityTaxState.SetEnabled`. Off, the native offsets the apply job reads are all 0
+(`DensityTaxTable.EffectiveOffsets(false)`) and the apply system returns before scheduling anything
+(`IsCharged(false)`), so buildings pay exactly the vanilla rates; the stored table and `DensityTaxOffsets` are left as
+they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and
+the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells while it is off.
 
 The Taxation tab wraps each vanilla `TaxationGroup` and adds a collapsible "By density" section of vanilla
 `TaxSlider`s (`UI/src/taxation/density-rows.tsx`), with a note that offsets change revenue only.
