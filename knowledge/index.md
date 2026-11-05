@@ -6,7 +6,7 @@ okf_version: "0.2"
 
 # Reference
 
-* [CS2 modding](cs2-ui-modding.md) - How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale).
+* [CS2 modding](cs2-ui-modding.md) - How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale), and how the mod localizes its text.
 * [Repo structure](repo-structure.md) - Where everything lives — the C# mod, the UI module, the tests, the knowledge bundle, the git hooks and every script under tools/ with what it does and how it is tested.
 
 # Workflow

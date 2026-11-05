@@ -2,6 +2,8 @@
 
 ## 2026-11-05
 
+* **Localization** (#12): every player-facing string is a key in `l10n/<locale>.json`, which the C# side embeds and registers per locale and the UI reads through the game's translate with English fallback; vanilla keys reused where the game has them; adding a language is one file ([cs2-ui-modding.md § Localization](cs2-ui-modding.md#localization)).
+
 * **The in-game check without computer use**: `tools/game-control.ps1` (and its twin) drives the game from the shell on Windows (screenshots, clicks, hover, scan-code keys, window focus, waiting for the save to load); proven in two runs on the Odiham save, and now the test agent's method ([testing.md § On Windows without computer use](testing.md#on-windows-without-computer-use)). The Linux PC's xdotool note joined it.
 
 ## 2026-11-04

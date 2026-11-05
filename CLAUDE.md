@@ -16,7 +16,8 @@ The docs are an [OKF](knowledge/knowledge-format.md) bundle: start from [knowled
 | A UI panel, tab or vanilla UI change | [cs2-ui-modding.md § Reusing and replacing vanilla UI](knowledge/cs2-ui-modding.md#reusing-and-replacing-vanilla-ui) (TODO main session: a step-by-step recipe); the Budget tab as the example: [impl/budget-chart.md](knowledge/impl/budget-chart.md) |
 | A C# simulation or UI system | [cs2-ui-modding.md § Scheduling simulation systems](knowledge/cs2-ui-modding.md#scheduling-simulation-systems) (TODO main session: a step-by-step recipe); the example: [impl/density-taxes.md](knowledge/impl/density-taxes.md) |
 | Logic that needs tests | [Pure logic](knowledge/patterns.md#pure-logic), and [testing.md](knowledge/testing.md#the-rule) |
-| A setting | `Mod/Setting.cs` (TODO main session: a recipe) |
+| A setting | `Mod/Setting.cs` (TODO main session: a recipe); its Options text goes in `l10n/en-US.json` |
+| Player-facing text, or a language | [cs2-ui-modding.md § Localization](knowledge/cs2-ui-modding.md#localization): a key in `l10n/en-US.json`, read with `localize()` |
 | A tool under `tools/` | [repo-structure.md § tools/](knowledge/repo-structure.md#tools), with its `test-<name>` twin ([testing.md § Tool tests](knowledge/testing.md#tool-tests)) |
 | A knowledge doc | [knowledge-format.md](knowledge/knowledge-format.md), then `python tools/okf.py index` |
 <!-- how-to-extend:end -->
@@ -38,6 +39,7 @@ The usual first stops: [repo-structure.md](knowledge/repo-structure.md) (where e
 |---|---|
 | `Mod/` | The C# mod: `Mod.cs`, `Setting.cs`, `Logic/` (pure, tested), `Systems/` (game and UI systems) |
 | `UI/` | The UI module: `src/` (React components, pure TS modules and their vitest tests), `types/` |
+| `l10n/` | The mod's text, one `<locale>.json` per language ([cs2-ui-modding.md § Localization](knowledge/cs2-ui-modding.md#localization)) |
 | `Tests/` | xunit tests of `Mod/Logic/` |
 | `knowledge/` | The docs (above) |
 | `tools/` | Build, test, landing and doc-check scripts ([repo-structure.md § tools/](knowledge/repo-structure.md#tools)) |
