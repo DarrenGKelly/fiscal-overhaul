@@ -33,7 +33,8 @@ the trailing 32 samples**: that is the past month's average, which lags a growin
 row read ¢52k). It doesn't use `m_TotalValue`, whose meaning depends on the statistic's collection
 type (cumulative / point / daily). The deltas mean the same thing for every type.
 
-**The newest sample is still filling up** (the current 1/32 of a month), so `ReadMonthly` drops it; with it, every
+**The newest sample is still filling up** (the current 1/32 of a month), so `ReadMonthly` drops it
+(`CompleteSamples`, also when it is a new city's only sample); with it, every
 line dipped at "Now". In its place `WithLiveNow` appends the live value (`CityServiceBudgetSystem.GetIncome` /
 `GetExpense`, what the rows show), so "Now" equals the row by construction. The last saved sample alone read ¢268k of
 expenses against the row's ¢284,785 in the playtest. The binding rebuilds on a new sample, a new span, or every 60

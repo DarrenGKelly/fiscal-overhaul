@@ -79,9 +79,11 @@ namespace FiscalOverhaul
 
         private void WriteHistory(IJsonWriter writer)
         {
+            // The statistics buffers are written by CityStatisticsSystem's jobs; finish them before reading here.
             m_StatisticsSystem.CompleteWriters();
 
-            // Every series is aligned to the newest sample; series with less history are left-padded with 0.
+            // Every series is aligned to the newest sample; series with less history are left-padded with 0. A new
+            // city has no complete sample yet, so every series is just its live value (one point).
             var income = new double[kIncomeSources][];
             var expense = new double[kExpenseSources][];
             int length = 1;

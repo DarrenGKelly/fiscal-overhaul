@@ -39,6 +39,11 @@ So only the tax paid changes; the stored average rate other systems read is unto
 leave it: companies blend new income into the average at weight ≈ ½ after payment (not 1), so a leftover offset
 would compound every payment.
 
+**Threading.** `DensityTaxState` (the table and the switch) is main-thread state, changed by the sliders, the Options
+switch and the reset button at any time. The apply job never reads it: each update the apply system copies
+`DensityTaxState.Snapshot()` into a `TempJob` array that is the job's alone and is disposed with the job's handle. A
+shared persistent array would be overwritten under a running job, or freed under one on mod unload.
+
 ## Classifying a building
 
 `DensityClassifier.TryClassify` (Burst-safe copy of `PropertyUtils.GetZoneDensity`): `PropertyRenter.m_Property` →
@@ -52,12 +57,14 @@ so commercial companies in mixed-housing zones and commuters are not affected.
 Offsets live in the mod's settings (`Setting.DensityTaxOffsets`, 12 comma-separated ints). They're **global, not per
 save**: a known v1 limit. Options has a reset button. `DensityTaxUISystem` publishes
 `densityTaxes = { maxOffset, cells[{ zone, density, offset, estimate, payers }] }` and `setDensityTax(zone, density, offset)`.
-The estimate is `EstimateExtraRevenue`: each cell's last-month tax paid scaled back to its taxable base, times the offset.
+The estimate is `EstimateExtraRevenue`: each cell's monthly tax paid (`TaxPayer.m_AverageTaxPaid`, the last payment
+× 32) scaled back to its taxable base, times the offset. That payment was charged at the stored rate **plus** the
+offset, so the base is paid ÷ (rate + offset); dividing by the stored rate alone overstated it by (rate + offset) / rate.
 Recomputed every ~2 s while the panel is open and density taxes are on.
 
 **Options > Enable density taxes** (`Setting.EnableDensityTaxes`, default on) switches the feature off live. The options
 page calls `ApplyAndSave` on every change; `Mod` listens on `onSettingsApplied` and calls
-`DensityTaxState.SetEnabled`. Off, the native offsets the apply job reads are all 0
+`DensityTaxState.SetEnabled`. Off, the offsets the apply job reads are all 0
 (`DensityTaxTable.EffectiveOffsets(false)`) and the apply system returns before scheduling anything
 (`IsCharged(false)`), so buildings pay exactly the vanilla rates; the stored table and `DensityTaxOffsets` are left as
 they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and

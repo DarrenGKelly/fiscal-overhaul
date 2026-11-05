@@ -49,6 +49,7 @@ export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
 };
 
 const DensityRow = ({ cell, max }: { cell: DensityTaxCell; max: number }) => {
+  // The C# trigger takes an int (and clamps it to ±maxOffset), so round whatever the slider reports.
   const onChange = useCallback((v: number) => setDensityTax(cell.zone, cell.density, Math.round(v)), [cell.zone, cell.density]);
   return (
     <div className={styles.row}>
