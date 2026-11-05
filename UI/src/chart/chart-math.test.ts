@@ -18,9 +18,19 @@ import {
   plotLeft,
   timeTicks,
   rgbaToCss,
+  seriesStats,
+  SPAN_OPTIONS,
+  spanLabel,
   sumSources,
   valueRange,
 } from "./chart-math";
+import { Translate } from "../l10n";
+
+/** A stand-in for the game's translate: the dictionary's text, else the fallback. */
+const fakeTranslate =
+  (dict: Record<string, string>): Translate =>
+  (id, fallback) =>
+    dict[id] ?? fallback ?? null;
 
 const red = { r: 1, g: 0, b: 0, a: 1 };
 
@@ -151,10 +161,10 @@ describe("formatting", () => {
   });
 
   it("describes time offsets", () => {
-    expect(formatMonthsAgo(0)).toBe("Now");
-    expect(formatMonthsAgo(-0.5)).toBe("12 h ago");
-    expect(formatMonthsAgo(-6)).toBe("6 months ago");
-    expect(formatMonthsAgo(-36)).toBe("3 years ago");
+    expect(formatMonthsAgo(0, null)).toBe("Now");
+    expect(formatMonthsAgo(-0.5, null)).toBe("12 h ago");
+    expect(formatMonthsAgo(-6, null)).toBe("6 months ago");
+    expect(formatMonthsAgo(-36, null)).toBe("3 years ago");
   });
 
   it("converts game colours to css", () => {
@@ -194,16 +204,16 @@ describe("timeTicks", () => {
 
 describe("formatMonthsAxis", () => {
   it("labels whole weeks, months, combos and years", () => {
-    expect(formatMonthsAxis(0)).toBe("Now");
-    expect(formatMonthsAxis(-0.75)).toBe("-3 wk");
-    expect(formatMonthsAxis(-2)).toBe("-2 mo");
-    expect(formatMonthsAxis(-1.5)).toBe("-1 mo 2 wk");
-    expect(formatMonthsAxis(-24)).toBe("-2 yr");
+    expect(formatMonthsAxis(0, null)).toBe("Now");
+    expect(formatMonthsAxis(-0.75, null)).toBe("-3 wk");
+    expect(formatMonthsAxis(-2, null)).toBe("-2 mo");
+    expect(formatMonthsAxis(-1.5, null)).toBe("-1 mo 2 wk");
+    expect(formatMonthsAxis(-24, null)).toBe("-2 yr");
   });
 
   it("never shows a fractional number", () => {
-    expect(formatMonthsAxis(-2.1)).toBe("-2 mo");
-    expect(formatMonthsAxis(-2.1)).not.toContain(".");
+    expect(formatMonthsAxis(-2.1, null)).toBe("-2 mo");
+    expect(formatMonthsAxis(-2.1, null)).not.toContain(".");
   });
 });
 
@@ -228,11 +238,65 @@ describe("plotLeft", () => {
 describe("formatPerMonth", () => {
   it("gives the tooltip value as one string, with no space to wrap at", () => {
     // Regression: "¢315,997" and "/mo" were separate text nodes and Gameface put "/mo" on a new line.
-    expect(formatPerMonth(315997)).toBe("¢315,997/mo");
-    expect(formatPerMonth(315997)).not.toContain(" ");
+    expect(formatPerMonth(315997, null)).toBe("¢315,997/mo");
+    expect(formatPerMonth(315997, null)).not.toContain(" ");
   });
 
   it("keeps the sign for expenses", () => {
-    expect(formatPerMonth(-283002)).toBe("-¢283,002/mo");
+    expect(formatPerMonth(-283002, null)).toBe("-¢283,002/mo");
+  });
+});
+
+describe("localized chart text", () => {
+  const german = fakeTranslate({
+    "StatisticsPanel.TIME_SCALE_NOW": "Jetzt",
+    "FiscalOverhaul.UI.MonthsAgo": "vor {COUNT} Monaten",
+    "FiscalOverhaul.UI.AxisMonthsWeeks": "-{MONTHS} Mon. {WEEKS} Wo.",
+    "FiscalOverhaul.UI.PerMonth": "{VALUE}/Monat",
+    "FiscalOverhaul.UI.SpanYears": "{COUNT}J",
+  });
+
+  it("uses the game's translation when it has the key", () => {
+    expect(formatMonthsAgo(-6, german)).toBe("vor 6 Monaten");
+    expect(formatMonthsAgo(0, german)).toBe("Jetzt");
+    expect(formatMonthsAxis(-1.5, german)).toBe("-1 Mon. 2 Wo.");
+    expect(formatMonthsAxis(0, german)).toBe("Jetzt");
+    expect(formatPerMonth(315997, german)).toBe("¢315,997/Monat");
+    expect(spanLabel(36, german)).toBe("3J");
+  });
+
+  it("falls back to English for a key the game lacks", () => {
+    expect(formatMonthsAgo(-36, german)).toBe("3 years ago");
+    expect(formatMonthsAxis(-2, german)).toBe("-2 mo");
+    expect(spanLabel(6, german)).toBe("6M");
+    expect(spanLabel(6, german)).not.toBe("6J");
+  });
+});
+
+describe("spanLabel", () => {
+  it("labels the span buttons as before", () => {
+    expect(SPAN_OPTIONS.map((m) => spanLabel(m, null))).toEqual(["1M", "3M", "6M", "1Y", "3Y", "All"]);
+  });
+});
+
+describe("seriesStats", () => {
+  it("labels now / average / lowest / highest / change over the span", () => {
+    expect(seriesStats([10, 30, 20], null)).toEqual([
+      ["Now", 20],
+      ["Average", 20],
+      ["Lowest", 10],
+      ["Highest", 30],
+      ["Change", 10],
+    ]);
+  });
+
+  it("reads its labels through translate", () => {
+    const labels = seriesStats([1, 2], fakeTranslate({ "FiscalOverhaul.UI.StatAverage": "Durchschnitt" })).map(([l]) => l);
+    expect(labels).toContain("Durchschnitt");
+    expect(labels).not.toContain("Average");
+  });
+
+  it("has no rows for an empty series", () => {
+    expect(seriesStats([], null)).toEqual([]);
   });
 });

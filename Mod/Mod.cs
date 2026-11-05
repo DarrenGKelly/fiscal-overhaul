@@ -21,7 +21,8 @@ namespace FiscalOverhaul
 
             m_Setting = new Setting(this);
             m_Setting.RegisterInOptionsUI();
-            GameManager.instance.localizationManager.AddSource("en-US", new LocaleEN(m_Setting));
+            // Every l10n/<locale>.json: the Options page's text and the UI's (which falls back to English on its own).
+            LocaleRegistry.Register(m_Setting);
             AssetDatabase.global.LoadSettings(nameof(FiscalOverhaul), m_Setting, new Setting(this));
             // The offsets are global mod settings, not per save, so they're loaded once here, before any city loads.
             DensityTaxState.Load(m_Setting.DensityTaxOffsets);
@@ -60,6 +61,7 @@ namespace FiscalOverhaul
             {
                 m_Setting.onSettingsApplied -= ApplyFeatureSwitches;
                 m_Setting.UnregisterInOptionsUI();
+                LocaleRegistry.Unregister();
                 m_Setting = null;
             }
         }

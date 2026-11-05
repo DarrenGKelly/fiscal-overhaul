@@ -13,10 +13,13 @@ import {
   rgbaToCss,
   SeriesDef,
   SPAN_OPTIONS,
+  spanLabel,
   itemValue,
+  seriesStats,
   TOTAL_COLORS,
 } from "chart/chart-math";
 import { ChartLine, LineChart } from "chart/line-chart";
+import { localizeVanilla, Translate } from "l10n";
 import { BudgetItemDetail, NumberField } from "vanilla";
 import styles from "./budget-page.module.scss";
 
@@ -69,9 +72,9 @@ export const BudgetPage = () => {
 
   const label = useCallback(
     (key: string, itemId?: string) => {
-      if (key === INCOME_TOTAL) return translate("EconomyPanel.INCOME_SECTION_TITLE", "Revenues") ?? "Revenues";
-      if (key === EXPENSE_TOTAL) return translate("EconomyPanel.EXPENSES_SECTION_TITLE", "Expenses") ?? "Expenses";
-      if (key === BALANCE) return translate("EconomyPanel.MONTHLY_BALANCE", "Monthly balance") ?? "Monthly balance";
+      if (key === INCOME_TOTAL) return localizeVanilla(translate, "revenues");
+      if (key === EXPENSE_TOTAL) return localizeVanilla(translate, "expenses");
+      if (key === BALANCE) return localizeVanilla(translate, "monthlyBalance");
       return translate(`EconomyPanel.BUDGET_ITEM[${itemId}]`, itemId ?? key) ?? itemId ?? key;
     },
     [translate]
@@ -142,14 +145,20 @@ export const BudgetPage = () => {
             .map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), itemValue(i, expenseValues)))}
         </div>
         <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], totalIncome + totalExpenses, true)}</div>
-        {hoveredSeries && <SeriesStats series={hoveredSeries} negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"} />}
+        {hoveredSeries && (
+          <SeriesStats
+            series={hoveredSeries}
+            negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"}
+            translate={translate}
+          />
+        )}
       </div>
 
       <div className={styles.chartColumn}>
         <div className={styles.spanBar}>
-          {SPAN_OPTIONS.map((o) => (
-            <div key={o.label} className={`${styles.spanButton} ${span === o.months ? styles.spanActive : ""}`} onClick={() => setSpanState(o.months)}>
-              {o.label}
+          {SPAN_OPTIONS.map((months) => (
+            <div key={months} className={`${styles.spanButton} ${span === months ? styles.spanActive : ""}`} onClick={() => setSpanState(months)}>
+              {spanLabel(months, translate)}
             </div>
           ))}
         </div>
@@ -175,18 +184,10 @@ export const BudgetPage = () => {
 };
 
 /** Now / average / low / high / change over the selected span (the points on the chart), per month. */
-const SeriesStats = ({ series, negate }: { series: SeriesDef; negate: boolean }) => {
-  const v = series.values;
-  if (v.length === 0) return null;
+const SeriesStats = ({ series, negate, translate }: { series: SeriesDef; negate: boolean; translate: Translate }) => {
+  const stats = seriesStats(series.values, translate);
+  if (stats.length === 0) return null;
   const sign = negate ? -1 : 1;
-  const avg = v.reduce((a, b) => a + b, 0) / v.length;
-  const stats: [string, number][] = [
-    ["Now", v[v.length - 1]],
-    ["Average", avg],
-    ["Lowest", Math.min(...v)],
-    ["Highest", Math.max(...v)],
-    ["Change", v[v.length - 1] - v[0]],
-  ];
   return (
     <div className={styles.stats}>
       {stats.map(([name, value]) => (

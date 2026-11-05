@@ -1,4 +1,5 @@
 import { formatMoney } from "../chart/chart-math";
+import { localize, Translate, UiKey } from "../l10n";
 // Mapping between the game's tax area indices and the mod's density tax table (Mod/Logic/DensityTaxTable.cs).
 
 /** Vanilla TaxAreaType: City = 0, Residential = 1, Commercial = 2, Industrial = 3, Office = 4. */
@@ -16,10 +17,23 @@ export function cellsForArea<T extends { zone: number }>(cells: T[] | null | und
   return cells.filter((c) => c.zone === zone);
 }
 
-const DENSITY_LABELS = ["Low density", "Medium density", "High density"];
+const DENSITY_KEYS: UiKey[] = ["DensityLow", "DensityMedium", "DensityHigh"];
 
-export function densityLabel(density: number): string {
-  return DENSITY_LABELS[density] ?? `Density ${density}`;
+/** "Low density", "Medium density", "High density"; "Density 7" for one the table doesn't name. */
+export function densityLabel(density: number, translate: Translate | null): string {
+  const key = DENSITY_KEYS[density];
+  return key ? localize(translate, key) : localize(translate, "DensityOther", { NUMBER: density });
+}
+
+/** The collapsed rows' summary: "no offsets", "1 offset set", "3 offsets set". */
+export function offsetSummary(active: number, translate: Translate | null): string {
+  if (active <= 0) return localize(translate, "NoOffsets");
+  return localize(translate, active === 1 ? "OneOffsetSet" : "OffsetsSet", { COUNT: active });
+}
+
+/** A row's payer count, " · 1,234 payers", or nothing while it has none. */
+export function payersSuffix(payers: number, translate: Translate | null): string {
+  return payers > 0 ? ` · ${localize(translate, "Payers", { COUNT: formatCount(payers) })}` : "";
 }
 
 /**
