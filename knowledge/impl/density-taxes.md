@@ -62,7 +62,7 @@ The estimate is `EstimateExtraRevenue`: each cell's monthly tax paid (`TaxPayer.
 offset, so the base is paid ÷ (rate + offset); dividing by the stored rate alone overstated it by (rate + offset) / rate.
 Recomputed every ~2 s while the panel is open and density taxes are on.
 
-**Options > Enable density taxes** (`Setting.EnableDensityTaxes`, default on) switches the feature off live. The options
+**Options > Enable density taxes (BETA)** (`Setting.EnableDensityTaxes`, default **off**: density taxes are a BETA feature, `FeatureGates.DensityTaxesDefault`) switches the feature off live. The options
 page calls `ApplyAndSave` on every change; `Mod` listens on `onSettingsApplied` and calls
 `DensityTaxState.SetEnabled`. Off, the offsets the apply job reads are all 0
 (`DensityTaxTable.EffectiveOffsets(false)`) and the apply system returns before scheduling anything

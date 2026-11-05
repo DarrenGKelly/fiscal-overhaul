@@ -53,7 +53,7 @@ namespace FiscalOverhaul
                 All = new[] { ComponentType.ReadOnly<TaxPayer>(), ComponentType.ReadOnly<PropertyRenter>() },
                 None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() },
             });
-            AddBinding(m_EnabledBinding = new ValueBinding<bool>(BudgetHistoryUISystem.kGroup, "densityTaxesEnabled", true));
+            AddBinding(m_EnabledBinding = new ValueBinding<bool>(BudgetHistoryUISystem.kGroup, "densityTaxesEnabled", FeatureGates.DensityTaxesDefault));
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "densityTaxes", Write));
             AddBinding(new TriggerBinding<int, int, int>(BudgetHistoryUISystem.kGroup, "setDensityTax", SetDensityTax));
         }
