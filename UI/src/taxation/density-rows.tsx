@@ -2,7 +2,7 @@ import { useValue } from "cs2/api";
 import { useCallback, useState } from "react";
 import { densityTaxes$, densityTaxesEnabled$, DensityTaxCell, setDensityTax } from "bindings";
 import { TaxSlider } from "vanilla";
-import { cellsForArea, densityLabel } from "./density";
+import { arrowFor, cellsForArea, formatCount, densityLabel } from "./density";
 import styles from "./density-rows.module.scss";
 
 interface AreaTypeLike {
@@ -29,7 +29,7 @@ export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
   return (
     <div className={styles.densityRows}>
       <div className={styles.header} onClick={toggle}>
-        <div className={styles.arrow}>{open ? "▾" : "▸"}</div>
+        <img className={styles.arrow} src={arrowFor(open)} />
         <div className={styles.title}>By density</div>
         <div className={styles.summary}>{active > 0 ? `${active} offset${active > 1 ? "s" : ""} set` : "no offsets"}</div>
       </div>
@@ -55,7 +55,7 @@ const DensityRow = ({ cell, max }: { cell: DensityTaxCell; max: number }) => {
     <div className={styles.row}>
       <div className={styles.rowTitle}>
         {densityLabel(cell.density)}
-        <span className={styles.count}>{cell.payers > 0 ? ` · ${cell.payers.toLocaleString()} payers` : ""}</span>
+        <span className={styles.count}>{cell.payers > 0 ? ` · ${formatCount(cell.payers)} payers` : ""}</span>
       </div>
       <TaxSlider min={-max} max={max} rate={cell.offset} income={cell.estimate} className={styles.slider} onValueChanged={onChange} />
     </div>

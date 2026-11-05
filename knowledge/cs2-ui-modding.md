@@ -110,6 +110,9 @@ Coherent Gameface isn't Chrome:
 - **Canvas pixels ignore rem.** Scale every canvas size (fonts, padding, line widths) by px-per-rem. Measure it from a
   hidden `width: 100rem` element (`offsetWidth / 100`): `getComputedStyle(document.documentElement).fontSize` is not
   the scale (`UI/src/chart/line-chart.tsx`).
+- **Overpass (the UI font) lacks ▸/▾ and most Unicode arrows**: they render as a tofu box. Use a
+  `Media/Glyphs/*.svg` icon in an `<img>` like vanilla (`ThickStrokeArrowRight`/`ThickStrokeArrowDown`; `arrowFor` in
+  `UI/src/taxation/density.ts`).
 - **Text that must stay on one line must be one text node.** `{value}/mo` in JSX is two text nodes, and Gameface
   wraps between them even under `white-space: nowrap`, above all in an absolutely positioned box with no width
   (which it shrinks). Build the string first (`formatPerMonth` in `chart-math.ts`).

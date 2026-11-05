@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellsForArea, densityLabel, zoneForAreaIndex } from "./density";
+import { arrowFor, formatCount, cellsForArea, densityLabel, zoneForAreaIndex } from "./density";
 
 describe("zoneForAreaIndex", () => {
   it("maps the four zoned tax areas to the C# TaxZone order", () => {
@@ -44,5 +44,25 @@ describe("cellsForArea", () => {
     expect(cellsForArea(cells, 1, true, true)).toEqual([]);
     expect(cellsForArea(cells, 0, false, true)).toEqual([]);
     expect(cellsForArea(null, 1, false, true)).toEqual([]);
+  });
+});
+
+describe("arrowFor", () => {
+  it("returns the vanilla glyph svg for both states", () => {
+    expect(arrowFor(true)).toBe("Media/Glyphs/ThickStrokeArrowDown.svg");
+    expect(arrowFor(false)).toBe("Media/Glyphs/ThickStrokeArrowRight.svg");
+  });
+  it("never returns a non-ASCII glyph", () => {
+    for (const o of [true, false]) expect(/^[\x20-\x7e]+$/.test(arrowFor(o))).toBe(true);
+  });
+});
+
+describe("formatCount", () => {
+  it("groups thousands with commas", () => {
+    expect(formatCount(1234567)).toBe("1,234,567");
+    expect(formatCount(0)).toBe("0");
+  });
+  it("has no separator below 1000", () => {
+    expect(formatCount(999)).toBe("999");
   });
 });

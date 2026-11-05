@@ -1,3 +1,4 @@
+import { formatMoney } from "../chart/chart-math";
 // Mapping between the game's tax area indices and the mod's density tax table (Mod/Logic/DensityTaxTable.cs).
 
 /** Vanilla TaxAreaType: City = 0, Residential = 1, Commercial = 2, Industrial = 3, Office = 4. */
@@ -19,4 +20,17 @@ const DENSITY_LABELS = ["Low density", "Medium density", "High density"];
 
 export function densityLabel(density: number): string {
   return DENSITY_LABELS[density] ?? `Density ${density}`;
+}
+
+/**
+ * The expand/collapse arrow, as the vanilla foldout draws it: a Media/Glyphs icon (the game's font, Overpass, has no
+ * arrow glyphs and shows a tofu box).
+ */
+export function arrowFor(open: boolean): string {
+  return open ? "Media/Glyphs/ThickStrokeArrowDown.svg" : "Media/Glyphs/ThickStrokeArrowRight.svg";
+}
+
+/** A count with thousands separators ("1,234,567"), not locale-dependent: Gameface's Intl is patchy (formatMoney's grouping). */
+export function formatCount(n: number): string {
+  return formatMoney(n).replace("\u00a2", "");
 }
