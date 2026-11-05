@@ -1,10 +1,11 @@
 """Render the Fiscal Overhaul mod icon (Paradox Mods thumbnail) and its alternative concepts.
 
     python art/icon/make_icon.py            # writes Mod/Properties/Thumbnail.png and art/icon/concepts/*.png
-    python art/icon/make_icon.py --preview  # also writes 64 px previews to art/icon/preview/ (gitignored)
+    python art/icon/make_icon.py --preview  # also writes 64 and 259 px previews to art/icon/preview/ (gitignored)
 
-Needs only Pillow (`python -m pip install --user Pillow`). Everything is drawn from geometry, no fonts and no
-external art, so the output is the same on any machine. See README.md beside this file.
+Needs only Pillow (`python -m pip install --user Pillow`). Shapes are drawn from geometry; the lettering (the
+wordmark and the coin's currency sign) uses the game's UI font, Overpass Bold, committed under fonts/ with its OFL
+licence. No external art, so the output is the same on any machine. See README.md beside this file.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 SIZE = 1024  # Paradox Mods shows covers square (background-size: cover); see README.md
 SS = 3  # supersampling factor: draw at SIZE*SS, then downscale for smooth edges
@@ -23,6 +24,9 @@ REPO = HERE.parent.parent
 PRIMARY_OUT = REPO / "Mod" / "Properties" / "Thumbnail.png"
 CONCEPTS_DIR = HERE / "concepts"
 PREVIEW_DIR = HERE / "preview"
+FONT = HERE / "fonts" / "Overpass-Bold.ttf"  # the game's UI font (SIL OFL 1.1, fonts/OFL.txt)
+CAP = 0.70  # Overpass's cap height, as a fraction of the font size
+CENT = "\u00a2"  # the game's money sign: it formats amounts as "¢1,234" in Overpass
 
 # Palette: the Budget tab's chart colours (UI/src/chart/chart-math.ts) and the game's dark slate-blue panels.
 BG_TOP = (34, 48, 74)
@@ -36,6 +40,7 @@ GOLD = (246, 196, 82)
 GOLD_DARK = (176, 122, 30)
 GOLD_LIGHT = (255, 228, 140)
 INK = (24, 33, 51)
+WHITE = (244, 247, 252)
 
 
 def s(v: float) -> int:
@@ -128,21 +133,42 @@ def shadow(img: Image.Image, box: tuple[float, float, float, float], blur: float
     img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(s(blur))))
 
 
-def percent(d: ImageDraw.ImageDraw, cx: float, cy: float, size: float, colour: tuple) -> None:
-    """A % sign from two rings and a bar, centred on (cx, cy); size is its height."""
-    ring_r = size * 0.2
-    ring_w = size * 0.085
-    for dx, dy in ((-0.26, -0.27), (0.26, 0.27)):
-        x, y = cx + dx * size, cy + dy * size
-        d.ellipse([s(x - ring_r), s(y - ring_r), s(x + ring_r), s(y + ring_r)], outline=colour, width=s(ring_w))
-    bar = [(cx + 0.30 * size, cy - 0.46 * size), (cx - 0.30 * size, cy + 0.46 * size)]
-    d.line(pts(bar), fill=colour, width=s(size * 0.11))
-    r = size * 0.055
-    for x, y in bar:
-        d.ellipse([s(x - r), s(y - r), s(x + r), s(y + r)], fill=colour)
+def font(cap: float) -> ImageFont.FreeTypeFont:
+    """Overpass Bold sized so its capitals are cap tall (1024-space), on the supersampled canvas."""
+    return ImageFont.truetype(str(FONT), s(cap / CAP))
 
 
-def coin(img: Image.Image, cx: float, cy: float, r: float, symbol: str = "%") -> None:
+def cent(d: ImageDraw.ImageDraw, cx: float, cy: float, size: float, colour: tuple) -> None:
+    """The game's money sign, the font's own glyph, its ink centred on (cx, cy); size is its ink height."""
+    f = font(size * 0.7)  # the glyph's bar runs past cap height: probe the ink box to fit size exactly
+    x0, y0, x1, y1 = f.getbbox(CENT, anchor="ls")
+    f = font(size * 0.7 * s(size) / (y1 - y0))
+    x0, y0, x1, y1 = f.getbbox(CENT, anchor="ls")
+    d.text((s(cx) - (x0 + x1) / 2, s(cy) - (y0 + y1) / 2), CENT, font=f, fill=colour, anchor="ls")
+
+
+def word(img: Image.Image, text: str, cx: float, baseline: float, cap: float, colour: tuple,
+         tracking: float = 0, outline: float = 0) -> None:
+    """A word in capitals centred on cx, sitting on baseline, letter-spaced by tracking (1024-space px),
+    with a soft dark shadow under it so it reads on the gradient at any size."""
+    f = font(cap)
+    widths = [f.getlength(ch) for ch in text]
+    total = sum(widths) + s(tracking) * (len(text) - 1)
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    x = s(cx) - total / 2
+    for ch, w in zip(text, widths):
+        d.text((x, s(baseline)), ch, font=f, fill=colour + (255,), anchor="ls",
+               stroke_width=s(outline), stroke_fill=INK + (255,))
+        x += w + s(tracking)
+    sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    sh.putalpha(layer.getchannel("A").point(lambda v: v * 170 // 255))
+    sh = sh.filter(ImageFilter.GaussianBlur(s(cap * 0.08)))
+    img.alpha_composite(sh, (0, s(cap * 0.05)))
+    img.alpha_composite(layer)
+
+
+def coin(img: Image.Image, cx: float, cy: float, r: float) -> None:
     shadow(img, (cx - r, cy - r, cx + r, cy + r), blur=r * 0.18, offset=r * 0.10, alpha=150)
     d = ImageDraw.Draw(img)
     # edge (the coin's thickness), then face, then an inner ring
@@ -160,25 +186,48 @@ def coin(img: Image.Image, cx: float, cy: float, r: float, symbol: str = "%") ->
     d = ImageDraw.Draw(img)
     ri = r * 0.80
     d.ellipse([s(cx - ri), s(cy - ri), s(cx + ri), s(cy + ri)], outline=GOLD_DARK + (255,), width=s(r * 0.06))
-    if symbol == "%":
-        percent(d, cx, cy, r * 0.95, GOLD_DARK + (255,))
+    cent(d, cx, cy, r * 1.05, GOLD_DARK + (255,))
 
 
 def finish(img: Image.Image) -> Image.Image:
     return img.resize((SIZE, SIZE), Image.Resampling.LANCZOS).convert("RGB")
 
 
-# --- Primary: a rising income line over a falling-behind expense line, with a tax coin ---------------------------
+# --- The chart: a rising income line over a falling-behind expense line ----------------------------------------
 
-def primary() -> Image.Image:
-    img = background()
-    left, top, right, bottom = 120, 300, 904, 860
-    grid(img, left, top, right, bottom, rows=4, cols=5)
-    income = [(120, 740), (277, 655), (434, 680), (591, 530), (748, 445), (904, 320)]
-    expense = [(120, 815), (277, 795), (434, 775), (591, 750), (748, 728), (904, 690)]
+INCOME_LINE = [(0, 0.786), (0.2, 0.634), (0.4, 0.679), (0.6, 0.411), (0.8, 0.259), (1, 0.036)]  # x, y as panel fractions
+EXPENSE_LINE = [(0, 0.920), (0.2, 0.884), (0.4, 0.848), (0.6, 0.804), (0.8, 0.764), (1, 0.696)]
+
+
+def chart(img: Image.Image, left: float, top: float, right: float, bottom: float, rows: int, line: float) -> None:
+    """The Budget tab's chart in the box; line is the income line's width (the rest scales with it)."""
+    grid(img, left, top, right, bottom, rows=rows, cols=5)
+
+    def place(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        return [(left + (right - left) * x, top + (bottom - top) * y) for x, y in points]
+
+    income, expense = place(INCOME_LINE), place(EXPENSE_LINE)
     area(img, income, bottom, INCOME, 110)
-    polyline(img, expense, EXPENSE, width=30, glow=18)
-    polyline(img, income, INCOME, width=46, glow=26, dots=34)
+    polyline(img, expense, EXPENSE, width=line * 0.65, glow=line * 0.4)
+    polyline(img, income, INCOME, width=line, glow=line * 0.56, dots=line * 0.74)
+
+
+# --- Primary: the wordmark, FISCAL over a squat chart over OVERHAUL, with a small tax coin ----------------------
+
+def wordmark() -> Image.Image:
+    img = background()
+    chart(img, 120, 292, 904, 770, rows=3, line=42)
+    coin(img, 210, 368, 100)
+    word(img, "FISCAL", 512, 222, cap=158, colour=WHITE, tracking=20)
+    word(img, "OVERHAUL", 512, 958, cap=117, colour=GOLD, tracking=2)
+    return finish(img)
+
+
+# --- Concept A: the chart and the coin, no text -----------------------------------------------------------------
+
+def concept_chart_coin() -> Image.Image:
+    img = background()
+    chart(img, 120, 300, 904, 860, rows=4, line=46)
     coin(img, 300, 290, 190)
     return finish(img)
 
@@ -245,11 +294,12 @@ def concept_coin() -> Image.Image:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--preview", action="store_true", help="also write 64 px previews to art/icon/preview/")
+    parser.add_argument("--preview", action="store_true", help="also write 64 and 259 px previews to art/icon/preview/")
     args = parser.parse_args()
 
     outputs = {
-        PRIMARY_OUT: primary,
+        PRIMARY_OUT: wordmark,
+        CONCEPTS_DIR / "chart-coin.png": concept_chart_coin,
         CONCEPTS_DIR / "density-bars.png": concept_density,
         CONCEPTS_DIR / "coin-stacks.png": concept_coin,
     }
@@ -260,8 +310,8 @@ def main() -> None:
         print(f"wrote {path.relative_to(REPO)} ({img.width}x{img.height})")
         if args.preview:
             PREVIEW_DIR.mkdir(exist_ok=True)
-            small = img.resize((64, 64), Image.Resampling.LANCZOS)
-            small.save(PREVIEW_DIR / f"{path.stem}-64.png")
+            for px in (64, 259):  # the in-game mod list's icon; a Paradox Mods card
+                img.resize((px, px), Image.Resampling.LANCZOS).save(PREVIEW_DIR / f"{path.stem}-{px}.png")
 
 
 if __name__ == "__main__":
