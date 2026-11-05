@@ -35,6 +35,12 @@ jobs we can't patch.
   `AppliedDelta`) and records the exact delta per entity.
 - `DensityTaxRestoreSystem`, `UpdateAfter<…, TaxSystem>`, subtracts exactly that delta again.
 
+- **The restore skips a tick the apply left alone** (#14). The apply system sets `AppliedThisTick` when it schedules
+  its job (reset at the top of each update); the restore returns before scheduling unless
+  `DensityTaxRestoreGate.RestoreNeeded` (`Mod/Logic/`) says so. That is decided by what apply did this tick, never by
+  the current switch or offsets: an update where the switch goes off or the offsets go to 0 after an apply must still
+  take the raised rates back down. So with density taxes off (the default) no job writes TaxPayer on any tax tick.
+
 So only the tax paid changes; the stored average rate other systems read is untouched. Why not adjust once and
 leave it: companies blend new income into the average at weight ≈ ½ after payment (not 1), so a leftover offset
 would compound every payment.
@@ -72,6 +78,17 @@ the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells
 
 The Taxation tab wraps each vanilla `TaxationGroup` and adds a collapsible "By density" section of vanilla
 `TaxSlider`s (`UI/src/taxation/density-rows.tsx`), with a note that offsets change revenue only.
+
+**Totals include the offsets** (a user decision). Each zone group's total (its header slider's income) and
+ESTIMATED TOTAL add the sum of the zone's (all zones') row `estimate`s; negative offsets lower them. Vanilla computes
+both in C# (`TaxationUISystem`: `areaTaxIncomes`, and `taxIncome` = the four zones' sum, from the vanilla rates only)
+and draws them inside its own components, so the UI changes the **drawn value**, not the binding
+(`UI/src/taxation/density-totals.tsx`): the TaxationGroup wrapper provides the zone's extra and a TaxationPage wrapper
+the total's through a React context; an extended `TaxSlider` adds the zone's to the `primary` (header) slider, an
+extended `NumberField` adds the total's to the field whose className is the page's `totalValue` class. The values go
+through vanilla's own components, so sign and money format are vanilla's. Off, or every offset 0: the extra is 0 and
+both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTotal`/`zoneTotalIncome`/
+`estimatedTotalValue` in `density.ts`.
 
 ## Follow-ups
 

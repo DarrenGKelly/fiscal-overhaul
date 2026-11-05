@@ -36,6 +36,12 @@ namespace FiscalOverhaul
         private JobHandle m_AppliedWriter;
         private JobHandle m_AppliedReaders;
 
+        /// <summary>
+        /// Whether this update scheduled an apply job, i.e. may have raised rates the restore system must take back.
+        /// Reset at the top of every update, so it describes the current tax tick only.
+        /// </summary>
+        public bool AppliedThisTick { get; private set; }
+
         /// <summary>Entities adjusted this frame and by how much. Read by the restore system after TaxSystem.</summary>
         public NativeParallelHashMap<Entity, int> GetApplied(out JobHandle writer)
         {
@@ -91,6 +97,7 @@ namespace FiscalOverhaul
             m_AppliedReaders.Complete();
             m_AppliedReaders = default;
             m_Applied.Clear();
+            AppliedThisTick = false;
             if (!DensityTaxState.IsCharged) return; // disabled in Options, or no offset set: vanilla rates
 
             // Same group as TaxSystem picks this frame: it charges one of 16 UpdateFrame groups per update.
@@ -122,6 +129,7 @@ namespace FiscalOverhaul
             Dependency = job.ScheduleParallel(m_PayerQuery, Dependency);
             offsets.Dispose(Dependency);
             m_AppliedWriter = Dependency;
+            AppliedThisTick = true;
         }
 
         [BurstCompile]
@@ -170,7 +178,9 @@ namespace FiscalOverhaul
 
     /// <summary>
     /// Density taxes, part 2 of 2. Runs right after TaxSystem and takes back exactly what
-    /// <see cref="DensityTaxApplySystem"/> added, so the stored average rate never drifts.
+    /// <see cref="DensityTaxApplySystem"/> added, so the stored average rate never drifts. When the apply system
+    /// scheduled nothing this tick (density taxes off, every offset 0, no payers), it schedules nothing either: a job
+    /// declaring TaxPayer writes would otherwise run, and hold up every TaxPayer reader, on every tax tick for nothing.
     /// </summary>
     public partial class DensityTaxRestoreSystem : GameSystemBase
     {
@@ -191,6 +201,10 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
+            // Decided by what apply did this tick, not by the current switch and offsets: a change between the two
+            // must not strand a raised rate.
+            if (!Logic.DensityTaxRestoreGate.RestoreNeeded(DensityTaxState.Enabled, !DensityTaxState.Table.IsEmpty, m_ApplySystem.AppliedThisTick)) return;
+
             NativeParallelHashMap<Entity, int> applied = m_ApplySystem.GetApplied(out JobHandle writer);
 
             var job = new RestoreJob

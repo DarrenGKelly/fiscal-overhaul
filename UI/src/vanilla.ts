@@ -14,5 +14,13 @@ export const BudgetItemDetail: any = getModule(`${ECONOMY}/budget-page/budget-it
 /** Taxation slider row: props { min, max, rate, income, className?, primary?, disabled?, onValueChanged }. */
 export const TaxSlider: any = getModule(`${ECONOMY}/taxation-page/tax-slider.tsx`, "TaxSlider");
 
+/** The Taxation page's class names; `totalValue` is the ESTIMATED TOTAL NumberField's className (and its only class). */
+export const taxationPageClasses: { totalValue?: string } | undefined = getModule(`${ECONOMY}/taxation-page/taxation-page.module.scss`, "classes");
+
 export const BUDGET_PAGE_PATH = `${ECONOMY}/budget-page/budget-page.tsx`;
 export const TAXATION_GROUP_PATH = `${ECONOMY}/taxation-page/taxation-group.tsx`;
+export const TAXATION_PAGE_PATH = `${ECONOMY}/taxation-page/taxation-page.tsx`;
+/** Extended (not borrowed) for the zone totals: TaxationGroup draws each zone's total as its primary TaxSlider's income. */
+export const TAX_SLIDER_PATH = `${ECONOMY}/taxation-page/tax-slider.tsx`;
+/** Extended for ESTIMATED TOTAL, which TaxationPage draws with a NumberField of the `taxIncome` binding. */
+export const MONEY_FIELD_PATH = `${ECONOMY}/components/money-field/money-field.tsx`;
