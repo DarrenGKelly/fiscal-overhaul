@@ -6,6 +6,7 @@ import {
   BudgetItemLike,
   EXPENSE_TOTAL,
   formatMoney,
+  formatPerMonth,
   formatMoneyShort,
   formatMonthsAgo,
   formatMonthsAxis,
@@ -221,5 +222,17 @@ describe("plotLeft", () => {
 
   it("ignores a negative inset", () => {
     expect(plotLeft(1, 40, 10, -50)).toBe(50);
+  });
+});
+
+describe("formatPerMonth", () => {
+  it("gives the tooltip value as one string, with no space to wrap at", () => {
+    // Regression: "¢315,997" and "/mo" were separate text nodes and Gameface put "/mo" on a new line.
+    expect(formatPerMonth(315997)).toBe("¢315,997/mo");
+    expect(formatPerMonth(315997)).not.toContain(" ");
+  });
+
+  it("keeps the sign for expenses", () => {
+    expect(formatPerMonth(-283002)).toBe("-¢283,002/mo");
   });
 });
