@@ -142,7 +142,7 @@ namespace FiscalOverhaul
             try
             {
                 // The newest sample is still filling up; leaving it in makes every line dip at "now".
-                int count = samples.Length > 1 ? samples.Length - 1 : samples.Length;
+                int count = BudgetHistoryMath.CompleteSamples(samples.Length);
                 var deltas = new double[count];
                 for (int i = 0; i < count; i++) deltas[i] = samples[i].m_Value;
                 return BudgetHistoryMath.MonthlyRates(deltas);

@@ -98,12 +98,19 @@ namespace FiscalOverhaul.Logic
 
         /// <summary>
         /// Rough extra (or lost) monthly revenue from an offset, given what the buildings in that cell pay per
-        /// month now and at what average rate. Used for the estimate column only.
+        /// month now and their average stored (vanilla) rate. Used for the estimate column only.
+        /// <paramref name="monthlyTaxPaid"/> is TaxPayer.m_AverageTaxPaid, which TaxSystem sets from the tax it just
+        /// charged, at the stored rate plus the offset this cell already pays. So the taxable base is the paid amount
+        /// over that charged rate, not over the stored one (which would overstate the estimate by (rate + offset) / rate).
+        /// Right after the offset changes, the paid amounts still reflect the old one until each payer's next payment
+        /// (1/32 of a month).
         /// </summary>
         public static long EstimateExtraRevenue(long monthlyTaxPaid, double averageRate, int offset)
         {
             if (offset == 0 || averageRate <= 0 || monthlyTaxPaid == 0) return 0;
-            double taxableBase = monthlyTaxPaid * 100.0 / averageRate;
+            double chargedRate = averageRate + offset;
+            if (chargedRate <= 0) return 0; // charged nothing, so the paid amount says nothing about the base
+            double taxableBase = monthlyTaxPaid * 100.0 / chargedRate;
             return (long)Math.Round(taxableBase * offset / 100.0, MidpointRounding.AwayFromZero);
         }
 

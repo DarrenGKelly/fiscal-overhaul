@@ -23,17 +23,21 @@ namespace FiscalOverhaul
             m_Setting.RegisterInOptionsUI();
             GameManager.instance.localizationManager.AddSource("en-US", new LocaleEN(m_Setting));
             AssetDatabase.global.LoadSettings(nameof(FiscalOverhaul), m_Setting, new Setting(this));
+            // The offsets are global mod settings, not per save, so they're loaded once here, before any city loads.
             DensityTaxState.Load(m_Setting.DensityTaxOffsets);
             ApplyFeatureSwitches(m_Setting);
             // The options page calls ApplyAndSave on every change, so the switches take effect live.
             m_Setting.onSettingsApplied += ApplyFeatureSwitches;
 
-            // Density taxes: adjust the rate right before TaxSystem charges it, undo right after.
-            // Same update interval as TaxSystem, so both inherit its update offset (same frames).
+            // Density taxes: adjust the rate right before TaxSystem charges it, undo right after. Every vanilla rate
+            // lookup happens inside Burst jobs a mod can't patch, so the rate TaxSystem reads is changed around it.
+            // Same update interval as TaxSystem, so both inherit its update offset and run on exactly its frames; on any
+            // other frame the pair would adjust payers TaxSystem doesn't charge.
             updateSystem.UpdateBefore<DensityTaxApplySystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateAfter<DensityTaxRestoreSystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
 
-            // UI bindings for the Economy panel.
+            // UI bindings for the Economy panel. UIUpdate runs every rendered frame, paused or not; the systems gate
+            // their own work on the panel being open (FeatureGates).
             updateSystem.UpdateAt<BudgetHistoryUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAt<DensityTaxUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.World.GetOrCreateSystemManaged<BudgetHistoryUISystem>().SetSettings(m_Setting);
@@ -52,7 +56,6 @@ namespace FiscalOverhaul
         public void OnDispose()
         {
             log.Info(nameof(OnDispose));
-            DensityTaxState.Dispose();
             if (m_Setting != null)
             {
                 m_Setting.onSettingsApplied -= ApplyFeatureSwitches;

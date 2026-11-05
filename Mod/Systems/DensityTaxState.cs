@@ -1,17 +1,19 @@
 using FiscalOverhaul.Logic;
-using Unity.Collections;
 
 namespace FiscalOverhaul
 {
     /// <summary>
-    /// The live density tax offsets, shared by the UI system (writes) and the simulation systems (read).
-    /// Kept as a managed table plus a persistent native copy of the effective offsets the Burst jobs read:
-    /// the stored ones while density taxes are enabled (<see cref="Setting.EnableDensityTaxes"/>), all 0 while not.
+    /// The live density tax offsets, shared by the UI system and the Options page (write) and the simulation systems
+    /// (read). Main thread only: every caller (binding triggers, the Options page, system OnUpdate) runs there.
+    ///
+    /// Jobs never see this state directly. <see cref="DensityTaxApplySystem"/> takes a <see cref="Snapshot"/> each
+    /// update and hands its job a TempJob copy of it, so a change made here while an apply job is still running can't
+    /// tear what that job reads. (A shared persistent NativeArray would need every writer here to first complete the
+    /// apply job, and freeing it on mod unload could pull it out from under a running job.)
     /// </summary>
     public static class DensityTaxState
     {
         private static DensityTaxTable s_Table = new DensityTaxTable();
-        private static NativeArray<int> s_Native;
         private static bool s_Enabled = true;
 
         /// <summary>The stored offsets, whether or not density taxes are enabled.</summary>
@@ -26,50 +28,30 @@ namespace FiscalOverhaul
         /// <summary>Bumped on every change so UI bindings know to refresh.</summary>
         public static int Version { get; private set; }
 
+        /// <summary>
+        /// A fresh copy of the offsets the tax systems charge (index = <see cref="DensityTaxTable.Index"/>): the stored
+        /// ones while enabled, all 0 while not. Later changes don't touch an array already handed out.
+        /// </summary>
+        public static int[] Snapshot() => s_Table.EffectiveOffsets(s_Enabled);
+
         public static void Load(string serialized)
         {
             s_Table = DensityTaxTable.Parse(serialized);
-            Sync();
+            Version++;
         }
 
         public static void SetEnabled(bool enabled)
         {
             if (enabled == s_Enabled) return;
             s_Enabled = enabled;
-            Sync();
+            Version++;
         }
 
         public static int Set(TaxZone zone, Density density, int offset)
         {
             int stored = s_Table.Set(zone, density, offset);
-            Sync();
-            return stored;
-        }
-
-        /// <summary>The effective offsets as a native array (index = <see cref="DensityTaxTable.Index"/>). Valid until <see cref="Dispose"/>.</summary>
-        public static NativeArray<int> Native
-        {
-            get
-            {
-                if (!s_Native.IsCreated) Sync();
-                return s_Native;
-            }
-        }
-
-        public static void Dispose()
-        {
-            if (s_Native.IsCreated) s_Native.Dispose();
-        }
-
-        private static void Sync()
-        {
-            int[] values = s_Table.EffectiveOffsets(s_Enabled);
-            if (!s_Native.IsCreated)
-            {
-                s_Native = new NativeArray<int>(values.Length, Allocator.Persistent);
-            }
-            s_Native.CopyFrom(values);
             Version++;
+            return stored;
         }
     }
 }

@@ -30,6 +30,13 @@ namespace FiscalOverhaul.Logic
         }
 
         /// <summary>
+        /// How many of the game's <paramref name="sampleCount"/> statistic samples are complete. The newest is still
+        /// filling up (the game appends it at the start of its 1/32 month), so it's left out, also when it's the only
+        /// one, as in a new city's first 1/32 month: the live value stands in for it (<see cref="WithLiveNow"/>).
+        /// </summary>
+        public static int CompleteSamples(int sampleCount) => sampleCount > 1 ? sampleCount - 1 : 0;
+
+        /// <summary>
         /// The rates of the complete samples, then <paramref name="live"/> as the newest point: the game's current
         /// monthly figure, which the Budget rows show. So the chart's "Now" is the row value by construction, rather
         /// than the last saved sample, which can be up to 1/32 of a month old (or older while the game is paused).
