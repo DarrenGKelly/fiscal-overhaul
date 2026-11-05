@@ -114,6 +114,13 @@ try {
     Check ($forced.ExitCode -eq 0 -and -not (Test-Listed $dirty) -and -not (Test-Path -LiteralPath $dirty)) 'with -Force the dirty worktree is removed' $forced.Output
     Check (Test-Path (Join-Path $modules 'react\index.js')) '... and the packages survive it'
 
+    Write-Host '--- called from a folder outside the repo ---'
+    $outside = Add-Worktree 'outside'
+    $elsewhere = Join-Path $root 'elsewhere'
+    New-Item -ItemType Directory -Force $elsewhere | Out-Null
+    $run = Invoke-Remove $elsewhere @('-Path', $outside)
+    Check ($run.ExitCode -eq 0 -and -not (Test-Listed $outside) -and -not (Test-Path -LiteralPath $outside)) 'a worktree is removed when the caller is in a folder outside the repo' $run.Output
+
     Write-Host '--- paths that are not worktrees ---'
     $missing = Invoke-Remove $repo @('-Path', (Join-Path $wtRoot 'never-existed'))
     Check ($missing.ExitCode -ne 0) 'a path that does not exist fails' $missing.Output
