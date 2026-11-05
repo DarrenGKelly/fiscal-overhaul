@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-05
+
+* **The in-game check without computer use**: `tools/game-control.ps1` (and its twin) drives the game from the shell on Windows (screenshots, clicks, hover, scan-code keys, window focus, waiting for the save to load); proven in two runs on the Odiham save, and now the test agent's method ([testing.md § On Windows without computer use](testing.md#on-windows-without-computer-use)). The Linux PC's xdotool note joined it.
+
 ## 2026-11-04
 
 * **Creation**: releasing to Paradox Mods ([releasing.md](releasing.md)): `tools/publish.ps1` and its twin, the [/publish](../.claude/skills/publish/SKILL.md) skill, and `tools/promote.py stamp`, which writes the version, the `CHANGELOG.md` section and the ChangeLog into the promotion branch. Promotion bodies now record their round head, since the stamp commit keeps the PR's head out of `autodev`. A private test upload (`-AccessLevel Private`) uploads `<version>-test.<n>` and tags nothing, so the release stays unused ([releasing.md § Private test uploads](releasing.md#private-test-uploads)).
