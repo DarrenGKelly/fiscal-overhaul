@@ -46,31 +46,94 @@ resource:
 
 ## The in-game check
 
-How a session or the test agent checks a change in the running game with computer use. The mistakes that cost the
-most: **testing a stale build** (the Mods folder holds whichever checkout deployed last) and **taking the game from
-someone else** ([the shared game instance](orchestration.md#the-shared-game-instance)).
+How a session or the test agent checks a change in the running game. The mistakes that cost the most: **testing a
+stale build** (the Mods folder holds whichever checkout deployed last) and **taking the game from someone else**
+([the shared game instance](orchestration.md#the-shared-game-instance)). The game is driven from the shell with
+`tools/game-control.ps1` ([below](#on-windows-without-computer-use)); computer use is never needed.
 
 1. **Claim and deploy.** `./tools/check-batch-status.ps1`. `Game: RUNNING` and not yours: the user or another agent has
    it; ask, never close it. `Game: not running`: `./tools/build.ps1` from the checkout under test; its last line names
    the branch and commit the game will load. The game doesn't hot-reload mod UI, and a running game locks the DLL, so
    every new build needs the game closed first.
-2. **Launch.** Load the computer-use tools in one `ToolSearch` (`computer-use`, max 30); `request_access` for
-   `["Cities Skylines II", "paradox launcher.exe"]`, plus `"File Explorer"` (click-only) when a click fails with "The
-   desktop shell is frontmost". Start through Steam only: `Start-Process steam://rungameid/949230`. `Cities2.exe`
-   started directly (`open_application "Cities2"` too) hangs at startup ([cs2-ui-modding.md § Logs](cs2-ui-modding.md#logs)).
-3. **Load.** The Paradox launcher opens first, often behind other windows: `open_application "Paradox launcher"`,
-   screenshot, `zoom`. **Resume** loads the most recent save; **Play** goes to the main menu (Load Game, the plan's save).
-   `Get-Process Cities2` shows the game has started; startup and loading take about two minutes (one long `wait`).
-   Pause (Space) unless the check needs the simulation running.
+2. **Launch.** Through Steam only: `Start-Process steam://rungameid/949230`. `Cities2.exe` started directly hangs at
+   startup ([cs2-ui-modding.md § Logs](cs2-ui-modding.md#logs)).
+3. **Load.** The Paradox launcher opens first, often behind other windows. **Resume** loads the most recent save;
+   **Play** goes to the main menu (Load Game, the plan's save). Loading takes about a minute; the save comes up
+   **paused** (Resume keeps the pause it was saved with), so check before pressing Space, which toggles it.
 4. **Capture.** Open the Economy panel (click the money total in the bottom bar) and the tab: **Budget** for the chart,
    **Taxation** for the density rows. One screenshot per thing the change should show, each filter, span or hover state
-   (`mouse_move`, not a click). On the ultrawide monitor screenshot at `scale: 0.5`, then `zoom` on the panel
-   (`save_to_disk` for the ones you report); axis labels and tooltips need the zoom.
+   (move the cursor onto it, no click). Screenshot the game window at half scale; crop a region at full scale where
+   axis labels and tooltips need it. Keep the ones you report.
 5. **Judge** each against the plan's `Expect`, one verdict line each: layout and overlaps, the game's look (fonts,
    colours, spacing like the vanilla tabs), plausible data for this city, nothing clipped. Don't pixel-diff; read each
    image once. A crash, hang or error dialog is a finding: screenshot it and read the [logs](cs2-ui-modding.md#logs).
-6. **Close.** Quit from the game's menu (Main Menu, then Quit); a hung instance you launched: `Stop-Process -Name
-   Cities2`. Confirm `./tools/check-batch-status.ps1` says `Game: not running`. Close only an instance you launched.
+6. **Close.** Quit from the game's menu (Escape closes the panel, Escape again opens the menu: Exit, then Exit to
+   Desktop); a hung instance you launched: `Stop-Process -Name Cities2`. Confirm `./tools/check-batch-status.ps1`
+   says `Game: not running`. Close only an instance you launched.
+
+### On Windows without computer use
+
+`tools/game-control.ps1` drives the game with Win32 input from the shell (`Get-Help ./tools/game-control.ps1 -Full`);
+it needs no computer-use access and no installs. Each command prints what it did and exits non-zero with the reason
+(no game window, a window that won't come to the front). The sequence, as run on the Windows PC (one 4K monitor at
+3840x2160, the game windowed at 2560x1440):
+
+```
+./tools/check-batch-status.ps1                      # Game: not running
+./tools/build.ps1                                   # last line: the branch and commit deployed
+Start-Process steam://rungameid/949230
+./tools/game-control.ps1 wait-process -Title '^Paradox Launcher$' -Timeout 120
+./tools/game-control.ps1 focus -Title '^Paradox Launcher$'
+./tools/game-control.ps1 screenshot -Out <dir>/launcher.png -Window -Title '^Paradox Launcher$' -Scale 0.5 -Delay 3000
+./tools/game-control.ps1 click -X <x> -Y <y>        # Resume, read off launcher.png (below)
+./tools/game-control.ps1 wait-process -Timeout 120  # the game's window
+./tools/game-control.ps1 wait-loaded -Timeout 300   # "Loading completed" in this launch's SceneFlow.log
+./tools/game-control.ps1 window                     # client: x,y,w,h, the origin for every click below
+./tools/game-control.ps1 focus
+./tools/game-control.ps1 screenshot -Out <dir>/loaded.png -Window -Scale 0.5 -Delay 2000
+./tools/game-control.ps1 key Space                  # only if loaded.png shows it running (no pause icon)
+./tools/game-control.ps1 click -X <x> -Y <y>        # the money total: the Economy panel, on Budget
+./tools/game-control.ps1 move -X <x> -Y <y>         # onto a chart line: the tooltip
+./tools/game-control.ps1 screenshot -Out <dir>/budget.png -Window -Scale 0.5 -Delay 1500
+./tools/game-control.ps1 click -X <x> -Y <y>        # the Taxation tab
+./tools/game-control.ps1 screenshot -Out <dir>/taxation.png -Window -Scale 0.5 -Delay 1000
+./tools/game-control.ps1 key Escape                 # closes the panel
+./tools/game-control.ps1 key Escape                 # opens the pause menu
+./tools/game-control.ps1 click -X <x> -Y <y>        # Exit, then (after a screenshot) Exit to Desktop
+./tools/game-control.ps1 wait-process -Gone -Timeout 90
+```
+
+- **Coordinates** are physical screen pixels. Every screenshot prints its origin and scale: screen = origin +
+  pixel / scale, so a point at (497, 184) in a `-Scale 0.5` shot with origin 998,449 is `click -X 1992 -Y 817`.
+  Read the PNG with the Read tool, find the target, convert. With the game window's client area at 2560x1440 these
+  client offsets held (screen = the `window` client origin + offset): money total 1950,1406; Budget tab 736,306;
+  Taxation tab 1280,306; a chart point around 1800,660; pause menu Exit 818,1140; Exit to Desktop 1278,800. The
+  launcher's Resume was at its client origin + 994,368. A different window size or position moves them all: take the
+  screenshot first.
+- **Timings** seen: the launcher's window 2 s after `Start-Process` (Steam already running); the game's window 2-3 s
+  after Resume; the save loaded 55-80 s after Resume; a panel fades in over about a second (a screenshot straight
+  after the click is translucent: `-Delay 1000` or more); Exit to Desktop ends the process in 3 s.
+- **Waiting**: agent shells block a bare `Start-Sleep`, so wait on a condition: `wait-process` (a window, a title,
+  or `-Gone`), `wait-loaded`, `screenshot -Delay`.
+- **Hover and clicks work in Gameface**: `click` (a real SendInput press), and hover from a plain `move`, unlike on
+  Linux; `hover` (approach in small steps) and `move-relative` also show the tooltip. `move-relative` goes through
+  Windows pointer acceleration, so it lands near, not on, the offset asked.
+- **Keys** go to the foreground window as scan codes (`key Space`, `key Escape`; the names are
+  `System.Windows.Forms.Keys`): `focus` first, and check the `key:` line names the game's window.
+- **The pause state** shows in the bottom bar (the pause icon) and as a PAUSED banner top centre; the save loads
+  paused, so a reflex Space starts the simulation.
+- The game window captures normally (no black frames). `focus` brought both windows forward first time; its Alt-tap
+  fallback covers a window Windows won't raise.
+
+### On the Linux PC
+
+**On the Linux PC** (the game under Proton, X11) there are no computer-use tools; drive it from the shell. Install with
+`sh tools/build-linux.sh`, launch with `xdg-open steam://rungameid/949230` (Steam then asks for a launch option: the
+plain "Play", mods enabled), screenshot with `gnome-screenshot -f <file>` (2560x1440) and click with
+`xdotool mousemove X Y click 1`. **Hover needs relative moves**: an absolute `xdotool mousemove` jump reaches clicks
+but not Gameface's hover, so the chart tooltip and the row pop-out only appear after a few
+`xdotool mousemove_relative -- 8 -1` steps onto the target. Escape closes a panel first, then opens the pause menu
+(Exit, then Exit to desktop). Logs are under the Proton prefix ([cs2-ui-modding.md § Building](cs2-ui-modding.md#building)).
 
 ## Tool tests
 
@@ -85,6 +148,7 @@ sh tools/test-git-hooks.sh; sh tools/test-build-linux.sh
 ./tools/test-land-pr.ps1; ./tools/test-claude-merge-guard.ps1; ./tools/test-test.ps1
 ./tools/test-new-test-batch.ps1; ./tools/test-check-batch-status.ps1
 ./tools/test-prune-worktrees.ps1; ./tools/test-remove-worktree.ps1; ./tools/test-publish.ps1
+./tools/test-game-control.ps1      # shows a small window at 200,200 and moves the cursor for ~40 s
 ```
 
 `tools/land-pr.ps1` runs them for you before landing: for each `tools/` or `.githooks/` file a PR changes, its

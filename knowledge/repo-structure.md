@@ -64,6 +64,7 @@ changing the script ([testing.md § Tool tests](testing.md#tool-tests)).
 | `git-common.ps1` | Helpers the PowerShell tools dot-source: paths, `Invoke-Git`, the repo context, the hooks-path warning, `Use-LocalToolchain` (the per-user Node and .NET 6), `Get-GameProcess` |
 | `land-pr.ps1` | Lands a PR into `autodev` ([git-workflow.md](git-workflow.md#autonomous-sessions-autodev)) |
 | `new-test-batch.ps1` | Builds a test batch branch from several branches; `-Check`, `-Blame` ([git-workflow.md § Test batches](git-workflow.md#test-batches)) |
+| `game-control.ps1` | Drives the game from the shell on Windows, no computer use ([testing.md § On Windows without computer use](testing.md#on-windows-without-computer-use)): `screenshot` (primary monitor, `-Region`, `-Window`, `-Scale`, `-Delay`), `click`, `move`, `move-relative`, `hover`, `key` (scan codes), `focus`/`window` (the game, or `-Title`), `windows`, `wait-process` (`-Title`, `-Gone`), `wait-loaded` (the save), `cursor`. Tested by `test-game-control.ps1` (no game needed; not in `$LandingPowerShellSuites`, as it moves the cursor) |
 | `check-batch-status.ps1` | One sweep for an orchestrator: each branch against `origin/autodev`, worktree state, PRs, whether the game is running, and what the Mods folder holds |
 | `prune-worktrees.ps1` | Removes worktrees whose branch has landed and that are clean (`-Apply`; dry run without) |
 | `remove-worktree.ps1` | Removes one worktree safely: unlinks junctions first, refuses a dirty one without `-Force` |
