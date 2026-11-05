@@ -20,10 +20,14 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 | `UI/` | The UI module (TypeScript, React, SCSS; the CS2 UI template's webpack build): `src/`, `types/`, `webpack.config.js` |
 | `Tests/` | xunit tests for the mod's pure logic (net10.0; compiles `Mod/Logic/` in directly, no game DLLs) |
 | `knowledge/` | This OKF bundle ([knowledge-format.md](knowledge-format.md)) |
+| `art/` | Source art: `icon/` renders the mod icon `Mod/Properties/Thumbnail.png` (1024x1024, Paradox Mods covers are square) and alternative concepts with `make_icon.py` (Pillow); its `README.md` says how |
 | `tasks/` | `/orchestrate` batch folders (`tasks/<batch>/`, gitignored; `.gitkeep` keeps the folder) |
 | `tools/` | Scripts (below) |
 | `.githooks/` | The branch policy and doc checks ([git-workflow.md § Hooks](git-workflow.md#hooks)) |
 | `.claude/` | `settings.json` (the merge guard), `agents/`, `skills/` ([skills.md](skills.md)) |
+
+Root files: `README.md` (the public page players and contributors read, which embeds the Paradox Mods
+screenshots), `LICENSE` (MIT), `CHANGELOG.md` (Keep a Changelog; one entry per release) and `CLAUDE.md`.
 
 ## Mod/
 
@@ -31,6 +35,7 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 |---|---|
 | `Logic/` | Pure logic with no game or Unity types (budget history maths, the density tax table): unit-tested in `Tests/` |
 | `Systems/` | The game systems: ECS systems that read the city's statistics, apply density taxes, and the UI systems that bind data to the panel ([impl/](impl/index.md)) |
+| `Properties/` | `PublishConfiguration.xml` (the Paradox Mods page: name, descriptions, tags, links, `ModVersion` and the release's `ChangeLog`), `Thumbnail.png`, `PublishProfiles/`. The version is in step with `UI/mod.json` and `CHANGELOG.md` |
 
 ## `UI/src/`
 
@@ -54,6 +59,7 @@ changing the script ([testing.md § Tool tests](testing.md#tool-tests)).
 |---|---|
 | `build.ps1` | Builds and deploys the mod: `-ModOnly`, `-UIOnly`, `-NoDeploy` (compile check), `-Configuration`; `-Ref origin/<branch>` builds that ref in `.claude/worktrees/build`; `-Zip` packages to `Builds/` without deploying. Refuses to deploy while the game runs. No test twin (needs the game's toolchain; verified by real runs) |
 | `build-linux.sh` | On the Linux PC: builds a ref on the Windows PC over SSH (`build.ps1 -Ref <ref> -Zip`, origin fed from a git bundle made here) and installs the zip into the game's Proton Mods folder; `--ref`, `--configuration`. Refuses while the game runs. Tested by `test-build-linux.sh` |
+| `publish.ps1` | Publishes a release to Paradox Mods through the game's ModPublisher (`/publish`): builds a ref (default `origin/master`) in a temporary worktree, refuses an unready config, uploads (`-Mode Publish`, `NewVersion` or `Update`; the default follows ModId) and tags `v<version>`; `-DryRun`; `-AccessLevel Private` is an untagged test upload (`<version>-test.<n>`, `-TestSuffix`). Refuses while the game runs ([releasing.md](releasing.md)). Tested by `test-publish.ps1` |
 | `test.ps1` | Runs the unit tests: xunit (`dotnet test Tests`) and vitest (`npm test` in `UI/`); `-CSharpOnly`, `-UIOnly`, `-Filter`. Tested by `test-test.ps1` |
 | `git-common.ps1` | Helpers the PowerShell tools dot-source: paths, `Invoke-Git`, the repo context, the hooks-path warning, `Use-LocalToolchain` (the per-user Node and .NET 6), `Get-GameProcess` |
 | `land-pr.ps1` | Lands a PR into `autodev` ([git-workflow.md](git-workflow.md#autonomous-sessions-autodev)) |
@@ -66,5 +72,5 @@ changing the script ([testing.md § Tool tests](testing.md#tool-tests)).
 | `check-doc-links.py` | Broken links and anchors in the docs, skills and agents; the orphan-tool, test-twin and folder-map guards |
 | `check-skills.py` | Skill and agent frontmatter, sizes, and that every `tools/` script and flag they name exists ([skills.md](skills.md)) |
 | `issues.py` | The issue backlog by area, triage, and `/orchestrate` batches from it ([issues.md](issues.md)) |
-| `promote.py` | Plans and verifies an `autodev` → `master` promotion (`/promote`) |
+| `promote.py` | Plans, stamps (`ModVersion`, `UI/mod.json`'s version, the `CHANGELOG.md` section and the config's `ChangeLog`) and verifies an `autodev` → `master` promotion (`/promote`; [releasing.md](releasing.md#the-version-and-changelog)) |
 | `test-git-hooks.sh` | The hooks' tests (no twin of its own: it is the `.githooks/` test) |

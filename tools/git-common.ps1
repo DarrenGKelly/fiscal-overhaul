@@ -1,7 +1,7 @@
 <#
     Shared git and path helpers for the PowerShell tools (land-pr, prune-worktrees, check-batch-status,
-    new-test-batch, build, test). Dot-source it; it only defines functions. Windows only (Cities: Skylines II is),
-    and Windows PowerShell 5.1 compatible (no ?? / ?: / ternaries, no Get-Date -AsUTC).
+    new-test-batch, build, test, publish). Dot-source it; it only defines functions. Windows only (Cities: Skylines II
+    is), and Windows PowerShell 5.1 compatible (no ?? / ?: / ternaries, no Get-Date -AsUTC).
 #>
 
 # Paths compare case-insensitively, with '\' separators.
@@ -151,7 +151,9 @@ function Use-LocalToolchain([switch]$Dotnet6) {
 }
 
 # The running Cities: Skylines II process (Cities2.exe), or $null. Only one game instance can run, and every
-# in-game test shares it (knowledge/orchestration.md#the-shared-game-instance).
+# in-game test shares it (knowledge/orchestration.md#the-shared-game-instance). FO_GAME_PROCESS_NAME overrides the
+# name (the tests use it, so a real running game doesn't change their result).
 function Get-GameProcess {
-    return Get-Process -Name 'Cities2' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $name = if ($env:FO_GAME_PROCESS_NAME) { $env:FO_GAME_PROCESS_NAME } else { 'Cities2' }
+    return Get-Process -Name $name -ErrorAction SilentlyContinue | Select-Object -First 1
 }

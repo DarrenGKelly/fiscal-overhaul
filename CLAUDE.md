@@ -47,7 +47,7 @@ The usual first stops: [repo-structure.md](knowledge/repo-structure.md) (where e
 
 Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only through PRs titled `vX.Y.Z - <summary>`, which the user merges. Enable the hooks once per clone: `git config core.hooksPath .githooks`. Problems outside the task become GitHub issues ([issues.md](knowledge/issues.md)), not fixes in passing.
 
-**Autonomous work goes through `autodev`** (the global `/autodev` skill; batches: `/orchestrate`): branch from `origin/autodev`, test, `gh pr create --base autodev --body-file <file>`, then land it yourself with `./tools/land-pr.ps1 <n>`. Never merge any other way, never force-push or delete `autodev`. The user tests `autodev` in game and promotes it (`/promote`). Details: [git-workflow.md](knowledge/git-workflow.md#autonomous-sessions-autodev).
+**Autonomous work goes through `autodev`** (the global `/autodev` skill; batches: `/orchestrate`): branch from `origin/autodev`, test, `gh pr create --base autodev --body-file <file>`, then land it yourself with `./tools/land-pr.ps1 <n>`. Never merge any other way, never force-push or delete `autodev`. The user tests `autodev` in game, promotes it (`/promote`) and uploads a release to Paradox Mods (`/publish`, [releasing.md](knowledge/releasing.md)). Details: [git-workflow.md](knowledge/git-workflow.md#autonomous-sessions-autodev).
 
 ## Architecture
 
