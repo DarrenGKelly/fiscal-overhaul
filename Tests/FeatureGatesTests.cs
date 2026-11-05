@@ -6,6 +6,25 @@ namespace FiscalOverhaul.Tests
     public class FeatureGatesTests
     {
         [Fact]
+        public void DensityTaxes_AreOffByDefault_AsABetaFeature()
+        {
+            Assert.False(FeatureGates.DensityTaxesDefault);
+        }
+
+        [Fact]
+        public void BudgetChart_IsOnByDefault()
+        {
+            Assert.True(FeatureGates.BudgetChartDefault);
+        }
+
+        [Fact]
+        public void DefaultsDecideWhetherPanelDataIsBuilt()
+        {
+            Assert.False(FeatureGates.BuildsPanelData(FeatureGates.DensityTaxesDefault, economyPanelOpen: true));
+            Assert.True(FeatureGates.BuildsPanelData(FeatureGates.BudgetChartDefault, economyPanelOpen: true));
+        }
+
+        [Fact]
         public void BuildsPanelData_WhenEnabledAndThePanelIsOpen()
         {
             Assert.True(FeatureGates.BuildsPanelData(featureEnabled: true, economyPanelOpen: true));

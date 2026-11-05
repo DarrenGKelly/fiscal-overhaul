@@ -12,7 +12,7 @@ namespace FiscalOverhaul
     {
         private static DensityTaxTable s_Table = new DensityTaxTable();
         private static NativeArray<int> s_Native;
-        private static bool s_Enabled = true;
+        private static bool s_Enabled = FeatureGates.DensityTaxesDefault;
 
         /// <summary>The stored offsets, whether or not density taxes are enabled.</summary>
         public static DensityTaxTable Table => s_Table;

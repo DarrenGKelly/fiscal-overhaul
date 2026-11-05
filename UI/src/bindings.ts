@@ -28,7 +28,7 @@ export interface DensityTaxes {
 }
 
 /** Options > Enable density taxes. Off: the Taxation tab has no density rows. */
-export const densityTaxesEnabled$ = bindValue<boolean>(GROUP, "densityTaxesEnabled", true);
+export const densityTaxesEnabled$ = bindValue<boolean>(GROUP, "densityTaxesEnabled", false);
 
 export const densityTaxes$ = bindValue<DensityTaxes | null>(GROUP, "densityTaxes", null);
 
