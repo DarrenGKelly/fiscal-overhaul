@@ -47,6 +47,9 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
   checkout), and runs `dotnet build -c Release` into a temporary Mods folder, as `build.ps1 -Zip` does. So the upload
   holds exactly the build: not what the game's Mods folder holds (`build-info.txt`, a branch someone deployed). The
   worktree and the folder are removed afterwards. It refuses while the game runs.
+- **What it uploads.** The build's files (dll, mjs, `.pdb`, `.mjs.LICENSE.txt`, the Burst dll/so/bundle) minus the
+  Burst debug symbols (`*_x86_64.pdb`, `$UploadExcludePatterns` in the script); the managed `.pdb` (line numbers in
+  players' error logs) and the LICENSE.txt (third-party notices) stay. `-DryRun` prints the final list.
 - **The mode follows `ModId`.** Empty: `Publish` (a new mod). Set: `NewVersion`. `-Mode Update` changes the page only
   (descriptions, images, tags, access level): nothing is built or tagged.
 - **It refuses before uploading**, each refusal naming its fix: `ModVersion` other than `UI/mod.json`'s version; an

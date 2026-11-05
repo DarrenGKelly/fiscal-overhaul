@@ -155,6 +155,10 @@ try {
             '@mkdir "%CSII_USERDATAPATH%\Mods\FiscalOverhaul" 2>nul'
             '@echo dll> "%CSII_USERDATAPATH%\Mods\FiscalOverhaul\FiscalOverhaul.dll"'
             '@echo mjs> "%CSII_USERDATAPATH%\Mods\FiscalOverhaul\FiscalOverhaul.mjs"'
+            '@echo pdb> "%CSII_USERDATAPATH%\Mods\FiscalOverhaul\FiscalOverhaul.pdb"'
+            '@echo lic> "%CSII_USERDATAPATH%\Mods\FiscalOverhaul\FiscalOverhaul.mjs.LICENSE.txt"'
+            '@echo burst> "%CSII_USERDATAPATH%\Mods\FiscalOverhaul\FiscalOverhaul_win_x86_64.pdb"'
+            '@echo burst> "%CSII_USERDATAPATH%\Mods\FiscalOverhaul\FiscalOverhaul_win_x86_64.dll"'
             '@exit /b 0') -join "`r`n")
     Write-File (Join-Path $bin 'npm.cmd') "@echo npm %*>> `"%FO_STUB_LOG%`"`r`n@exit /b 0`r`n"
     $env:PATH = $bin + [IO.Path]::PathSeparator + $env:PATH
@@ -185,6 +189,7 @@ try {
     Check ($r.Output -match 'ModPublisher\.cmd" Publish \S*PublishConfiguration\.xml -c \S*fo-publish-content-\S*\\Mods\\FiscalOverhaul -v') '... printing the Publish command with a temporary content folder' $r.Output
     Check ($r.Calls -match 'npm ci' -and $r.Calls -match 'dotnet build \S*FiscalOverhaul\.csproj -c Release -nologo -p:LocalModsPath=\S*fo-publish-content-') '... after installing the UI packages and a Release build into a temporary Mods folder' $r.Calls
     Check ($r.Calls -notmatch 'publisher') '... without running ModPublisher' $r.Calls
+    Check ($r.Output -match 'Files that would be uploaded' -and $r.Output -match '(?m)^\s+FiscalOverhaul\.pdb' -and $r.Output -notmatch '(?m)^\s+FiscalOverhaul_win_x86_64\.pdb') '... printing the final file list, without the Burst pdb' $r.Output
     Check (-not (Get-RemoteTag 'v1.0.0') -and -not (Git $repo @('tag', '--list'))) '... or tagging' (Git $repo @('tag', '--list'))
     $worktrees = @((Git $repo @('worktree', 'list', '--porcelain')) -split "`n" | Where-Object { $_ -like 'worktree *' })
     Check ($worktrees.Count -eq 1) '... and the temporary worktree is removed' ($worktrees -join "`n")
@@ -225,6 +230,8 @@ try {
     Check ($r.Calls -match '(?m)^cwd=\S*fo-publish-[0-9a-f]{8}\\Mod\s*$') '... from the worktree''s Mod folder (where the config''s relative paths resolve)' $r.Calls
     Check ($r.Calls -match ('(?m)^DOTNET_ROOT=' + [regex]::Escape((Join-Path $env:FO_TOOLS_ROOT 'dotnet6')))) '... with DOTNET_ROOT the per-user .NET 6' $r.Calls
     Check ($r.Calls -match '(?m)^FiscalOverhaul\.dll' -and $r.Calls -match '(?m)^FiscalOverhaul\.mjs' -and $r.Calls -notmatch 'build-info') '... uploading the build: the dll and the UI module, no build-info.txt' $r.Calls
+    Check ($r.Calls -notmatch '(?m)^FiscalOverhaul_win_x86_64\.pdb' -and $r.Output -match 'Left out of the upload: FiscalOverhaul_win_x86_64\.pdb') 'the Burst debug symbols are left out of the upload (fail case: before the exclusion the listing held them)' $r.Calls
+    Check ($r.Calls -match '(?m)^FiscalOverhaul\.pdb' -and $r.Calls -match '(?m)^FiscalOverhaul\.mjs\.LICENSE\.txt' -and $r.Calls -match '(?m)^FiscalOverhaul_win_x86_64\.dll') '... while the managed .pdb, the LICENSE.txt and the Burst dll stay' $r.Calls
     Check ($r.Output -match 'New ModId: 4242' -and $r.Output -match 'PR into autodev') '... reporting the printed ModId and the follow-up PR' $r.Output
     Check ((Get-RemoteTag 'v1.0.0') -eq $sha) '... tagging v1.0.0 at the built commit and pushing the tag' "$(Get-RemoteTag 'v1.0.0') vs $sha"
     $r = Invoke-Publish @('-DryRun')
