@@ -17,6 +17,13 @@ export const TaxSlider: any = getModule(`${ECONOMY}/taxation-page/tax-slider.tsx
 /** The Taxation page's class names; `totalValue` is the ESTIMATED TOTAL NumberField's className (and its only class). */
 export const taxationPageClasses: { totalValue?: string } | undefined = getModule(`${ECONOMY}/taxation-page/taxation-page.module.scss`, "classes");
 
+/**
+ * Vanilla scroll container with the game's own scroll bar (Gameface draws none for `overflow: auto`): props
+ * { className?, vertical?, trackVisibility?: "always" | "scrollable" | ..., children }. Constrain it with a max-height
+ * on its className, as vanilla dropdown menus do.
+ */
+export const Scrollable: any = getModule("game-ui/common/scrolling/scrollable.tsx", "Scrollable");
+
 export const BUDGET_PAGE_PATH = `${ECONOMY}/budget-page/budget-page.tsx`;
 export const TAXATION_GROUP_PATH = `${ECONOMY}/taxation-page/taxation-group.tsx`;
 export const TAXATION_PAGE_PATH = `${ECONOMY}/taxation-page/taxation-page.tsx`;

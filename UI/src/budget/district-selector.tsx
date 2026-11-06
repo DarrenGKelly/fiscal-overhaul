@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cycle, dividerBefore, DistrictOption } from "./district-select";
 import styles from "./budget-page.module.scss";
+import { Scrollable } from "vanilla";
 
 // The game's font has no arrow glyphs (a tofu box): vanilla's icon, mirrored for the left arrow.
 const ARROW = "Media/Glyphs/ThickStrokeArrowRight.svg";
@@ -39,17 +40,19 @@ export const DistrictSelector = ({
         </div>
         {open && (
           <div className={styles.districtList}>
-            {options.map((o, i) => (
-              <div
-                key={o.key}
-                className={`${styles.districtItem} ${dividerBefore(options, i) ? styles.districtDivider : ""} ${
-                  o.key === current?.key ? styles.spanActive : ""
-                }`}
-                onClick={() => choose(o.key)}
-              >
-                {o.label}
-              </div>
-            ))}
+            <Scrollable className={styles.districtScroll} trackVisibility="scrollable">
+              {options.map((o, i) => (
+                <div
+                  key={o.key}
+                  className={`${styles.districtItem} ${dividerBefore(options, i) ? styles.districtDivider : ""} ${
+                    o.key === current?.key ? styles.spanActive : ""
+                  }`}
+                  onClick={() => choose(o.key)}
+                >
+                  {o.label}
+                </div>
+              ))}
+            </Scrollable>
           </div>
         )}
       </div>
