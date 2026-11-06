@@ -14,6 +14,19 @@ export function setSpan(months: number) {
   trigger(GROUP, "setSpan", months);
 }
 
+export interface DistrictChoice {
+  key: string;
+  name: string;
+}
+
+/** The city's districts by name (not Entire City / Outside: the UI adds those). */
+export const districts$ = bindValue<DistrictChoice[]>(GROUP, "districts", []);
+
+/** "" = Entire City, "outside", or a district key from districts$. */
+export function setDistrict(key: string) {
+  trigger(GROUP, "setDistrict", key);
+}
+
 export interface DensityTaxCell {
   zone: number;
   density: number;

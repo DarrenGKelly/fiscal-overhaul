@@ -1,6 +1,10 @@
+using System;
+using System.Collections.Generic;
 using Colossal.UI.Binding;
 using FiscalOverhaul.Logic;
 using Game.City;
+using Game.Tools;
+using Unity.Entities;
 using Game.Simulation;
 using Game.UI;
 using Game.UI.InGame;
@@ -19,6 +23,9 @@ namespace FiscalOverhaul
     ///   budgetChartEnabled  bool  <see cref="Setting.EnableBudgetChart"/>; false = the UI shows the vanilla Budget tab
     ///   history             raw   { span, samples, monthsAgo: number[], income: number[14][], expense: number[15][] }
     ///   setSpan             trigger(int months)  months &lt;= 0 = all history
+    ///   districts           raw   [{ key, name }] the city's districts by name (empty while district budgets are off)
+    ///   setDistrict         trigger(string key)  "" = Entire City, "outside", or a key from districts; with a district the
+    ///                       history also has { district, nowIncome: number[14], nowExpense: number[15] }
     /// Expense values are positive amounts (the UI decides the sign). With the chart disabled no history is built.
     /// </summary>
     public partial class BudgetHistoryUISystem : UISystemBase
@@ -33,7 +40,15 @@ namespace FiscalOverhaul
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_HistoryBinding;
         private ValueBinding<bool> m_EnabledBinding;
+        private DistrictBudgetSystem m_DistrictBudgetSystem;
+        private NameSystem m_NameSystem;
+        private EntityQuery m_DistrictQuery;
+        private RawValueBinding m_DistrictsBinding;
         private Setting m_Setting;
+        private string m_DistrictKey = DistrictKey.City;
+        private string m_LastDistrictKey;
+        private int m_LastDistrictSamples = -1;
+        private int m_LastDistrictCount = -1;
 
         private int m_SpanMonths = BudgetHistoryMath.DefaultSpanMonths;
         private int m_LastSampleCount = -1;
@@ -49,6 +64,11 @@ namespace FiscalOverhaul
             m_StatisticsSystem = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
             m_PanelSystem = World.GetOrCreateSystemManaged<GamePanelUISystem>();
             m_BudgetSystem = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
+            m_DistrictBudgetSystem = World.GetOrCreateSystemManaged<DistrictBudgetSystem>();
+            m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
+            m_DistrictQuery = GetEntityQuery(ComponentType.ReadOnly<Game.Areas.District>(), ComponentType.Exclude<Temp>());
+            AddBinding(m_DistrictsBinding = new RawValueBinding(kGroup, "districts", WriteDistricts));
+            AddBinding(new TriggerBinding<string>(kGroup, "setDistrict", key => m_DistrictKey = key ?? DistrictKey.City));
             AddBinding(m_EnabledBinding = new ValueBinding<bool>(kGroup, "budgetChartEnabled", true));
             AddBinding(m_HistoryBinding = new RawValueBinding(kGroup, "history", WriteHistory));
             AddBinding(new TriggerBinding<int>(kGroup, "setSpan", months => m_SpanMonths = months));
@@ -65,16 +85,25 @@ namespace FiscalOverhaul
             if (!FeatureGates.BuildsPanelData(enabled, m_PanelSystem.activePanel is EconomyPanel))
             {
                 m_LastSampleCount = -1; // rebuild as soon as the chart shows again
+                m_LastDistrictCount = -1;
                 return;
             }
             int samples = m_StatisticsSystem.sampleCount;
             // The live "Now" point changes between samples too (a new building, a budget slider, the game paused),
             // so rebuild at least every 60 frames while the panel is open.
-            if (samples == m_LastSampleCount && m_SpanMonths == m_LastSpan && ++m_FramesSinceRebuild < 60) return;
+            int districtSamples = ResolveDistrict(out _) ? DistrictSampleCount() : -1;
+            int districtCount = DistrictsEnabled() ? m_DistrictQuery.CalculateEntityCount() : 0;
+            if (samples == m_LastSampleCount && m_SpanMonths == m_LastSpan && m_DistrictKey == m_LastDistrictKey
+                && districtSamples == m_LastDistrictSamples && districtCount == m_LastDistrictCount
+                && ++m_FramesSinceRebuild < 60) return;
             m_FramesSinceRebuild = 0;
             m_LastSampleCount = samples;
             m_LastSpan = m_SpanMonths;
+            m_LastDistrictKey = m_DistrictKey;
+            m_LastDistrictSamples = districtSamples;
+            m_LastDistrictCount = districtCount;
             m_HistoryBinding.Update();
+            m_DistrictsBinding.Update();
         }
 
         private void WriteHistory(IJsonWriter writer)
@@ -86,17 +115,28 @@ namespace FiscalOverhaul
             // city has no complete sample yet, so every series is just its live value (one point).
             var income = new double[kIncomeSources][];
             var expense = new double[kExpenseSources][];
+            double[] nowIncome = null;
+            double[] nowExpense = null;
             int length = 1;
-            for (int i = 0; i < kIncomeSources; i++)
+            if (ResolveDistrict(out Entity district))
             {
-                income[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Income, i), m_BudgetSystem.GetIncome((IncomeSource)i));
-                if (income[i].Length > length) length = income[i].Length;
+                BuildDistrictSeries(district, income, expense, out nowIncome, out nowExpense);
+                for (int i = 0; i < kIncomeSources; i++) if (income[i].Length > length) length = income[i].Length;
+                for (int i = 0; i < kExpenseSources; i++) if (expense[i].Length > length) length = expense[i].Length;
             }
-            for (int i = 0; i < kExpenseSources; i++)
+            else
             {
-                // Vanilla shows -GetExpense; the statistics store the cost as a positive amount, as the chart does.
-                expense[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Expense, i), System.Math.Abs(m_BudgetSystem.GetExpense((ExpenseSource)i)));
-                if (expense[i].Length > length) length = expense[i].Length;
+                for (int i = 0; i < kIncomeSources; i++)
+                {
+                    income[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Income, i), m_BudgetSystem.GetIncome((IncomeSource)i));
+                    if (income[i].Length > length) length = income[i].Length;
+                }
+                for (int i = 0; i < kExpenseSources; i++)
+                {
+                    // Vanilla shows -GetExpense; the statistics store the cost as a positive amount, as the chart does.
+                    expense[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Expense, i), System.Math.Abs(m_BudgetSystem.GetExpense((ExpenseSource)i)));
+                    if (expense[i].Length > length) length = expense[i].Length;
+                }
             }
 
             int span = BudgetHistoryMath.SamplesForSpan(m_SpanMonths, length);
@@ -117,7 +157,102 @@ namespace FiscalOverhaul
             WriteSeriesSet(writer, income, length, picked);
             writer.PropertyName("expense");
             WriteSeriesSet(writer, expense, length, picked);
+            if (nowIncome != null)
+            {
+                writer.PropertyName("district");
+                writer.Write(m_DistrictKey);
+                writer.PropertyName("nowIncome");
+                WriteRounded(writer, nowIncome);
+                writer.PropertyName("nowExpense");
+                WriteRounded(writer, nowExpense);
+            }
+            else
+            {
+                // Entire City (also the fallback for an unknown or deleted district).
+                writer.PropertyName("district");
+                writer.Write(DistrictKey.City);
+            }
             writer.TypeEnd();
+        }
+
+        private static void WriteRounded(IJsonWriter writer, double[] values)
+        {
+            writer.ArrayBegin(values.Length);
+            foreach (double v in values) writer.Write((int)System.Math.Round(v));
+            writer.ArrayEnd();
+        }
+
+        private bool DistrictsEnabled() => m_Setting != null && FeatureGates.RecordsDistrictBudget(m_Setting.EnableBudgetChart, m_Setting.EnableDistrictBudget);
+
+        /// <summary>
+        /// True when the selected key names a district view that exists, with its entity (Entity.Null for "outside").
+        /// False for Entire City, the feature off, or an unknown / deleted key.
+        /// </summary>
+        private bool ResolveDistrict(out Entity entity)
+        {
+            entity = Entity.Null;
+            if (!DistrictsEnabled() || m_DistrictKey == DistrictKey.City) return false;
+            if (m_DistrictKey == DistrictKey.Outside) return true;
+            if (!DistrictKey.TryParse(m_DistrictKey, out int index, out int version)) return false;
+            var candidate = new Entity { Index = index, Version = version };
+            if (!EntityManager.Exists(candidate) || !EntityManager.HasComponent<Game.Areas.District>(candidate) || EntityManager.HasComponent<Temp>(candidate)) return false;
+            entity = candidate;
+            return true;
+        }
+
+        private int DistrictSampleCount()
+        {
+            ResolveDistrict(out Entity entity);
+            return m_DistrictBudgetSystem.TryGetHistory(entity, out DistrictHistory history) ? history.Count : 0;
+        }
+
+        private void BuildDistrictSeries(Entity district, double[][] income, double[][] expense, out double[] nowIncome, out double[] nowExpense)
+        {
+            var slotSeries = new double[DistrictBudgetMath.SourceCount][];
+            bool has = m_DistrictBudgetSystem.TryGetHistory(district, out DistrictHistory history);
+            for (int slot = 0; slot < slotSeries.Length; slot++)
+                slotSeries[slot] = has ? history.Series(slot) : Array.Empty<double>();
+
+            // The live value; an area the latest sample didn't have uses its last history sample, else 0.
+            float[] liveFloats = m_DistrictBudgetSystem.LiveValues(district);
+            var live = new double[DistrictBudgetMath.SourceCount];
+            for (int slot = 0; slot < live.Length; slot++)
+            {
+                double[] series = slotSeries[slot];
+                live[slot] = liveFloats != null ? liveFloats[slot] : (series.Length > 0 ? series[series.Length - 1] : 0);
+            }
+
+            double[][] incomeSlots = DistrictBudgetMath.Spread(slotSeries, true, kIncomeSources, Array.Empty<double>());
+            double[][] expenseSlots = DistrictBudgetMath.Spread(slotSeries, false, kExpenseSources, Array.Empty<double>());
+            nowIncome = DistrictBudgetMath.Spread(live, true, kIncomeSources, 0.0);
+            nowExpense = DistrictBudgetMath.Spread(live, false, kExpenseSources, 0.0);
+            for (int i = 0; i < kIncomeSources; i++) income[i] = BudgetHistoryMath.WithLiveNow(incomeSlots[i], nowIncome[i]);
+            for (int i = 0; i < kExpenseSources; i++) expense[i] = BudgetHistoryMath.WithLiveNow(expenseSlots[i], nowExpense[i]);
+        }
+
+        private void WriteDistricts(IJsonWriter writer)
+        {
+            var choices = new List<KeyValuePair<string, string>>();
+            if (DistrictsEnabled())
+            {
+                using (NativeArray<Entity> entities = m_DistrictQuery.ToEntityArray(Allocator.Temp))
+                {
+                    foreach (Entity e in entities)
+                        choices.Add(new KeyValuePair<string, string>(DistrictKey.Format(e.Index, e.Version), m_NameSystem.GetRenderedLabelName(e) ?? string.Empty));
+                }
+                choices.Sort((a, b) => string.Compare(a.Value, b.Value, StringComparison.OrdinalIgnoreCase));
+            }
+            writer.ArrayBegin(choices.Count);
+            foreach (var choice in choices)
+            {
+                writer.TypeBegin("FiscalOverhaul.DistrictChoice");
+                writer.PropertyName("key");
+                writer.Write(choice.Key);
+                writer.PropertyName("name");
+                writer.Write(choice.Value);
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
         }
 
         private static void WriteSeriesSet(IJsonWriter writer, double[][] set, int length, int[] picked)

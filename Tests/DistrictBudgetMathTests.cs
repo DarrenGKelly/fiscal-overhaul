@@ -15,6 +15,32 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void Spread_PutsEachSlotAtItsSourceIndex()
+        {
+            var slots = new double[DistrictBudgetMath.SourceCount];
+            for (int i = 0; i < slots.Length; i++) slots[i] = i + 1;
+            double[] income = DistrictBudgetMath.Spread(slots, true, 14, 0.0);
+            double[] expense = DistrictBudgetMath.Spread(slots, false, 15, 0.0);
+            Assert.Equal(14, income.Length);
+            Assert.Equal(15, expense.Length);
+            Assert.Equal(1, income[0]);   // slot 0 = TaxResidential (0)
+            Assert.Equal(4, income[11]);  // slot 3 = TaxOffice (11)
+            Assert.Equal(12, expense[0]); // slot 11 = SubsidyResidential (0)
+            Assert.Equal(16, expense[5]); // slot 15 = ServiceUpkeep (5)
+        }
+
+        [Fact]
+        public void Spread_FillsCityOnlySources()
+        {
+            var slots = new double[DistrictBudgetMath.SourceCount];
+            for (int i = 0; i < slots.Length; i++) slots[i] = 9;
+            double[] income = DistrictBudgetMath.Spread(slots, true, 14, 0.0);
+            for (int source = 0; source < income.Length; source++)
+                Assert.Equal(DistrictBudgetMath.IsCityOnly(true, source) ? 0 : 9, income[source]);
+            Assert.Throws<ArgumentException>(() => DistrictBudgetMath.Spread(new double[3], true, 14, 0.0));
+        }
+
+        [Fact]
         public void Apportion_SplitsByWeight()
         {
             Assert.Equal(new double[] { 25, 75 }, DistrictBudgetMath.Apportion(100, new[] { 1.0, 3.0 }));
