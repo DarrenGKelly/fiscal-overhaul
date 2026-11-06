@@ -6,7 +6,7 @@ okf_version: "0.2"
 
 # Reference
 
-* [CS2 modding](cs2-ui-modding.md) - How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale).
+* [CS2 modding](cs2-ui-modding.md) - How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale), and how the mod localizes its text.
 * [Repo structure](repo-structure.md) - Where everything lives — the C# mod, the UI module, the tests, the knowledge bundle, the git hooks and every script under tools/ with what it does and how it is tested.
 
 # Workflow
@@ -14,6 +14,7 @@ okf_version: "0.2"
 * [Git workflow](git-workflow.md) - How work gets from a chat into master: branch naming, PRs and versioning, autodev and landing, worktrees, test batches, promotion, the hooks and the Claude Code merge guard.
 * [Issues](issues.md) - How problems and features become GitHub issues — when to file, the filing bar, the issue body template, labels, areas and priority, readiness, planning a feature, and the issues.py commands.
 * [Orchestration](orchestration.md) - What the global /orchestrate and /autodev skills need from this project — the agent types, the one shared game instance and how it is scheduled, briefs and model tiers, the test plan commands, and the batch rules.
+* [Releasing](releasing.md) - How a release reaches Paradox Mods — the version and ChangeLog stamped into the promotion, tools/publish.ps1's modes, refusals, dry run and private test uploads, the v<version> tags, the new mod's ModId, and what ModPublisher does.
 * [Testing](testing.md) - How Fiscal Overhaul is tested — the testing rule, where pure logic lives, running the xunit and vitest suites and the compile check, the in-game screenshot check, and the tests of the tools themselves.
 
 # Convention

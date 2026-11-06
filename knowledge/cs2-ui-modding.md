@@ -1,11 +1,14 @@
 ---
 type: Reference
 title: CS2 modding
-description: How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale).
+description: How a Cities Skylines II mod is built here, where the game's logs, code and UI modules are, how to find and reuse vanilla components and bindings, and the traps (deploy order, runtimes, launching, Gameface limits and rem scale), and how the mod localizes its text.
 resource:
   - Mod/FiscalOverhaul.csproj
   - UI/webpack.config.js
   - UI/src/vanilla.ts
+  - UI/src/l10n.ts
+  - Mod/LocaleRegistry.cs
+  - l10n/en-US.json
 ---
 
 # CS2 modding
@@ -46,6 +49,11 @@ Traps:
   the registry itself (`Mod.props`).
 - **UI type-check vs vitest.** vitest pulls in `@types/node`, which the template's TypeScript 4.8 can't parse, so
   `UI/tsconfig.json` sets `"types": []` and excludes `src/**/*.test.ts`; vitest type-checks the tests itself.
+- **Linux builds on Windows.** The game also runs on the Linux PC under Proton; its Mods folder is
+  `~/.steam/steam/steamapps/compatdata/949230/pfx/drive_c/users/steamuser/AppData/LocalLow/Colossal Order/Cities Skylines II/Mods`.
+  The mod doesn't build there (the toolchain and Burst need the Windows Unity install), so `tools/build-linux.sh`
+  builds on the Windows PC over SSH and copies the zip in. Over SSH the Windows PC can't fetch from GitHub (Git's
+  credential manager and `gh` keep their logins in the desktop keyring), so the script feeds origin from a git bundle.
 - **Tests** don't touch the game: pure logic lives in `Mod/Logic/` (no game or Unity types) and is compiled into
   `Tests/` (net10). UI pure logic is in `*.ts` files next to the components, tested with vitest.
   [testing.md](testing.md).
@@ -78,8 +86,14 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
 
 `cs2/modding`'s registrar (`UI/src/index.tsx`) gets the module registry:
 
-- `override(path, export, Component)` replaces a component everywhere it's used. The Budget tab does this.
+- `override(path, export, Component)` replaces a component everywhere it's used, for good: the vanilla one is gone.
 - `extend(path, export, Wrapped => props => …)` wraps one. The Taxation tab adds rows after each `TaxationGroup` this way.
+  The registry's setter reassigns the bundle's own variable, so other vanilla components that use the export get the
+  wrapper too: extending `TaxSlider`/`NumberField` reaches the ones `TaxationGroup`/`TaxationPage` draw. To change one
+  value a vanilla component computes itself, wrap its parent in a React context provider and let the extended child
+  read it (the Taxation totals: [impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
+  It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
+  the Options switch (a bool binding) is off.
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
   `BudgetItemDetail`, `TaxSlider`) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.
@@ -103,6 +117,46 @@ Coherent Gameface isn't Chrome:
 - **Canvas pixels ignore rem.** Scale every canvas size (fonts, padding, line widths) by px-per-rem. Measure it from a
   hidden `width: 100rem` element (`offsetWidth / 100`): `getComputedStyle(document.documentElement).fontSize` is not
   the scale (`UI/src/chart/line-chart.tsx`).
+- **Overpass (the UI font) lacks ▸/▾ and most Unicode arrows**: they render as a tofu box. Use a
+  `Media/Glyphs/*.svg` icon in an `<img>` like vanilla (`ThickStrokeArrowRight`/`ThickStrokeArrowDown`; `arrowFor` in
+  `UI/src/taxation/density.ts`).
+- **Text that must stay on one line must be one text node.** `{value}/mo` in JSX is two text nodes, and Gameface
+  wraps between them even under `white-space: nowrap`, above all in an absolutely positioned box with no width
+  (which it shrinks). Build the string first (`formatPerMonth` in `chart-math.ts`).
+- **A percentage `max-height` on an absolutely positioned box doesn't constrain it.** Set both `top` and `bottom` to
+  give it a definite height (the Budget tab's item pop-out).
+
+## Localization
+
+Every player-facing string, in the Options page and the panel, is a locale key with its text in
+`l10n/<locale>.json` (one flat JSON object per language; en-US is the only one shipped).
+
+- **Keys.** UI strings are `FiscalOverhaul.UI.<Name>` and go to the game as they are. Options strings are
+  `FiscalOverhaul.Options.<Kind>[.<Name>]` (`Title`, `Tab.<section>`, `Group.<group>`, and `Label`/`Desc`/`Warning`
+  `.<property>`); `Mod/LocaleRegistry.cs` maps them to the ids the Options page asks for
+  (`Setting.GetOptionLabelLocaleID(…)` and the like), so a file needs no generated ids. Any other key is skipped with
+  a warning in the log, so a file can't override a game string.
+- **Registering.** The csproj embeds every `l10n/*.json` in the DLL; `LocaleRegistry.Register` adds each as a source
+  for the locale its file is named after. en-US is the game's fallback locale (`LocalizationManager` merges its
+  entries into the active language for every key that language lacks), so a language with no file, or a missing key,
+  shows the English.
+- **Reading in the UI.** `UI/src/l10n.ts`: `localize(translate, "<Name>", { COUNT: n })` asks the game's
+  `translate` (`useLocalization()` from `cs2/l10n`) for `FiscalOverhaul.UI.<Name>`, with the English from
+  `l10n/en-US.json` (bundled by webpack) as fallback, and fills `{PLACEHOLDER}`s (the game's own style: `{COUNT}`,
+  `{VALUE}`, `{NUMBER}`). `<Name>` is typed from the JSON, so a typo is a compile error. Pure modules take the
+  `translate` as a parameter (`null` gives English), so vitest runs them without the game.
+- **Plurals** are separate keys, chosen in code (`OneOffsetSet`/`OffsetsSet` in `offsetSummary`, `density.ts`).
+- **Reuse vanilla keys** where the game already has the string: `VANILLA` in `l10n.ts` (`EconomyPanel.*` titles,
+  `StatisticsPanel.TIME_SCALE_NOW`). The game's locale is packed in `Cities2_Data/Content/Game/Locale.cok`; its keys
+  and texts are readable with `grep -a`. Most look reusable but aren't: `CityInfoPanel.DEMAND_TITLE[ResidentialLow]`
+  reads "Low Density" in English but "low-density residential demand" in other languages.
+
+**A new string**: add `FiscalOverhaul.UI.<Name>` with its English to `l10n/en-US.json`, then
+`localize(translate, "<Name>")`. A string literal in JSX fails the `UI source` test in `UI/src/l10n.test.ts`.
+
+**A new language**: copy `l10n/en-US.json` to `l10n/<locale>.json` (the game's locale id: `de-DE`, `fr-FR`,
+`zh-HANS`, …) and translate the values; keep the keys and placeholders. Nothing else changes: the csproj picks the
+file up, `LocaleFileTests` checks it parses and holds only known keys, and keys it leaves out stay English.
 
 ## Scheduling simulation systems
 

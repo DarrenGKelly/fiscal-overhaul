@@ -38,7 +38,7 @@ its model and carries its standing rules, so the orchestrator's prompt carries o
 |---|---|---|
 | [researcher](../.claude/agents/researcher.md) | Sonnet, read-only | Recall questions: where X happens, which files each brief touches. **One per batch** for the contention map. |
 | [batch-child](../.claude/agents/batch-child.md) | Opus; Haiku or Sonnet by `model` for a spelled-out brief | Implementing a brief, a bundle of small briefs, or a fix on an existing branch. Runs the fast tier itself; never deploys. |
-| [test-agent](../.claude/agents/test-agent.md) | Sonnet, no file edits | Running a test plan: unit tests, deploy, the in-game check through computer use, a short report. Holds the game while it runs. |
+| [test-agent](../.claude/agents/test-agent.md) | Sonnet, no file edits | Running a test plan: unit tests, deploy, the in-game check driven from the shell (`tools/game-control.ps1`, no computer use), a short report. Holds the game while it runs. |
 
 `python tools/check-skills.py` lints them: frontmatter, a `model`, links, and every `tools/` flag they name.
 

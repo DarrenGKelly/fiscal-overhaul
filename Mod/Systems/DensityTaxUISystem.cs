@@ -18,10 +18,12 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// Taxation tab bindings for density offsets (group "fiscalOverhaul"):
-    ///   densityTaxes    raw { maxOffset, cells: [{ zone, density, offset, estimate, buildings }] } (supported cells only)
-    ///   setDensityTax   trigger(int zone, int density, int offset)
-    /// The estimate is the extra (or lost) monthly revenue the offset brings, from what each cell's tax payers
-    /// paid last month at their average rate. Refreshed every ~2 s while the Economy panel is open.
+    ///   densityTaxesEnabled  bool  <see cref="Setting.EnableDensityTaxes"/>; false = the UI shows no density rows
+    ///   densityTaxes         raw   { maxOffset, cells: [{ zone, density, offset, estimate, payers }] } (supported cells only)
+    ///   setDensityTax        trigger(int zone, int density, int offset)
+    /// The estimate is the extra (or lost) monthly revenue the offset brings: each cell's monthly tax paid scaled back
+    /// to its taxable base at the rate charged (stored rate + offset), times the offset. Refreshed every ~2 s while the Economy panel is open and density
+    /// taxes are enabled.
     /// </summary>
     public partial class DensityTaxUISystem : UISystemBase
     {
@@ -29,6 +31,7 @@ namespace FiscalOverhaul
 
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_Binding;
+        private ValueBinding<bool> m_EnabledBinding;
         private EntityQuery m_PayerQuery;
         private Setting m_Setting;
 
@@ -50,6 +53,7 @@ namespace FiscalOverhaul
                 All = new[] { ComponentType.ReadOnly<TaxPayer>(), ComponentType.ReadOnly<PropertyRenter>() },
                 None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() },
             });
+            AddBinding(m_EnabledBinding = new ValueBinding<bool>(BudgetHistoryUISystem.kGroup, "densityTaxesEnabled", FeatureGates.DensityTaxesDefault));
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "densityTaxes", Write));
             AddBinding(new TriggerBinding<int, int, int>(BudgetHistoryUISystem.kGroup, "setDensityTax", SetDensityTax));
         }
@@ -57,7 +61,13 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
-            if (!(m_PanelSystem.activePanel is EconomyPanel)) return;
+            bool enabled = DensityTaxState.Enabled;
+            m_EnabledBinding.Update(enabled);
+            if (!FeatureGates.BuildsPanelData(enabled, m_PanelSystem.activePanel is EconomyPanel))
+            {
+                m_FramesSinceRefresh = kRefreshFrames; // refresh as soon as the rows show again
+                return;
+            }
 
             bool changed = DensityTaxState.Version != m_LastVersion;
             if (++m_FramesSinceRefresh >= kRefreshFrames)
@@ -73,6 +83,10 @@ namespace FiscalOverhaul
             }
         }
 
+        /// <summary>
+        /// A slider moved. The offset applies from the next tax payment. Saved straight away, as the offsets are global
+        /// mod settings, not part of the city save.
+        /// </summary>
         private void SetDensityTax(int zone, int density, int offset)
         {
             if (zone < 0 || zone >= DensityTaxTable.ZoneCount || density < 0 || density >= DensityTaxTable.DensityCount) return;
@@ -143,6 +157,9 @@ namespace FiscalOverhaul
                     m_WeightedRate = weightedRate,
                     m_Payers = payers,
                 };
+                // This system's Dependency includes the restore job's TaxPayer writes, so the sum sees the stored
+                // (vanilla) rates, never one adjusted mid-payment. Completed at once: one single-threaded pass every
+                // ~2 s while the panel is open, and the binding writes the result this frame.
                 job.Schedule(m_PayerQuery, Dependency).Complete();
 
                 for (int i = 0; i < cells; i++)

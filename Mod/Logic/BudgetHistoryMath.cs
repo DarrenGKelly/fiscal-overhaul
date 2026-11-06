@@ -12,24 +12,44 @@ namespace FiscalOverhaul.Logic
         /// <summary>The game samples city statistics 32 times per in-game month (CityStatisticsSystem.kUpdatesPerDay).</summary>
         public const int SamplesPerMonth = 32;
 
+        /// <summary>The span (months) the chart shows until the UI sends one: 3M. Mirrors the UI's DEFAULT_SPAN_MONTHS.</summary>
+        public const int DefaultSpanMonths = 3;
+
         /// <summary>
-        /// Each statistic sample holds what was added during that sample (income/32 per budget tick).
-        /// The monthly rate at sample i is the sum of the last <paramref name="window"/> samples, the same
-        /// "per month" figure the vanilla Budget tab shows. Early samples sum what exists so far.
+        /// Each statistic sample holds what was added during that 1/32 of a month: BudgetApplySystem adds the
+        /// current monthly amount / 1024 at each of its 1024 ticks a month, so a sample is (rate at that time) / 32.
+        /// The monthly rate at sample i is therefore that sample times <paramref name="samplesPerMonth"/>, the
+        /// figure the vanilla Budget tab shows. (A sum of the trailing month instead averages the past month, which
+        /// lags a growing city: about ¢40k against the panel's ¢52k in the first playtest.)
         /// </summary>
-        public static double[] MonthlyRates(IReadOnlyList<double> sampleDeltas, int window = SamplesPerMonth)
+        public static double[] MonthlyRates(IReadOnlyList<double> sampleDeltas, int samplesPerMonth = SamplesPerMonth)
         {
             if (sampleDeltas == null) throw new ArgumentNullException(nameof(sampleDeltas));
-            if (window < 1) throw new ArgumentOutOfRangeException(nameof(window));
+            if (samplesPerMonth < 1) throw new ArgumentOutOfRangeException(nameof(samplesPerMonth));
 
             var result = new double[sampleDeltas.Count];
-            double running = 0;
-            for (int i = 0; i < sampleDeltas.Count; i++)
-            {
-                running += sampleDeltas[i];
-                if (i >= window) running -= sampleDeltas[i - window];
-                result[i] = running;
-            }
+            for (int i = 0; i < sampleDeltas.Count; i++) result[i] = sampleDeltas[i] * samplesPerMonth;
+            return result;
+        }
+
+        /// <summary>
+        /// How many of the game's <paramref name="sampleCount"/> statistic samples are complete. The newest is still
+        /// filling up (the game appends it at the start of its 1/32 month), so it's left out, also when it's the only
+        /// one, as in a new city's first 1/32 month: the live value stands in for it (<see cref="WithLiveNow"/>).
+        /// </summary>
+        public static int CompleteSamples(int sampleCount) => sampleCount > 1 ? sampleCount - 1 : 0;
+
+        /// <summary>
+        /// The rates of the complete samples, then <paramref name="live"/> as the newest point: the game's current
+        /// monthly figure, which the Budget rows show. So the chart's "Now" is the row value by construction, rather
+        /// than the last saved sample, which can be up to 1/32 of a month old (or older while the game is paused).
+        /// </summary>
+        public static double[] WithLiveNow(IReadOnlyList<double> rates, double live)
+        {
+            if (rates == null) throw new ArgumentNullException(nameof(rates));
+            var result = new double[rates.Count + 1];
+            for (int i = 0; i < rates.Count; i++) result[i] = rates[i];
+            result[rates.Count] = live;
             return result;
         }
 

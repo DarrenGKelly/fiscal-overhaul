@@ -8,6 +8,8 @@ resource:
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/DensityTaxState.cs
   - Mod/Logic/DensityTaxTable.cs
+  - Mod/Logic/FeatureGates.cs
+  - Mod/Setting.cs
   - UI/src/taxation
 ---
 
@@ -33,9 +35,20 @@ jobs we can't patch.
   `AppliedDelta`) and records the exact delta per entity.
 - `DensityTaxRestoreSystem`, `UpdateAfter<…, TaxSystem>`, subtracts exactly that delta again.
 
+- **The restore skips a tick the apply left alone** (#14). The apply system sets `AppliedThisTick` when it schedules
+  its job (reset at the top of each update); the restore returns before scheduling unless
+  `DensityTaxRestoreGate.RestoreNeeded` (`Mod/Logic/`) says so. That is decided by what apply did this tick, never by
+  the current switch or offsets: an update where the switch goes off or the offsets go to 0 after an apply must still
+  take the raised rates back down. So with density taxes off (the default) no job writes TaxPayer on any tax tick.
+
 So only the tax paid changes; the stored average rate other systems read is untouched. Why not adjust once and
 leave it: companies blend new income into the average at weight ≈ ½ after payment (not 1), so a leftover offset
 would compound every payment.
+
+**Threading.** `DensityTaxState` (the table and the switch) is main-thread state, changed by the sliders, the Options
+switch and the reset button at any time. The apply job never reads it: each update the apply system copies
+`DensityTaxState.Snapshot()` into a `TempJob` array that is the job's alone and is disposed with the job's handle. A
+shared persistent array would be overwritten under a running job, or freed under one on mod unload.
 
 ## Classifying a building
 
@@ -50,11 +63,32 @@ so commercial companies in mixed-housing zones and commuters are not affected.
 Offsets live in the mod's settings (`Setting.DensityTaxOffsets`, 12 comma-separated ints). They're **global, not per
 save**: a known v1 limit. Options has a reset button. `DensityTaxUISystem` publishes
 `densityTaxes = { maxOffset, cells[{ zone, density, offset, estimate, payers }] }` and `setDensityTax(zone, density, offset)`.
-The estimate is `EstimateExtraRevenue`: each cell's last-month tax paid scaled back to its taxable base, times the offset.
-Recomputed every ~2 s while the panel is open.
+The estimate is `EstimateExtraRevenue`: each cell's monthly tax paid (`TaxPayer.m_AverageTaxPaid`, the last payment
+× 32) scaled back to its taxable base, times the offset. That payment was charged at the stored rate **plus** the
+offset, so the base is paid ÷ (rate + offset); dividing by the stored rate alone overstated it by (rate + offset) / rate.
+Recomputed every ~2 s while the panel is open and density taxes are on.
+
+**Options > Enable density taxes (BETA)** (`Setting.EnableDensityTaxes`, default **off**: density taxes are a BETA feature, `FeatureGates.DensityTaxesDefault`) switches the feature off live. The options
+page calls `ApplyAndSave` on every change; `Mod` listens on `onSettingsApplied` and calls
+`DensityTaxState.SetEnabled`. Off, the offsets the apply job reads are all 0
+(`DensityTaxTable.EffectiveOffsets(false)`) and the apply system returns before scheduling anything
+(`IsCharged(false)`), so buildings pay exactly the vanilla rates; the stored table and `DensityTaxOffsets` are left as
+they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and
+the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells while it is off.
 
 The Taxation tab wraps each vanilla `TaxationGroup` and adds a collapsible "By density" section of vanilla
 `TaxSlider`s (`UI/src/taxation/density-rows.tsx`), with a note that offsets change revenue only.
+
+**Totals include the offsets** (a user decision). Each zone group's total (its header slider's income) and
+ESTIMATED TOTAL add the sum of the zone's (all zones') row `estimate`s; negative offsets lower them. Vanilla computes
+both in C# (`TaxationUISystem`: `areaTaxIncomes`, and `taxIncome` = the four zones' sum, from the vanilla rates only)
+and draws them inside its own components, so the UI changes the **drawn value**, not the binding
+(`UI/src/taxation/density-totals.tsx`): the TaxationGroup wrapper provides the zone's extra and a TaxationPage wrapper
+the total's through a React context; an extended `TaxSlider` adds the zone's to the `primary` (header) slider, an
+extended `NumberField` adds the total's to the field whose className is the page's `totalValue` class. The values go
+through vanilla's own components, so sign and money format are vanilla's. Off, or every offset 0: the extra is 0 and
+both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTotal`/`zoneTotalIncome`/
+`estimatedTotalValue` in `density.ts`.
 
 ## Follow-ups
 

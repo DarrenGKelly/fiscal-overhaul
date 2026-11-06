@@ -16,14 +16,19 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 
 | Folder | What |
 |---|---|
-| `Mod/` | The C# mod (`FiscalOverhaul.csproj`, net48, built with the game's csiimod toolchain): `Mod.cs`, `Setting.cs` |
+| `Mod/` | The C# mod (`FiscalOverhaul.csproj`, net48, built with the game's csiimod toolchain): `Mod.cs`, `Setting.cs`, `LocaleRegistry.cs` (registers `l10n/`) |
 | `UI/` | The UI module (TypeScript, React, SCSS; the CS2 UI template's webpack build): `src/`, `types/`, `webpack.config.js` |
+| `l10n/` | The mod's text, one `<locale>.json` per language (en-US only so far): embedded in the DLL for the game, bundled into the UI as the English fallback ([cs2-ui-modding.md § Localization](cs2-ui-modding.md#localization)) |
 | `Tests/` | xunit tests for the mod's pure logic (net10.0; compiles `Mod/Logic/` in directly, no game DLLs) |
 | `knowledge/` | This OKF bundle ([knowledge-format.md](knowledge-format.md)) |
+| `art/` | Source art: `icon/` renders the mod icon `Mod/Properties/Thumbnail.png` (1024x1024, Paradox Mods covers are square) and alternative concepts with `make_icon.py` (Pillow), lettered in the game's UI font Overpass Bold (`icon/fonts/`, with its SIL OFL licence); its `README.md` says how |
 | `tasks/` | `/orchestrate` batch folders (`tasks/<batch>/`, gitignored; `.gitkeep` keeps the folder) |
 | `tools/` | Scripts (below) |
 | `.githooks/` | The branch policy and doc checks ([git-workflow.md § Hooks](git-workflow.md#hooks)) |
 | `.claude/` | `settings.json` (the merge guard), `agents/`, `skills/` ([skills.md](skills.md)) |
+
+Root files: `README.md` (the public page players and contributors read, which embeds the Paradox Mods
+screenshots), `LICENSE` (MIT), `CHANGELOG.md` (Keep a Changelog; one entry per release) and `CLAUDE.md`.
 
 ## Mod/
 
@@ -31,6 +36,7 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 |---|---|
 | `Logic/` | Pure logic with no game or Unity types (budget history maths, the density tax table): unit-tested in `Tests/` |
 | `Systems/` | The game systems: ECS systems that read the city's statistics, apply density taxes, and the UI systems that bind data to the panel ([impl/](impl/index.md)) |
+| `Properties/` | `PublishConfiguration.xml` (the Paradox Mods page: name, descriptions, tags, links, `ModVersion` and the release's `ChangeLog`), `Thumbnail.png`, `PublishProfiles/`. The version is in step with `UI/mod.json` and `CHANGELOG.md` |
 
 ## `UI/src/`
 
@@ -39,6 +45,7 @@ a skill, agent or hook). Build output (`bin/`, `obj/`, `node_modules/`, `UI/buil
 | `budget/` | The replacement Budget tab page |
 | `chart/` | The line chart component and its pure maths (`chart-math.ts`, tested by vitest) |
 | `taxation/` | The density rows on the Taxation tab and their pure logic (`density.ts`, tested) |
+| `l10n.ts` | `localize()`: a UI string by key through the game's translate, English fallback (tested) |
 
 ## Tests/
 
@@ -53,10 +60,13 @@ changing the script ([testing.md § Tool tests](testing.md#tool-tests)).
 | Script | Does |
 |---|---|
 | `build.ps1` | Builds and deploys the mod: `-ModOnly`, `-UIOnly`, `-NoDeploy` (compile check), `-Configuration`; `-Ref origin/<branch>` builds that ref in `.claude/worktrees/build`; `-Zip` packages to `Builds/` without deploying. Refuses to deploy while the game runs. No test twin (needs the game's toolchain; verified by real runs) |
+| `build-linux.sh` | On the Linux PC: builds a ref on the Windows PC over SSH (`build.ps1 -Ref <ref> -Zip`, origin fed from a git bundle made here) and installs the zip into the game's Proton Mods folder; `--ref`, `--configuration`. Refuses while the game runs. Tested by `test-build-linux.sh` |
+| `publish.ps1` | Publishes a release to Paradox Mods through the game's ModPublisher (`/publish`): builds a ref (default `origin/master`) in a temporary worktree, refuses an unready config, uploads (`-Mode Publish`, `NewVersion` or `Update`; the default follows ModId) and tags `v<version>`; `-DryRun`; `-AccessLevel Private` is an untagged test upload (`<version>-test.<n>`, `-TestSuffix`). Refuses while the game runs ([releasing.md](releasing.md)). Tested by `test-publish.ps1` |
 | `test.ps1` | Runs the unit tests: xunit (`dotnet test Tests`) and vitest (`npm test` in `UI/`); `-CSharpOnly`, `-UIOnly`, `-Filter`. Tested by `test-test.ps1` |
 | `git-common.ps1` | Helpers the PowerShell tools dot-source: paths, `Invoke-Git`, the repo context, the hooks-path warning, `Use-LocalToolchain` (the per-user Node and .NET 6), `Get-GameProcess` |
 | `land-pr.ps1` | Lands a PR into `autodev` ([git-workflow.md](git-workflow.md#autonomous-sessions-autodev)) |
 | `new-test-batch.ps1` | Builds a test batch branch from several branches; `-Check`, `-Blame` ([git-workflow.md § Test batches](git-workflow.md#test-batches)) |
+| `game-control.ps1` | Drives the game from the shell on Windows, no computer use ([testing.md § On Windows without computer use](testing.md#on-windows-without-computer-use)): `screenshot` (primary monitor, `-Region`, `-Window`, `-Scale`, `-Delay`), `click`, `move`, `move-relative`, `hover`, `key` (scan codes), `focus`/`window` (the game, or `-Title`), `windows`, `wait-process` (`-Title`, `-Gone`), `wait-loaded` (the save), `cursor`. Tested by `test-game-control.ps1` (no game needed; not in `$LandingPowerShellSuites`, as it moves the cursor) |
 | `check-batch-status.ps1` | One sweep for an orchestrator: each branch against `origin/autodev`, worktree state, PRs, whether the game is running, and what the Mods folder holds |
 | `prune-worktrees.ps1` | Removes worktrees whose branch has landed and that are clean (`-Apply`; dry run without) |
 | `remove-worktree.ps1` | Removes one worktree safely: unlinks junctions first, refuses a dirty one without `-Force` |
@@ -65,5 +75,5 @@ changing the script ([testing.md § Tool tests](testing.md#tool-tests)).
 | `check-doc-links.py` | Broken links and anchors in the docs, skills and agents; the orphan-tool, test-twin and folder-map guards |
 | `check-skills.py` | Skill and agent frontmatter, sizes, and that every `tools/` script and flag they name exists ([skills.md](skills.md)) |
 | `issues.py` | The issue backlog by area, triage, and `/orchestrate` batches from it ([issues.md](issues.md)) |
-| `promote.py` | Plans and verifies an `autodev` → `master` promotion (`/promote`) |
+| `promote.py` | Plans, stamps (`ModVersion`, `UI/mod.json`'s version, the `CHANGELOG.md` section and the config's `ChangeLog`) and verifies an `autodev` → `master` promotion (`/promote`; [releasing.md](releasing.md#the-version-and-changelog)) |
 | `test-git-hooks.sh` | The hooks' tests (no twin of its own: it is the `.githooks/` test) |

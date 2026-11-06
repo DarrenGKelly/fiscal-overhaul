@@ -1,8 +1,10 @@
 import { useValue } from "cs2/api";
+import { useLocalization } from "cs2/l10n";
 import { useCallback, useState } from "react";
-import { densityTaxes$, DensityTaxCell, setDensityTax } from "bindings";
+import { densityTaxes$, densityTaxesEnabled$, DensityTaxCell, setDensityTax } from "bindings";
+import { localize, Translate } from "l10n";
 import { TaxSlider } from "vanilla";
-import { densityLabel, zoneForAreaIndex } from "./density";
+import { arrowFor, cellsForArea, densityLabel, offsetSummary, payersSuffix } from "./density";
 import styles from "./density-rows.module.scss";
 
 interface AreaTypeLike {
@@ -17,45 +19,43 @@ interface AreaTypeLike {
  * vanilla education/product rows.
  */
 export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
+  const { translate } = useLocalization();
   const data = useValue(densityTaxes$);
+  const enabled = useValue(densityTaxesEnabled$);
   const [open, setOpen] = useState(false);
-  const zone = zoneForAreaIndex(areaType.index);
   const toggle = useCallback(() => setOpen((o) => !o), []);
 
-  if (zone < 0 || areaType.locked || !data) return null;
-  const cells = data.cells.filter((c) => c.zone === zone);
-  if (cells.length === 0) return null;
+  const cells = cellsForArea(data?.cells, areaType.index, areaType.locked, enabled);
+  if (!data || cells.length === 0) return null;
   const active = cells.filter((c) => c.offset !== 0).length;
 
   return (
     <div className={styles.densityRows}>
       <div className={styles.header} onClick={toggle}>
-        <div className={styles.arrow}>{open ? "▾" : "▸"}</div>
-        <div className={styles.title}>By density</div>
-        <div className={styles.summary}>{active > 0 ? `${active} offset${active > 1 ? "s" : ""} set` : "no offsets"}</div>
+        <img className={styles.arrow} src={arrowFor(open)} />
+        <div className={styles.title}>{localize(translate, "ByDensity")}</div>
+        <div className={styles.summary}>{offsetSummary(active, translate)}</div>
       </div>
       {open && (
         <>
           {cells.map((cell) => (
-            <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={data.maxOffset} />
+            <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={data.maxOffset} translate={translate} />
           ))}
-          <div className={styles.note}>
-            Offsets add to the rate each building already pays. They change tax revenue only; demand and happiness still react to the
-            main rates above.
-          </div>
+          <div className={styles.note}>{localize(translate, "DensityNote")}</div>
         </>
       )}
     </div>
   );
 };
 
-const DensityRow = ({ cell, max }: { cell: DensityTaxCell; max: number }) => {
+const DensityRow = ({ cell, max, translate }: { cell: DensityTaxCell; max: number; translate: Translate }) => {
+  // The C# trigger takes an int (and clamps it to ±maxOffset), so round whatever the slider reports.
   const onChange = useCallback((v: number) => setDensityTax(cell.zone, cell.density, Math.round(v)), [cell.zone, cell.density]);
   return (
     <div className={styles.row}>
       <div className={styles.rowTitle}>
-        {densityLabel(cell.density)}
-        <span className={styles.count}>{cell.payers > 0 ? ` · ${cell.payers.toLocaleString()} payers` : ""}</span>
+        {densityLabel(cell.density, translate)}
+        <span className={styles.count}>{payersSuffix(cell.payers, translate)}</span>
       </div>
       <TaxSlider min={-max} max={max} rate={cell.offset} income={cell.estimate} className={styles.slider} onValueChanged={onChange} />
     </div>

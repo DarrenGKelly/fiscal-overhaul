@@ -16,9 +16,10 @@ namespace FiscalOverhaul
     /// "per month" series for the time span the UI asks for, downsampled to at most <see cref="kMaxPoints"/>.
     ///
     /// Bindings (group "fiscalOverhaul"):
-    ///   history     raw  { span, samples, monthsAgo: number[], income: number[14][], expense: number[15][] }
-    ///   setSpan     trigger(int months)  months &lt;= 0 = all history
-    /// Expense values are positive amounts (the UI decides the sign).
+    ///   budgetChartEnabled  bool  <see cref="Setting.EnableBudgetChart"/>; false = the UI shows the vanilla Budget tab
+    ///   history             raw   { span, samples, monthsAgo: number[], income: number[14][], expense: number[15][] }
+    ///   setSpan             trigger(int months)  months &lt;= 0 = all history
+    /// Expense values are positive amounts (the UI decides the sign). With the chart disabled no history is built.
     /// </summary>
     public partial class BudgetHistoryUISystem : UISystemBase
     {
@@ -28,12 +29,18 @@ namespace FiscalOverhaul
         private const int kExpenseSources = (int)ExpenseSource.Count;
 
         private CityStatisticsSystem m_StatisticsSystem;
+        private CityServiceBudgetSystem m_BudgetSystem;
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_HistoryBinding;
+        private ValueBinding<bool> m_EnabledBinding;
+        private Setting m_Setting;
 
-        private int m_SpanMonths = 12;
+        private int m_SpanMonths = BudgetHistoryMath.DefaultSpanMonths;
         private int m_LastSampleCount = -1;
         private int m_LastSpan = int.MinValue;
+        private int m_FramesSinceRebuild;
+
+        public void SetSettings(Setting setting) => m_Setting = setting;
 
         [Preserve]
         protected override void OnCreate()
@@ -41,6 +48,8 @@ namespace FiscalOverhaul
             base.OnCreate();
             m_StatisticsSystem = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
             m_PanelSystem = World.GetOrCreateSystemManaged<GamePanelUISystem>();
+            m_BudgetSystem = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
+            AddBinding(m_EnabledBinding = new ValueBinding<bool>(kGroup, "budgetChartEnabled", true));
             AddBinding(m_HistoryBinding = new RawValueBinding(kGroup, "history", WriteHistory));
             AddBinding(new TriggerBinding<int>(kGroup, "setSpan", months => m_SpanMonths = months));
         }
@@ -48,10 +57,21 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
-            // Only rebuild while the Economy panel is open and something changed: a new sample or a new span.
-            if (!(m_PanelSystem.activePanel is EconomyPanel)) return;
+            bool enabled = m_Setting == null || m_Setting.EnableBudgetChart;
+            m_EnabledBinding.Update(enabled);
+
+            // Only rebuild while the chart is enabled, the Economy panel is open and something changed: a new sample
+            // or a new span.
+            if (!FeatureGates.BuildsPanelData(enabled, m_PanelSystem.activePanel is EconomyPanel))
+            {
+                m_LastSampleCount = -1; // rebuild as soon as the chart shows again
+                return;
+            }
             int samples = m_StatisticsSystem.sampleCount;
-            if (samples == m_LastSampleCount && m_SpanMonths == m_LastSpan) return;
+            // The live "Now" point changes between samples too (a new building, a budget slider, the game paused),
+            // so rebuild at least every 60 frames while the panel is open.
+            if (samples == m_LastSampleCount && m_SpanMonths == m_LastSpan && ++m_FramesSinceRebuild < 60) return;
+            m_FramesSinceRebuild = 0;
             m_LastSampleCount = samples;
             m_LastSpan = m_SpanMonths;
             m_HistoryBinding.Update();
@@ -59,20 +79,23 @@ namespace FiscalOverhaul
 
         private void WriteHistory(IJsonWriter writer)
         {
+            // The statistics buffers are written by CityStatisticsSystem's jobs; finish them before reading here.
             m_StatisticsSystem.CompleteWriters();
 
-            // Every series is aligned to the newest sample; series with less history are left-padded with 0.
+            // Every series is aligned to the newest sample; series with less history are left-padded with 0. A new
+            // city has no complete sample yet, so every series is just its live value (one point).
             var income = new double[kIncomeSources][];
             var expense = new double[kExpenseSources][];
             int length = 1;
             for (int i = 0; i < kIncomeSources; i++)
             {
-                income[i] = ReadMonthly(StatisticType.Income, i);
+                income[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Income, i), m_BudgetSystem.GetIncome((IncomeSource)i));
                 if (income[i].Length > length) length = income[i].Length;
             }
             for (int i = 0; i < kExpenseSources; i++)
             {
-                expense[i] = ReadMonthly(StatisticType.Expense, i);
+                // Vanilla shows -GetExpense; the statistics store the cost as a positive amount, as the chart does.
+                expense[i] = BudgetHistoryMath.WithLiveNow(ReadMonthly(StatisticType.Expense, i), System.Math.Abs(m_BudgetSystem.GetExpense((ExpenseSource)i)));
                 if (expense[i].Length > length) length = expense[i].Length;
             }
 
@@ -121,7 +144,7 @@ namespace FiscalOverhaul
             try
             {
                 // The newest sample is still filling up; leaving it in makes every line dip at "now".
-                int count = samples.Length > 1 ? samples.Length - 1 : samples.Length;
+                int count = BudgetHistoryMath.CompleteSamples(samples.Length);
                 var deltas = new double[count];
                 for (int i = 0; i < count; i++) deltas[i] = samples[i].m_Value;
                 return BudgetHistoryMath.MonthlyRates(deltas);

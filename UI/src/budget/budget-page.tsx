@@ -7,26 +7,37 @@ import {
   BALANCE,
   buildSeries,
   BudgetItemLike,
+  DEFAULT_SPAN_MONTHS,
   EXPENSE_TOTAL,
   formatMoney,
   INCOME_TOTAL,
   rgbaToCss,
   SeriesDef,
   SPAN_OPTIONS,
+  spanLabel,
   itemValue,
+  seriesStats,
   TOTAL_COLORS,
 } from "chart/chart-math";
 import { ChartLine, LineChart } from "chart/line-chart";
+import { localizeVanilla, Translate } from "l10n";
 import { BudgetItemDetail, NumberField } from "vanilla";
 import styles from "./budget-page.module.scss";
 
+/**
+ * While the item pop-out shows, the chart's plot starts after it: the pop-out is 360rem wide at 6rem from the chart
+ * panel's edge (budget-page.module.scss .detail-popout), the canvas starts 10rem in, plus a 12rem gap.
+ */
+const POPOUT_INSET_REM = 360 + 6 - 10 + 12;
+
 // Kept outside the component so the choice survives switching tabs or closing the panel.
 let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
-let rememberedSpan = 12;
+let rememberedSpan = DEFAULT_SPAN_MONTHS;
 
 /**
- * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, the chart
- * takes the middle, and the right column keeps the vanilla detail panel for whatever row or line is hovered.
+ * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the span stats
+ * for the hovered row or line under them; the chart takes the rest, and the vanilla detail panel for a hovered item
+ * row pops out over the chart's left edge, next to the rows.
  */
 export const BudgetPage = () => {
   const { translate } = useLocalization();
@@ -44,6 +55,7 @@ export const BudgetPage = () => {
   const [lineHover, setLineHover] = useState<string | null>(null);
   const hoverKey = lineHover ?? rowHover;
 
+  // Sent on mount too: the C# side builds history only for the span it was last told.
   useEffect(() => {
     rememberedSpan = span;
     sendSpan(span);
@@ -61,9 +73,9 @@ export const BudgetPage = () => {
 
   const label = useCallback(
     (key: string, itemId?: string) => {
-      if (key === INCOME_TOTAL) return translate("EconomyPanel.INCOME_SECTION_TITLE", "Revenues") ?? "Revenues";
-      if (key === EXPENSE_TOTAL) return translate("EconomyPanel.EXPENSES_SECTION_TITLE", "Expenses") ?? "Expenses";
-      if (key === BALANCE) return translate("EconomyPanel.MONTHLY_BALANCE", "Monthly balance") ?? "Monthly balance";
+      if (key === INCOME_TOTAL) return localizeVanilla(translate, "revenues");
+      if (key === EXPENSE_TOTAL) return localizeVanilla(translate, "expenses");
+      if (key === BALANCE) return localizeVanilla(translate, "monthlyBalance");
       return translate(`EconomyPanel.BUDGET_ITEM[${itemId}]`, itemId ?? key) ?? itemId ?? key;
     },
     [translate]
@@ -88,14 +100,14 @@ export const BudgetPage = () => {
     [allSeries, enabled, label]
   );
 
-  // The vanilla detail panel for the hovered item (rows or chart line); totals have no detail.
+  // The vanilla detail panel pops out only for a hovered row (a line has its tooltip); totals have no detail.
   const detail = useMemo(() => {
-    if (!hoverKey) return null;
-    const [kind, id] = hoverKey.split(":");
+    if (!rowHover) return null;
+    const [kind, id] = rowHover.split(":");
     if (kind === "income") return { item: incomeItems.find((i) => i.id === id) ?? null, values: incomeValues };
     if (kind === "expense") return { item: expenseItems.find((i) => i.id === id) ?? null, values: expenseValues };
     return null;
-  }, [hoverKey, incomeItems, incomeValues, expenseItems, expenseValues]);
+  }, [rowHover, incomeItems, incomeValues, expenseItems, expenseValues]);
 
   const hoveredSeries = hoverKey ? allSeries.find((s) => s.key === hoverKey) : undefined;
 
@@ -134,49 +146,51 @@ export const BudgetPage = () => {
             .map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), itemValue(i, expenseValues)))}
         </div>
         <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], totalIncome + totalExpenses, true)}</div>
+        {hoveredSeries && (
+          <SeriesStats
+            series={hoveredSeries}
+            negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"}
+            translate={translate}
+          />
+        )}
       </div>
 
       <div className={styles.chartColumn}>
         <div className={styles.spanBar}>
-          {SPAN_OPTIONS.map((o) => (
-            <div key={o.label} className={`${styles.spanButton} ${span === o.months ? styles.spanActive : ""}`} onClick={() => setSpanState(o.months)}>
-              {o.label}
+          {SPAN_OPTIONS.map((months) => (
+            <div key={months} className={`${styles.spanButton} ${span === months ? styles.spanActive : ""}`} onClick={() => setSpanState(months)}>
+              {spanLabel(months, translate)}
             </div>
           ))}
         </div>
         <div className={styles.chartArea}>
-          <LineChart lines={lines} monthsAgo={history?.monthsAgo ?? []} highlightKey={hoverKey} onHoverLine={setLineHover} />
+          <LineChart
+            lines={lines}
+            monthsAgo={history?.monthsAgo ?? []}
+            highlightKey={hoverKey}
+            onHoverLine={setLineHover}
+            insetLeftRem={detail?.item ? POPOUT_INSET_REM : 0}
+          />
         </div>
-      </div>
-
-      <div className={styles.infoColumn}>
-        {detail?.item ? (
-          <BudgetItemDetail item={detail.item} values={detail.values} />
-        ) : (
-          <div className={styles.infoHint}>Hover a row or a line for details. Click a row to plot it.</div>
+        {detail?.item && (
+          <div className={styles.detailPopout}>
+            <div className={styles.detailPopoutBox}>
+              <BudgetItemDetail item={detail.item} values={detail.values} />
+            </div>
+          </div>
         )}
-        {hoveredSeries && <SeriesStats series={hoveredSeries} negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"} />}
       </div>
     </div>
   );
 };
 
-/** Current / average / low / high over the visible span, for the hovered line. */
-const SeriesStats = ({ series, negate }: { series: SeriesDef; negate: boolean }) => {
-  const v = series.values;
-  if (v.length === 0) return null;
+/** Now / average / low / high / change over the selected span (the points on the chart), per month. */
+const SeriesStats = ({ series, negate, translate }: { series: SeriesDef; negate: boolean; translate: Translate }) => {
+  const stats = seriesStats(series.values, translate);
+  if (stats.length === 0) return null;
   const sign = negate ? -1 : 1;
-  const avg = v.reduce((a, b) => a + b, 0) / v.length;
-  const stats: [string, number][] = [
-    ["Now", v[v.length - 1]],
-    ["Average", avg],
-    ["Lowest", Math.min(...v)],
-    ["Highest", Math.max(...v)],
-    ["Change", v[v.length - 1] - v[0]],
-  ];
   return (
     <div className={styles.stats}>
-      <div className={styles.statsTitle}>Over the chart's time span (per month)</div>
       {stats.map(([name, value]) => (
         <div key={name} className={styles.statRow}>
           <div>{name}</div>

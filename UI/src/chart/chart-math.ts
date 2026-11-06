@@ -1,4 +1,5 @@
 // Pure chart maths for the Budget tab line chart. No game imports, so vitest can run it in Node.
+import { localize, localizeVanilla, Translate } from "../l10n";
 
 export interface Rgba {
   r: number;
@@ -165,6 +166,14 @@ export function formatMoney(value: number): string {
   return `${rounded < 0 ? "-" : ""}¢${digits}`;
 }
 
+/**
+ * "¢315,997/mo", as one string. Rendered as {formatMoney(v)}/mo, React makes two text nodes, and Gameface wraps
+ * between them even under white-space: nowrap.
+ */
+export function formatPerMonth(value: number, translate: Translate | null): string {
+  return localize(translate, "PerMonth", { VALUE: formatMoney(value) });
+}
+
 /** Short axis label: ¢1.2M, ¢350k, ¢900. */
 export function formatMoneyShort(value: number): string {
   const abs = Math.abs(value);
@@ -179,35 +188,90 @@ function trim(v: number): string {
   return (Math.round(v * 10) / 10).toString();
 }
 
-/** "now", "3 days ago"-style label for a point, in months (32 samples = 1 month). */
-export function formatMonthsAgo(monthsAgo: number): string {
+/** "Now", "12 h ago", "6 months ago", "3 years ago": the time of a point, in months (32 samples = 1 month). */
+export function formatMonthsAgo(monthsAgo: number, translate: Translate | null): string {
   const m = -monthsAgo;
-  if (m < 1 / 64) return "Now";
+  if (m < 1 / 64) return localizeVanilla(translate, "now");
   // One in-game month is one day on the clock, so part of a month reads as hours.
-  if (m < 1) return `${Math.max(1, Math.round(m * 24))} h ago`;
-  if (m < 24) return `${trim(m)} months ago`;
-  return `${trim(m / 12)} years ago`;
+  if (m < 1) return localize(translate, "HoursAgo", { COUNT: Math.max(1, Math.round(m * 24)) });
+  if (m < 24) return localize(translate, "MonthsAgo", { COUNT: trim(m) });
+  return localize(translate, "YearsAgo", { COUNT: trim(m / 12) });
 }
 
-/** Axis label for a month offset: "Now", "-6 mo", "-2 yr". */
-export function formatMonthsAxis(monthsAgo: number): string {
-  const m = -monthsAgo;
-  if (m < 1e-6) return "Now";
-  if (m < 24) return `-${trim(m)} mo`;
-  return `-${trim(m / 12)} yr`;
+/** Weeks per in-game month, for the x axis (the game has no weeks; a quarter month reads naturally). */
+export const WEEKS_PER_MONTH = 4;
+
+/** X-axis tick steps in months: whole weeks, then whole months, then whole years. */
+export const TIME_TICK_STEPS = [0.25, 0.5, 1, 2, 3, 6, 12, 24, 36, 60, 120, 240];
+
+/**
+ * X-axis ticks for a span reaching back `spanMonths` from now: multiples of the smallest step in
+ * TIME_TICK_STEPS that gives at most `maxTicks` ticks, as negative month offsets, oldest first, ending at 0 (now).
+ * Every tick is a whole number of weeks, months or years back, never a fraction.
+ */
+export function timeTicks(spanMonths: number, maxTicks = 6): number[] {
+  const span = Math.max(0, spanMonths);
+  const limit = Math.max(2, Math.floor(maxTicks));
+  let step = TIME_TICK_STEPS[TIME_TICK_STEPS.length - 1];
+  for (const s of TIME_TICK_STEPS) {
+    if (Math.floor(span / s + 1e-9) + 1 <= limit) {
+      step = s;
+      break;
+    }
+  }
+  const count = Math.floor(span / step + 1e-9);
+  const ticks: number[] = [];
+  for (let k = count; k >= 1; k--) ticks.push(-k * step);
+  ticks.push(0);
+  return ticks;
 }
 
-export interface SpanOption {
-  months: number;
-  label: string;
+/** Axis label for a tick: "Now", "-3 wk", "-1 mo", "-1 mo 2 wk", "-2 yr". Rounds to the nearest week. */
+export function formatMonthsAxis(monthsAgo: number, translate: Translate | null): string {
+  const weeks = Math.round(-monthsAgo * WEEKS_PER_MONTH);
+  if (weeks <= 0) return localizeVanilla(translate, "now");
+  const months = Math.floor(weeks / WEEKS_PER_MONTH);
+  const restWeeks = weeks % WEEKS_PER_MONTH;
+  if (restWeeks === 0 && months >= 12 && months % 12 === 0) return localize(translate, "AxisYears", { COUNT: months / 12 });
+  if (months === 0) return localize(translate, "AxisWeeks", { COUNT: restWeeks });
+  return restWeeks === 0
+    ? localize(translate, "AxisMonths", { COUNT: months })
+    : localize(translate, "AxisMonthsWeeks", { MONTHS: months, WEEKS: restWeeks });
 }
 
-/** Time spans offered above the chart. 0 = all history. */
-export const SPAN_OPTIONS: SpanOption[] = [
-  { months: 1, label: "1M" },
-  { months: 3, label: "3M" },
-  { months: 6, label: "6M" },
-  { months: 12, label: "1Y" },
-  { months: 36, label: "3Y" },
-  { months: 0, label: "All" },
-];
+/**
+ * Where the plot starts, in pixels: any inset (room for a panel over the chart's left side), then the widest y label,
+ * then the gap before the plot. Sizes in rem are scaled by `rem` (pixels per rem); `labelWidth` is already in pixels.
+ */
+export function plotLeft(rem: number, labelWidth: number, gapRem: number, insetLeftRem = 0): number {
+  return (Math.max(0, insetLeftRem) + gapRem) * rem + labelWidth;
+}
+
+/**
+ * The span stats under the rows, labelled: now, average, lowest, highest and change over the points given (the
+ * selected span), per month. None for an empty series.
+ */
+export function seriesStats(values: number[], translate: Translate | null): [string, number][] {
+  const v = values;
+  if (v.length === 0) return [];
+  return [
+    [localizeVanilla(translate, "now"), v[v.length - 1]],
+    [localize(translate, "StatAverage"), v.reduce((a, b) => a + b, 0) / v.length],
+    [localize(translate, "StatLowest"), Math.min(...v)],
+    [localize(translate, "StatHighest"), Math.max(...v)],
+    [localize(translate, "StatChange"), v[v.length - 1] - v[0]],
+  ];
+}
+
+/** Time spans offered above the chart, in months. 0 = all history. */
+export const SPAN_OPTIONS: number[] = [1, 3, 6, 12, 36, 0];
+
+/** The span the chart opens on before the player picks one (3M). Mirrors BudgetHistoryMath.DefaultSpanMonths. */
+export const DEFAULT_SPAN_MONTHS = 3;
+
+/** A span button's label: "1M", "6M", "1Y", "3Y", "All". */
+export function spanLabel(months: number, translate: Translate | null): string {
+  if (months <= 0) return localize(translate, "SpanAll");
+  if (months % 12 === 0) return localize(translate, "SpanYears", { COUNT: months / 12 });
+  return localize(translate, "SpanMonths", { COUNT: months });
+}

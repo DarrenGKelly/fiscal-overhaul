@@ -16,7 +16,8 @@ The docs are an [OKF](knowledge/knowledge-format.md) bundle: start from [knowled
 | A UI panel, tab or vanilla UI change | [cs2-ui-modding.md § Reusing and replacing vanilla UI](knowledge/cs2-ui-modding.md#reusing-and-replacing-vanilla-ui) (TODO main session: a step-by-step recipe); the Budget tab as the example: [impl/budget-chart.md](knowledge/impl/budget-chart.md) |
 | A C# simulation or UI system | [cs2-ui-modding.md § Scheduling simulation systems](knowledge/cs2-ui-modding.md#scheduling-simulation-systems) (TODO main session: a step-by-step recipe); the example: [impl/density-taxes.md](knowledge/impl/density-taxes.md) |
 | Logic that needs tests | [Pure logic](knowledge/patterns.md#pure-logic), and [testing.md](knowledge/testing.md#the-rule) |
-| A setting | `Mod/Setting.cs` (TODO main session: a recipe) |
+| A setting | `Mod/Setting.cs` (TODO main session: a recipe); its Options text goes in `l10n/en-US.json` |
+| Player-facing text, or a language | [cs2-ui-modding.md § Localization](knowledge/cs2-ui-modding.md#localization): a key in `l10n/en-US.json`, read with `localize()` |
 | A tool under `tools/` | [repo-structure.md § tools/](knowledge/repo-structure.md#tools), with its `test-<name>` twin ([testing.md § Tool tests](knowledge/testing.md#tool-tests)) |
 | A knowledge doc | [knowledge-format.md](knowledge/knowledge-format.md), then `python tools/okf.py index` |
 <!-- how-to-extend:end -->
@@ -38,6 +39,7 @@ The usual first stops: [repo-structure.md](knowledge/repo-structure.md) (where e
 |---|---|
 | `Mod/` | The C# mod: `Mod.cs`, `Setting.cs`, `Logic/` (pure, tested), `Systems/` (game and UI systems) |
 | `UI/` | The UI module: `src/` (React components, pure TS modules and their vitest tests), `types/` |
+| `l10n/` | The mod's text, one `<locale>.json` per language ([cs2-ui-modding.md § Localization](knowledge/cs2-ui-modding.md#localization)) |
 | `Tests/` | xunit tests of `Mod/Logic/` |
 | `knowledge/` | The docs (above) |
 | `tools/` | Build, test, landing and doc-check scripts ([repo-structure.md § tools/](knowledge/repo-structure.md#tools)) |
@@ -47,15 +49,20 @@ The usual first stops: [repo-structure.md](knowledge/repo-structure.md) (where e
 
 Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only through PRs titled `vX.Y.Z - <summary>`, which the user merges. Enable the hooks once per clone: `git config core.hooksPath .githooks`. Problems outside the task become GitHub issues ([issues.md](knowledge/issues.md)), not fixes in passing.
 
-**Autonomous work goes through `autodev`** (the global `/autodev` skill; batches: `/orchestrate`): branch from `origin/autodev`, test, `gh pr create --base autodev --body-file <file>`, then land it yourself with `./tools/land-pr.ps1 <n>`. Never merge any other way, never force-push or delete `autodev`. The user tests `autodev` in game and promotes it (`/promote`). Details: [git-workflow.md](knowledge/git-workflow.md#autonomous-sessions-autodev).
+**Autonomous work goes through `autodev`** (the global `/autodev` skill; batches: `/orchestrate`): branch from `origin/autodev`, test, `gh pr create --base autodev --body-file <file>`, then land it yourself with `./tools/land-pr.ps1 <n>`. Never merge any other way, never force-push or delete `autodev`. The user tests `autodev` in game, promotes it (`/promote`) and uploads a release to Paradox Mods (`/publish`, [releasing.md](knowledge/releasing.md)). Details: [git-workflow.md](knowledge/git-workflow.md#autonomous-sessions-autodev).
 
 ## Architecture
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
-  (`history`, `setSpan`, `densityTaxes`, `setDensityTax`) and compute only while the Economy panel is open. The UI
-  reads them through `UI/src/bindings.ts`, alongside the vanilla `economyBudget`/`taxation` bindings.
+  (`budgetChartEnabled`, `history`, `setSpan`, `densityTaxesEnabled`, `densityTaxes`, `setDensityTax`) and compute
+  only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
+  the vanilla `economyBudget`/`taxation` bindings.
+- **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
+  `EnableDensityTaxes`): off is vanilla behaviour and vanilla UI; the stored offsets are kept. The chart defaults on, density taxes (BETA)
+  default off (`FeatureGates`).
 - **Budget tab:** `BudgetHistoryUISystem` turns the game's saved per-source income/expense statistics into per-month
-  series; `UI/src/budget/budget-page.tsx` overrides vanilla `BudgetPage` and draws `UI/src/chart/line-chart.tsx` (canvas).
+  series; `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
+  while the chart is off) and draws `UI/src/chart/line-chart.tsx` (canvas).
   [impl/budget-chart.md](knowledge/impl/budget-chart.md)
 - **Density taxes:** an apply/restore system pair around vanilla `TaxSystem` adds each building's density offset only
   while tax is charged; offsets live in `Setting.DensityTaxOffsets`; the Taxation tab extends vanilla `TaxationGroup`.

@@ -22,6 +22,11 @@ namespace FiscalOverhaul
     /// exactly what it added so <see cref="DensityTaxRestoreSystem"/> can take it off again after payment.
     /// Net effect: only the tax actually paid changes; the stored average rate the rest of the game reads is
     /// untouched between payments.
+    ///
+    /// Apply, TaxSystem and restore all run inside one GameSimulation step, so nothing outside the step (the UI, a
+    /// save, a load) sees an adjusted rate: anything reading TaxPayer later depends on the restore job first. The
+    /// restore takes back the recorded deltas, not the current offsets, so a slider or the Options switch moving
+    /// between the two can't leave a rate off.
     /// </summary>
     public partial class DensityTaxApplySystem : GameSystemBase
     {
@@ -30,6 +35,12 @@ namespace FiscalOverhaul
         private NativeParallelHashMap<Entity, int> m_Applied;
         private JobHandle m_AppliedWriter;
         private JobHandle m_AppliedReaders;
+
+        /// <summary>
+        /// Whether this update scheduled an apply job, i.e. may have raised rates the restore system must take back.
+        /// Reset at the top of every update, so it describes the current tax tick only.
+        /// </summary>
+        public bool AppliedThisTick { get; private set; }
 
         /// <summary>Entities adjusted this frame and by how much. Read by the restore system after TaxSystem.</summary>
         public NativeParallelHashMap<Entity, int> GetApplied(out JobHandle writer)
@@ -80,19 +91,28 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
+            // The map is reused every update; the last update's jobs (this system's writer, the restore job reading
+            // it) must finish before it's cleared. Usually long done: this runs every 512 frames.
             m_AppliedWriter.Complete();
             m_AppliedReaders.Complete();
             m_AppliedReaders = default;
             m_Applied.Clear();
-            if (DensityTaxState.Table.IsEmpty) return;
+            AppliedThisTick = false;
+            if (!DensityTaxState.IsCharged) return; // disabled in Options, or no offset set: vanilla rates
 
+            // Same group as TaxSystem picks this frame: it charges one of 16 UpdateFrame groups per update.
             uint updateFrame = SimulationUtils.GetUpdateFrame(m_SimulationSystem.frameIndex, TaxSystem.kUpdatesPerDay, 16);
             m_PayerQuery.ResetFilter();
             m_PayerQuery.SetSharedComponentFilter(new UpdateFrame(updateFrame));
             int count = m_PayerQuery.CalculateEntityCount();
             if (count == 0) return;
+            // A parallel writer can't grow the map, so make room for every payer up front.
             if (m_Applied.Capacity < count) m_Applied.Capacity = count;
 
+            // The job gets its own copy of the offsets, freed when it finishes: the main thread can change
+            // DensityTaxState (a slider, the Options switch or reset) while this job is still running, and must not
+            // write into memory the job reads.
+            var offsets = new NativeArray<int>(DensityTaxState.Snapshot(), Allocator.TempJob);
             var job = new ApplyJob
             {
                 m_EntityType = GetEntityTypeHandle(),
@@ -103,11 +123,13 @@ namespace FiscalOverhaul
                 m_Spawnables = GetComponentLookup<SpawnableBuildingData>(true),
                 m_Zones = GetComponentLookup<ZoneData>(true),
                 m_ZoneProperties = GetComponentLookup<ZonePropertiesData>(true),
-                m_Offsets = DensityTaxState.Native,
+                m_Offsets = offsets,
                 m_Applied = m_Applied.AsParallelWriter(),
             };
             Dependency = job.ScheduleParallel(m_PayerQuery, Dependency);
+            offsets.Dispose(Dependency);
             m_AppliedWriter = Dependency;
+            AppliedThisTick = true;
         }
 
         [BurstCompile]
@@ -134,7 +156,9 @@ namespace FiscalOverhaul
                 for (int i = 0; i < entities.Length; i++)
                 {
                     TaxPayer payer = payers[i];
-                    if (payer.m_UntaxedIncome <= 0) continue; // nothing to pay, nothing to adjust
+                    // TaxSystem also "charges" negative untaxed income (a loss gives a refund). The offset is a tax
+                    // on income, so it isn't applied to refunds: zero or negative income is left at the vanilla rate.
+                    if (payer.m_UntaxedIncome <= 0) continue;
 
                     if (!DensityClassifier.TryClassify(renters[i].m_Property, isHousehold, ref m_PrefabRefs, ref m_Spawnables, ref m_Zones, ref m_ZoneProperties, out int cell)) continue;
 
@@ -154,7 +178,9 @@ namespace FiscalOverhaul
 
     /// <summary>
     /// Density taxes, part 2 of 2. Runs right after TaxSystem and takes back exactly what
-    /// <see cref="DensityTaxApplySystem"/> added, so the stored average rate never drifts.
+    /// <see cref="DensityTaxApplySystem"/> added, so the stored average rate never drifts. When the apply system
+    /// scheduled nothing this tick (density taxes off, every offset 0, no payers), it schedules nothing either: a job
+    /// declaring TaxPayer writes would otherwise run, and hold up every TaxPayer reader, on every tax tick for nothing.
     /// </summary>
     public partial class DensityTaxRestoreSystem : GameSystemBase
     {
@@ -175,6 +201,10 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
+            // Decided by what apply did this tick, not by the current switch and offsets: a change between the two
+            // must not strand a raised rate.
+            if (!Logic.DensityTaxRestoreGate.RestoreNeeded(DensityTaxState.Enabled, !DensityTaxState.Table.IsEmpty, m_ApplySystem.AppliedThisTick)) return;
+
             NativeParallelHashMap<Entity, int> applied = m_ApplySystem.GetApplied(out JobHandle writer);
 
             var job = new RestoreJob
