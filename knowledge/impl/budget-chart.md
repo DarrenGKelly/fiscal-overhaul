@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: Budget tab line chart
-description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, and how the filter rows, chart, tooltip and detail column fit together.
+description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
 resource:
   - Mod/Systems/BudgetHistoryUISystem.cs
   - Mod/Logic/BudgetHistoryMath.cs
@@ -84,6 +84,37 @@ dropped. The system is `IDefaultSerializable`, so the game saves it with the cit
 (the latest weights x the live vanilla rows). `DistrictBudgetSystem.LogSamples` (off by default; set it for an in-game check) writes one `FiscalOverhaul.Mod.log` line per sample
 (district count, tax scales, sums against the vanilla rows).
 
+So a district's value is a share of the vanilla row (weights above), except taxes: those are the district's payer
+sums x the tax scale, so a Low Commercial Tax district shows its lower commercial tax. Paid Parking counts through
+the lane fees, and usage policies (water, electricity, ...) through usage. History starts when recording does (the
+first save with the mod), not with the city.
+
+### Bindings
+
+`BudgetHistoryUISystem` publishes `districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while
+recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
+unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and, for a district,
+`nowIncome[14]` / `nowExpense[15]` (live values, expenses positive) with series from the district's samples;
+city-only sources are 0.
+
+### District selector
+
+`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, styled like the span buttons (the arrows
+are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the left one: the font has no arrows). The arrows cycle
+Entire City → each district (by name) → Outside districts → Entire City, wrapping both ways; the name opens a list of
+every choice. It hides while `districts` is empty (recording off, or a city without districts), and a choice no
+longer offered falls back to Entire City (`effectiveKey`). The choice persists for the session (module-level, like
+the span) and is sent on mount and on change.
+
+With a district in `history` (`isDistrictView`; rows follow the binding, not the click, so rows and lines always
+match): the city-only rows hide (`isCityOnlyItem`: every source outside `DistrictBudgetMath`'s lists: loan interest,
+map tile upkeep, imports, exports, government subsidy), each row reads `nowIncome` / `nowExpense` (`rowValue`,
+expenses negated to show as vanilla does), Revenues / Expenses / Monthly balance are the sums of the shown rows, the
+detail pop-out is off (its breakdown is city-wide), and the chart draws the district's series. A district with no
+samples yet has one point (its live Now), which the chart draws as a dot. A blank or localization-id name (an
+unnamed district from `NameSystem.GetRenderedLabelName`) is translated, else shown as "District <n>" (its place in
+the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
+
 ## UI
 
 - **Left column**: the filter rows, then the span stats for the hovered row or line (the column scrolls when they
@@ -118,4 +149,5 @@ dropped. The system is `IDefaultSerializable`, so the game saves it with the cit
 ## Tests
 
 `Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
-ranges, value and time ticks, hit-testing and formatting.
+ranges, value and time ticks, hit-testing and formatting; `UI/src/budget/district-select.test.ts` the selector's
+options, cycling, names, city-only rows and row values.

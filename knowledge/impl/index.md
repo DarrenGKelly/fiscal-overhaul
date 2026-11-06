@@ -2,5 +2,5 @@
 
 # Implementation
 
-* [Budget tab line chart](budget-chart.md) - The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, and how the filter rows, chart, tooltip and detail column fit together.
+* [Budget tab line chart](budget-chart.md) - The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
 * [Density taxes](density-taxes.md) - Per-density tax offsets — how they ride on the vanilla TaxSystem via an apply/restore system pair, how buildings are classified, what they do not affect (demand, happiness), storage and the Taxation tab rows.
