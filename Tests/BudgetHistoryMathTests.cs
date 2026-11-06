@@ -68,6 +68,15 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void DefaultSpan_IsThreeMonths()
+        {
+            Assert.Equal(3, BudgetHistoryMath.DefaultSpanMonths);
+            // 3 months of samples, not the old 1Y default's
+            Assert.Equal(3 * 32 + 1, BudgetHistoryMath.SamplesForSpan(BudgetHistoryMath.DefaultSpanMonths, 10000));
+            Assert.NotEqual(BudgetHistoryMath.SamplesForSpan(12, 10000), BudgetHistoryMath.SamplesForSpan(BudgetHistoryMath.DefaultSpanMonths, 10000));
+        }
+
+        [Fact]
         public void SamplesForSpan_ClampsToAvailableHistory()
         {
             Assert.Equal(33, BudgetHistoryMath.SamplesForSpan(1, 1000));

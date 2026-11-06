@@ -19,6 +19,7 @@ import {
   timeTicks,
   rgbaToCss,
   seriesStats,
+  DEFAULT_SPAN_MONTHS,
   SPAN_OPTIONS,
   spanLabel,
   sumSources,
@@ -276,6 +277,17 @@ describe("localized chart text", () => {
 describe("spanLabel", () => {
   it("labels the span buttons as before", () => {
     expect(SPAN_OPTIONS.map((m) => spanLabel(m, null))).toEqual(["1M", "3M", "6M", "1Y", "3Y", "All"]);
+  });
+});
+
+describe("DEFAULT_SPAN_MONTHS", () => {
+  it("opens the chart on 3M, one of the offered spans", () => {
+    expect(SPAN_OPTIONS).toContain(DEFAULT_SPAN_MONTHS);
+    expect(spanLabel(DEFAULT_SPAN_MONTHS, null)).toBe("3M");
+  });
+  it("is not the old 1Y default or all history", () => {
+    expect(DEFAULT_SPAN_MONTHS).not.toBe(12);
+    expect(DEFAULT_SPAN_MONTHS).not.toBe(0);
   });
 });
 
