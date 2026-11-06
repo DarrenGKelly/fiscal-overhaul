@@ -102,7 +102,8 @@ properties, `BudgetHistoryPayload`) with series from the district's samples; cit
 `budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, styled like the span buttons (the arrows
 are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the left one: the font has no arrows). The arrows cycle
 Entire City → each district (by name) → Outside districts → Entire City, wrapping both ways; the name opens a list of
-every choice. It hides while `districts` is empty (recording off, or a city without districts), and a choice no
+every choice, with a divider line between the three groups (Entire City | the districts | Outside districts;
+`dividerBefore`). It hides while `districts` is empty (recording off, or a city without districts), and a choice no
 longer offered falls back to Entire City (`effectiveKey`). The choice persists for the session (module-level, like
 the span) and is sent on mount and on change.
 

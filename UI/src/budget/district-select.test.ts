@@ -5,6 +5,7 @@ import {
   cycle,
   districtLabel,
   districtOptions,
+  dividerBefore,
   effectiveKey,
   isCityOnlyItem,
   OUTSIDE_KEY,
@@ -64,6 +65,21 @@ describe("districtOptions order", () => {
 
   it("with no districts, only Entire City (no Outside: the selector hides)", () => {
     expect(districtOptions([])).toEqual([{ key: CITY_KEY, label: "Entire City" }]);
+  });
+});
+
+describe("dividerBefore", () => {
+  it("draws a line after Entire City and before Outside districts only", () => {
+    const options = districtOptions(DISTRICTS); // Entire City, Downtown, Harbour, Outside
+    expect(options.map((_, i) => dividerBefore(options, i))).toEqual([false, true, false, true]);
+  });
+
+  it("no line above the first option, between two districts, or out of range", () => {
+    const options = districtOptions(DISTRICTS);
+    expect(dividerBefore(options, 0)).toBe(false);
+    expect(dividerBefore(options, 2)).toBe(false);
+    expect(dividerBefore(options, 9)).toBe(false);
+    expect(dividerBefore(districtOptions([]), 0)).toBe(false);
   });
 });
 

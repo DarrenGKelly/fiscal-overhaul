@@ -56,6 +56,19 @@ export function districtOptions(districts: DistrictLike[], translate: Translate 
   ];
 }
 
+/**
+ * Whether the list draws a divider line above option `index`: where the group changes, so Entire City, the districts
+ * and Outside districts read as three blocks. Never above the first option.
+ */
+export function dividerBefore(options: { key: string }[], index: number): boolean {
+  if (index <= 0 || index >= options.length) return false;
+  return optionGroup(options[index].key) !== optionGroup(options[index - 1].key);
+}
+
+function optionGroup(key: string): "city" | "district" | "outside" {
+  return key === CITY_KEY ? "city" : key === OUTSIDE_KEY ? "outside" : "district";
+}
+
 /** The key one step forwards (1) or back (-1) from `currentKey`, wrapping both ways; an unknown key gives Entire City. */
 export function cycle(options: { key: string }[], currentKey: string, dir: 1 | -1): string {
   const i = options.findIndex((o) => o.key === currentKey);

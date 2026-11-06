@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cycle, DistrictOption } from "./district-select";
+import { cycle, dividerBefore, DistrictOption } from "./district-select";
 import styles from "./budget-page.module.scss";
 
 // The game's font has no arrow glyphs (a tofu box): vanilla's icon, mirrored for the left arrow.
@@ -39,10 +39,12 @@ export const DistrictSelector = ({
         </div>
         {open && (
           <div className={styles.districtList}>
-            {options.map((o) => (
+            {options.map((o, i) => (
               <div
                 key={o.key}
-                className={`${styles.districtItem} ${o.key === current?.key ? styles.spanActive : ""}`}
+                className={`${styles.districtItem} ${dividerBefore(options, i) ? styles.districtDivider : ""} ${
+                  o.key === current?.key ? styles.spanActive : ""
+                }`}
                 onClick={() => choose(o.key)}
               >
                 {o.label}
