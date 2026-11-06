@@ -312,3 +312,29 @@ describe("seriesStats", () => {
     expect(seriesStats([], null)).toEqual([]);
   });
 });
+
+describe("buildSeries with district history", () => {
+  const district: BudgetHistory = {
+    ...history,
+    district: "12:3",
+    income: [
+      [100, 110, 120],
+      [10, 10, 10],
+      [0, 0, 0], // city-only source, zeroed
+    ],
+    nowIncome: [120, 10, 0],
+    nowExpense: [70, 0],
+  };
+
+  it("builds the same series shape", () => {
+    const a = buildSeries(history, incomeItems, expenseItems).map((s) => s.key);
+    const b = buildSeries(district, incomeItems, expenseItems);
+    expect(b.map((s) => s.key)).toEqual(a);
+    expect(b.find((s) => s.key === INCOME_TOTAL)!.values).toEqual([110, 120, 130]);
+  });
+
+  it("does not throw without nowIncome", () => {
+    const { nowIncome, nowExpense, ...bare } = district;
+    expect(() => buildSeries(bare, incomeItems, expenseItems)).not.toThrow();
+  });
+});

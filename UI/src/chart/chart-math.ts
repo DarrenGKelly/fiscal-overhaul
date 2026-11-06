@@ -23,6 +23,11 @@ export interface BudgetHistory {
   monthsAgo: number[];
   income: number[][];
   expense: number[][];
+  /** The selected district's key; "" or absent = Entire City. */
+  district?: string;
+  /** Live per-source values now (district view only; expenses positive). */
+  nowIncome?: number[];
+  nowExpense?: number[];
 }
 
 export type SeriesKind = "income-total" | "income" | "expense-total" | "expense" | "balance";

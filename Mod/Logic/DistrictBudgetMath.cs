@@ -37,6 +37,24 @@ namespace FiscalOverhaul.Logic
         /// <summary>Slots in one sample: the income list, then the expense list.</summary>
         public const int SourceCount = 16;
 
+        /// <summary>
+        /// Spreads one SourceCount-wide sample (income slots, then expense slots) into the game's source order:
+        /// result[source] = slots[slot of that source], or <paramref name="fill"/> for a city-only source.
+        /// <paramref name="sourceCount"/> is IncomeSource.Count / ExpenseSource.Count.
+        /// </summary>
+        public static T[] Spread<T>(IReadOnlyList<T> slots, bool income, int sourceCount, T fill)
+        {
+            if (slots == null) throw new ArgumentNullException(nameof(slots));
+            if (slots.Count != SourceCount) throw new ArgumentException("Need SourceCount slots.", nameof(slots));
+            var result = new T[sourceCount];
+            for (int i = 0; i < sourceCount; i++) result[i] = fill;
+            int[] sources = income ? DistrictIncomeSources : DistrictExpenseSources;
+            int offset = income ? 0 : DistrictIncomeSources.Length;
+            for (int i = 0; i < sources.Length; i++)
+                if (sources[i] < sourceCount) result[sources[i]] = slots[offset + i];
+            return result;
+        }
+
         /// <summary>True for every source a district cannot have (loan interest, exports, imports, ...).</summary>
         public static bool IsCityOnly(bool income, int source)
         {
