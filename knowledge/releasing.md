@@ -61,9 +61,10 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
 - **After a successful release** (not a private test) it tags the built commit `v<version>` (an annotated tag naming
   the mode and access level) and pushes the tag. A failed build or upload tags nothing.
 
-- **Screenshots** live in `Mod/Properties/Screenshots/` (`01-budget-chart.png` ... `04-options.png`, the README embeds the
-  same files, each listed as a `Screenshot` in `PublishConfiguration.xml`). They are 1920x1080 PNGs (under 1 MB each),
-  cropped from 2560x1440 `game-control.ps1` screenshots around the Economy panel or Options page, then scaled.
+- **Screenshots** live in `Mod/Properties/Screenshots/` (`01-budget-chart.png` ... `05-budget-vanilla-detail.png`),
+  each listed as a `Screenshot` in `PublishConfiguration.xml` in the order the mod page shows them; the README embeds
+  the same files. They are 1920x1080 PNGs (about 1 MB each), cropped from 2560x1440 `game-control.ps1` screenshots
+  around the Economy panel or Options page, then scaled.
 
 ## Private test uploads
 
