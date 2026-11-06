@@ -58,8 +58,8 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
 - **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
-  `EnableDensityTaxes`): off is vanilla behaviour and vanilla UI; the stored offsets are kept. The chart defaults on, density taxes (BETA)
-  default off (`FeatureGates`).
+  `EnableDensityTaxes`, `EnableDistrictBudget`): off is vanilla behaviour and vanilla UI; the stored offsets and district
+  histories are kept. The chart and district recording default on, density taxes (BETA) default off (`FeatureGates`).
 - **Budget tab:** `BudgetHistoryUISystem` turns the game's saved per-source income/expense statistics into per-month
   series; `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
   while the chart is off) and draws `UI/src/chart/line-chart.tsx` (canvas).
