@@ -12,6 +12,9 @@ namespace FiscalOverhaul.Logic
         /// <summary>The game samples city statistics 32 times per in-game month (CityStatisticsSystem.kUpdatesPerDay).</summary>
         public const int SamplesPerMonth = 32;
 
+        /// <summary>The span (months) the chart shows until the UI sends one: 3M. Mirrors the UI's DEFAULT_SPAN_MONTHS.</summary>
+        public const int DefaultSpanMonths = 3;
+
         /// <summary>
         /// Each statistic sample holds what was added during that 1/32 of a month: BudgetApplySystem adds the
         /// current monthly amount / 1024 at each of its 1024 ticks a month, so a sample is (rate at that time) / 32.

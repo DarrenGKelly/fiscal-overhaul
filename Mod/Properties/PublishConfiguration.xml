@@ -45,6 +45,7 @@ Bug reports and suggestions: [GitHub issues](https://github.com/DarrenGKelly/fis
 	<!--Screenshot, can be set multiple times (added with the screenshot files: Properties/Screenshots/*.png)-->
 	<Screenshot Value="Properties/Screenshots/01-budget-chart.png" />
 	<Screenshot Value="Properties/Screenshots/02-budget-tooltip.png" />
+	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail.png" />
 	<Screenshot Value="Properties/Screenshots/03-taxation-density.png" />
 	<Screenshot Value="Properties/Screenshots/04-options.png" />
 	<!--Tag, can be set multiple times. CS2's Paradox Mods tags: "Code Mod", "Map", "Savegame", "Prefab", plus asset tags-->

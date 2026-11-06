@@ -23,6 +23,8 @@ the Budget tab's bar chart, and (as an optional beta feature) tax offsets by bui
 
 ![The tooltip and span stats](Mod/Properties/Screenshots/02-budget-tooltip.png)
 
+![Hovering a budget row shows the game's own detail panel for it](Mod/Properties/Screenshots/05-budget-vanilla-detail.png)
+
 ### Taxation tab: tax offsets by density (BETA)
 
 This is a beta feature and is **off by default**: turn it on with **Enable density taxes (BETA)** in Options >

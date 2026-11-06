@@ -7,6 +7,7 @@ import {
   BALANCE,
   buildSeries,
   BudgetItemLike,
+  DEFAULT_SPAN_MONTHS,
   EXPENSE_TOTAL,
   formatMoney,
   INCOME_TOTAL,
@@ -31,7 +32,7 @@ const POPOUT_INSET_REM = 360 + 6 - 10 + 12;
 
 // Kept outside the component so the choice survives switching tabs or closing the panel.
 let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
-let rememberedSpan = 12;
+let rememberedSpan = DEFAULT_SPAN_MONTHS;
 
 /**
  * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the span stats

@@ -35,7 +35,7 @@ namespace FiscalOverhaul
         private ValueBinding<bool> m_EnabledBinding;
         private Setting m_Setting;
 
-        private int m_SpanMonths = 12;
+        private int m_SpanMonths = BudgetHistoryMath.DefaultSpanMonths;
         private int m_LastSampleCount = -1;
         private int m_LastSpan = int.MinValue;
         private int m_FramesSinceRebuild;

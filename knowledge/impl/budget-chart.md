@@ -55,7 +55,7 @@ span changed (and straight away when the panel opens or the chart is switched ba
   `economyBudget.incomeItems$`. **`incomeValues$`/`expenseValues$` are indexed by source, not by item**: an item's
   value is the sum of `values[source.index]` over its sources (`itemValue`, vanilla's `getItemValue`); indexing by the
   item's position shows the wrong numbers. The checked set and span persist for the session (module-level variables).
-- **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All. Expenses are plotted as
+- **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All, opening on 3M (`DEFAULT_SPAN_MONTHS` / `BudgetHistoryMath.DefaultSpanMonths`). Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
   (`nearestIndex`/`nearestSeries`). The tooltip shows that line's exact monthly value (signed, "¢57,466/mo" from `formatPerMonth` as one text

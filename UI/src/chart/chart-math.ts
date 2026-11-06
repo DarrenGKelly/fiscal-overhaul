@@ -266,6 +266,9 @@ export function seriesStats(values: number[], translate: Translate | null): [str
 /** Time spans offered above the chart, in months. 0 = all history. */
 export const SPAN_OPTIONS: number[] = [1, 3, 6, 12, 36, 0];
 
+/** The span the chart opens on before the player picks one (3M). Mirrors BudgetHistoryMath.DefaultSpanMonths. */
+export const DEFAULT_SPAN_MONTHS = 3;
+
 /** A span button's label: "1M", "6M", "1Y", "3Y", "All". */
 export function spanLabel(months: number, translate: Translate | null): string {
   if (months <= 0) return localize(translate, "SpanAll");
