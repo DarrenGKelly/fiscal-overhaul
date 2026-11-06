@@ -1,11 +1,13 @@
 ---
 type: Implementation
 title: Budget tab line chart
-description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, and how the filter rows, chart, tooltip and detail column fit together.
+description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
 resource:
   - Mod/Systems/BudgetHistoryUISystem.cs
   - Mod/Logic/BudgetHistoryMath.cs
   - Mod/Logic/FeatureGates.cs
+  - Mod/Systems/DistrictBudgetSystem.cs
+  - Mod/Logic/DistrictBudgetMath.cs
   - UI/src/budget
   - UI/src/chart
 ---
@@ -45,10 +47,86 @@ It sends only the visible span (`setSpan(months)`, 0 = all), downsampled to ≤2
 amounts. It rebuilds only while the chart is enabled and the Economy panel is open, and then when the sample count or
 span changed (and straight away when the panel opens or the chart is switched back on).
 
+## Per-district recording
+
+The game keeps no per-district budget, so `DistrictBudgetSystem` (`GameSimulation`, every 8192 frames = 32 samples
+a month, panel open or not) records one while **Enable budget chart** and **Record district budgets**
+(`Setting.EnableDistrictBudget`, default on) are both on (`FeatureGates.RecordsDistrictBudget`). Each sample weighs
+every district (`District` without `Temp`) plus "outside" (`Entity.Null`, buildings in no district) per source, and
+`DistrictBudgetMath.Samples` splits the vanilla Budget row (`CityServiceBudgetSystem.GetIncome`/`GetExpense`) by those
+weights:
+
+| Source | Weight per district |
+|---|---|
+| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate (`AtCityRate`: paid x city rate / the rate the payer's district charges now) |
+| Electricity, water | `ElectricityConsumer.m_FulfilledConsumption`; `WaterConsumer.m_FulfilledFresh + m_FulfilledSewage` |
+| Healthcare, education | `Patient` / `Student` buffer length |
+| Garbage | `GarbageProducer.m_Garbage` |
+| Parking | parked cars x their lane's `ParkingLane.m_ParkingFee`, by the lane's district (`BorderDistrict` side, else the owner building's `CurrentDistrict`) |
+| Public transport | household residents |
+| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |
+
+**Taxes are not apportioned**: vanilla's tax rows are policy-blind estimates (taxable income x city rate), while
+`m_AverageTaxPaid` includes a district's Low Commercial Tax policy; scaling the paid sums keeps a discount in its
+district, so the districts' taxes sum to the row only without such policies. The restatement uses the district's
+current rate, never the payer's own `m_AverageTaxRate` (#30): that average blends a household's members' job levels,
+lags rate changes, and vanilla blends office companies toward the *industrial* rate (`ProcessingCompanySystem`), so
+using it put residential 2% low and office 20% high. Saves made before the game tracked tax paid
+(`FormatTags.TrackCompanyCustomersAndTaxes`) load with every `m_AverageTaxPaid` 0: the first sample or two after
+loading one has few or no payers, and a row with none records 0 for every district. A building's district is its
+`CurrentDistrict`, or its owner's (upgrades, sub-buildings). The system runs `UpdateAfter` the density tax restore
+system, so a sample on a tax frame reads the stored rates.
+
+Each area's samples go into a `DistrictHistory` (36 months, `MaxSamples`); a district gone since the last sample is
+dropped. The system is `IDefaultSerializable`, so the game saves it with the city (`FormatVersion`, then per area its
+`Entity`, sample count and `ToFlat()` floats); a save loaded without the mod skips the block
+(`ObsoleteSystemSerializer`). For the UI: `TryGetHistory(district, out history)`, `Areas`, and `LiveValues(district)`
+(the latest weights x the live vanilla rows). `DistrictBudgetSystem.LogSamples` (off by default; set it for an in-game check) writes one `FiscalOverhaul.Mod.log` line per sample
+(district count, tax scales, sums against the vanilla rows).
+
+So a district's value is a share of the vanilla row (weights above), except taxes: those are the district's payer
+sums x the tax scale, so a Low Commercial Tax district shows its lower commercial tax. Paid Parking counts through
+the lane fees, and usage policies (water, electricity, ...) through usage. History starts when recording does (the
+first save with the mod), not with the city.
+
+### Bindings
+
+`BudgetHistoryUISystem` publishes `districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while
+recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
+unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and `nowIncome[14]` /
+`nowExpense[15]` (a district's live values, expenses positive; `null` for Entire City: every view writes the same
+properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0.
+
+### District selector
+
+`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, styled like the span buttons, the name
+the tab's header (bold 24rem, above the rows' bold 18rem titles; scoped under `.district-selector` so the later
+`.span-button` rule doesn't shrink it). The arrows are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the
+left one (the font has no arrows). They cycle Entire City → each district (by name) → Outside Districts → Entire
+City, wrapping both ways; the name opens a list of every choice, with a divider line between the three groups (Entire
+City | the districts | Outside Districts; `dividerBefore`). The list's items sit in vanilla's `Scrollable`, capped at
+520rem, so a long list gets the game's scroll bar instead of running past the panel. It hides while `districts` is empty (recording off, or a city without districts), and a choice no
+longer offered falls back to Entire City (`effectiveKey`). The choice persists for the session (module-level, like
+the span) and is sent on mount and on change.
+
+With a district in `history` (`isDistrictView`; rows follow the binding, not the click, so rows and lines always
+match): the city-only rows hide (`isCityOnlyItem`: every source outside `DistrictBudgetMath`'s lists: loan interest,
+map tile upkeep, imports, exports, government subsidy), each row reads `nowIncome` / `nowExpense` (`rowValue`,
+expenses negated to show as vanilla does), Revenues / Expenses / Monthly balance are the sums of the shown rows, the
+detail pop-out is off (its breakdown is city-wide), and the chart draws the district's series. A district with no
+samples yet has one point (its live Now), which the chart draws as a dot. A blank or localization-id name (an
+unnamed district from `NameSystem.GetRenderedLabelName`) is translated, else shown as "District <n>" (its place in
+the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
+
 ## UI
 
 - **Left column**: the filter rows, then the span stats for the hovered row or line (the column scrolls when they
   don't fit). There is no right-hand column, so the chart takes the rest of the width.
+- **Spacing**: the page adds no side padding of its own (the economy panel's 32rem is the margin, as on the other
+  Economy tabs), and rows, sections and the stats are kept tight so the span stats fit under the rows.
+- **Sounds**: every click that changes something plays a vanilla UI sound (`UI/src/sounds.ts`): a row toggles its line
+  (`select-toggle`), a new span (`select-item`, none for the current one), the arrows (`select-previous-item` /
+  `select-next-item`), opening the list (`select-dropdown`), a pick from it (`select-item`).
 - **Rows**: Revenues total, each active revenue item, Expenses total, each active expense item, Monthly
   balance. Each row shows the vanilla current value (`NumberField`). Clicking a row toggles its line, and hovering it
   sets the detail. Items group sources exactly as vanilla does (`BudgetItem.sources`), from
@@ -78,5 +156,6 @@ span changed (and straight away when the panel opens or the chart is switched ba
 
 ## Tests
 
-`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gate. `UI/src/chart/chart-math.test.ts` covers series building,
-ranges, value and time ticks, hit-testing and formatting.
+`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
+ranges, value and time ticks, hit-testing and formatting; `UI/src/budget/district-select.test.ts` the selector's
+options, cycling, names, city-only rows and row values.

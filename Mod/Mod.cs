@@ -37,6 +37,11 @@ namespace FiscalOverhaul
             updateSystem.UpdateBefore<DensityTaxApplySystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.UpdateAfter<DensityTaxRestoreSystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
 
+            // District budget recording: a sample per 1/32 month, panel open or not, kept in the save. After the restore
+            // system so a sample on a tax frame reads the stored (vanilla) rates; its own interval, so this orders only.
+            updateSystem.UpdateAfter<DistrictBudgetSystem, DensityTaxRestoreSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.World.GetOrCreateSystemManaged<DistrictBudgetSystem>().SetSettings(m_Setting);
+
             // UI bindings for the Economy panel. UIUpdate runs every rendered frame, paused or not; the systems gate
             // their own work on the panel being open (FeatureGates).
             updateSystem.UpdateAt<BudgetHistoryUISystem>(SystemUpdatePhase.UIUpdate);

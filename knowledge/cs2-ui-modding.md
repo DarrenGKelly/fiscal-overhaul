@@ -97,6 +97,12 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
   `BudgetItemDetail`, `TaxSlider`) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.
+- **Scroll bars:** Gameface draws none for `overflow: auto` (it scrolls by wheel, with no sign there is more). Wrap the
+  content in vanilla's `Scrollable` (`game-ui/common/scrolling/scrollable.tsx`, in `vanilla.ts`) with a rem
+  `max-height` on its className, as vanilla dropdown menus do: it draws the game's scroll bar.
+- **Click sounds:** vanilla plays a `UISound` (`cs2/ui`; `select-item`, `select-toggle`, `select-dropdown`,
+  `select-previous-item`, …) with `trigger("audio", "playSound", name, 1)` on the next frame. Ours: `playSound` in
+  `bindings.ts`, the names in `UI/src/sounds.ts`. Play one only on a click that changes something.
 - Vanilla data comes through `cs2/bindings` (`economyBudget.incomeItems$`, `taxation.areaTypes$`, …) with
   `useValue` from `cs2/api`. Localised strings come from `useLocalization().translate("EconomyPanel.BUDGET_ITEM[<id>]")`.
   Keys are in the bundle's `EconomyPanel:{…}` table.
@@ -105,6 +111,11 @@ Our own data comes from C# `UISystemBase` systems: `RawValueBinding` (JSON via `
 structured data, `TriggerBinding<…>` for UI→C# calls, all in group `fiscalOverhaul`. Register them in `Mod.OnLoad`
 with `updateSystem.UpdateAt<T>(SystemUpdatePhase.UIUpdate)`. Only compute while the panel is open
 (`GamePanelUISystem.activePanel is EconomyPanel`).
+
+**One property set per `TypeBegin` name, every time.** Gameface's writer fixes a type's properties the first time a
+type name is written; writing that name again with an extra or missing property crashes the game to desktop (native,
+in `cohtmlNativePINVOKE.TypeEnd`), with no managed exception. Write every property every time and `WriteNull()` the
+ones a case has no value for, as vanilla's `*Section` writers do (`BudgetHistoryPayload`, `Mod/Logic/`).
 
 ## Gameface (the game's browser) limits
 

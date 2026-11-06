@@ -173,6 +173,14 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
       ctx.globalAlpha = highlightKey && !highlighted ? 0.55 : 1;
       ctx.lineWidth = Math.max(2, (highlighted ? 6 : 4) * rem);
       ctx.lineJoin = "round";
+      if (line.values.length === 1) {
+        // One point (a district with no samples yet, only its live Now): a dot, as a path of one point draws nothing.
+        ctx.fillStyle = line.color;
+        ctx.beginPath();
+        ctx.arc(px[0], y(line.values[0]), Math.max(3, (highlighted ? 7 : 5) * rem), 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
       ctx.beginPath();
       line.values.forEach((v, i) => {
         const lx = px[i];

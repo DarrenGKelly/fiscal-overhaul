@@ -1,5 +1,11 @@
 import { bindValue, trigger } from "cs2/api";
 import { BudgetHistory } from "chart/chart-math";
+import { SoundName } from "sounds";
+
+/** Plays a vanilla UI sound (sounds.ts SOUNDS), as vanilla does: the "audio" group's playSound trigger, next frame. */
+export function playSound(sound: SoundName | null) {
+  if (sound) requestAnimationFrame(() => trigger("audio", "playSound", sound, 1));
+}
 
 // Bindings published by the C# systems in Mod/Systems (group "fiscalOverhaul").
 const GROUP = "fiscalOverhaul";
@@ -12,6 +18,19 @@ export const history$ = bindValue<BudgetHistory | null>(GROUP, "history", null);
 /** Months of history the chart shows; 0 = all. */
 export function setSpan(months: number) {
   trigger(GROUP, "setSpan", months);
+}
+
+export interface DistrictChoice {
+  key: string;
+  name: string;
+}
+
+/** The city's districts by name (not Entire City / Outside: the UI adds those). */
+export const districts$ = bindValue<DistrictChoice[]>(GROUP, "districts", []);
+
+/** "" = Entire City, "outside", or a district key from districts$. */
+export function setDistrict(key: string) {
+  trigger(GROUP, "setDistrict", key);
 }
 
 export interface DensityTaxCell {

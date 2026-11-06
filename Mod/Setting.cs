@@ -33,6 +33,10 @@ namespace FiscalOverhaul
         [SettingsUISection(kSection, kFeaturesGroup)]
         public bool EnableDensityTaxes { get; set; } = FeatureGates.DensityTaxesDefault;
 
+        /// <summary>Off (or the budget chart off): no per-district budget samples are recorded; the recorded ones are kept.</summary>
+        [SettingsUISection(kSection, kFeaturesGroup)]
+        public bool EnableDistrictBudget { get; set; } = FeatureGates.DistrictBudgetDefault;
+
         /// <summary>Serialized <see cref="DensityTaxTable"/>; edited through the Taxation tab, not shown directly.</summary>
         [SettingsUIHidden]
         public string DensityTaxOffsets { get; set; }
@@ -54,6 +58,7 @@ namespace FiscalOverhaul
         {
             EnableBudgetChart = FeatureGates.BudgetChartDefault;
             EnableDensityTaxes = FeatureGates.DensityTaxesDefault;
+            EnableDistrictBudget = FeatureGates.DistrictBudgetDefault;
             DensityTaxOffsets = string.Empty;
         }
     }

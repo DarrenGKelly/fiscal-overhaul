@@ -3,10 +3,97 @@ $row-hover: rgba(255, 255, 255, 0.08);
 
 .budget-page {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
   height: 100%;
-  padding: 0 20rem 20rem 20rem;
+  // No side padding of our own: the economy panel's 32rem (vanilla .economy-panel) is the margin, as on the other
+  // Economy tabs. A small bottom gap only, so the rows and their span stats fit.
+  padding: 0 0 6rem 0;
+}
+
+// The rows and the chart, side by side, under the district selector.
+.budget-body {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// District selector: `< name >` centred above both columns, styled like the span buttons; the name opens a list.
+.district-bar {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-bottom: 4rem;
+}
+
+.district-selector {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: relative;
+}
+
+// The panel's header: bold and larger than the rows' bold 18rem category titles (.header-row). Scoped under the
+// selector so it outranks .span-button (same element, defined later in this file), which would set 14rem.
+.district-selector .district-name {
+  min-width: 320rem;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  text-align: center;
+  font-size: 24rem;
+  font-weight: bold;
+  color: white;
+}
+
+.district-arrow {
+  width: 20rem;
+  height: 20rem;
+}
+
+.district-arrow-left {
+  transform: scaleX(-1);
+}
+
+.district-list {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4rem;
+  min-width: 300rem;
+  z-index: 10;
+  background-color: rgba(14, 20, 32, 0.97);
+  border: 1rem solid rgba(255, 255, 255, 0.15);
+  border-radius: 4rem;
+  padding: 4rem 0;
+}
+
+// The list's items scroll inside vanilla's Scrollable (its scroll bar shows only when they overflow). A fixed rem
+// max-height: a percentage one doesn't constrain an absolute box in Gameface. About 14 items fit, and it stays
+// inside the panel under the selector.
+.district-scroll {
+  max-height: 520rem;
+}
+
+.district-item {
+  padding: 6rem 16rem;
+  font-size: 15rem;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: $row-hover;
+  }
+}
+
+// A line between the list's groups: Entire City | the districts | Outside Districts (dividerBefore).
+.district-divider {
+  border-top: 2rem solid rgba(255, 255, 255, 0.2);
+  margin-top: 4rem;
+  padding-top: 10rem;
 }
 
 .list-column {
@@ -21,15 +108,15 @@ $row-hover: rgba(255, 255, 255, 0.08);
 .section {
   background-color: $panel-bg;
   border-radius: 4rem;
-  margin-bottom: 8rem;
-  padding: 4rem 0;
+  margin-bottom: 6rem;
+  padding: 2rem 0;
 }
 
 .row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 6rem 12rem;
+  padding: 4rem 12rem;
   cursor: pointer;
   font-size: 15rem;
   color: rgba(255, 255, 255, 0.9);
@@ -127,7 +214,7 @@ $row-hover: rgba(255, 255, 255, 0.08);
 }
 
 .stats {
-  margin-top: 8rem;
+  margin-top: 2rem;
   flex: 0 0 auto;
   background-color: $panel-bg;
   border-radius: 4rem;

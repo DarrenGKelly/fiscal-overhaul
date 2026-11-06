@@ -2,7 +2,8 @@ import { useValue } from "cs2/api";
 import { economyBudget } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { history$, setSpan as sendSpan } from "bindings";
+import { districts$, history$, playSound, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
+import { SOUNDS, soundForPick } from "sounds";
 import {
   BALANCE,
   buildSeries,
@@ -15,7 +16,6 @@ import {
   SeriesDef,
   SPAN_OPTIONS,
   spanLabel,
-  itemValue,
   seriesStats,
   TOTAL_COLORS,
 } from "chart/chart-math";
@@ -23,6 +23,8 @@ import { ChartLine, LineChart } from "chart/line-chart";
 import { localizeVanilla, Translate } from "l10n";
 import { BudgetItemDetail, NumberField } from "vanilla";
 import styles from "./budget-page.module.scss";
+import { CITY_KEY, districtOptions, effectiveKey, isCityOnlyItem, isDistrictView, rowValue } from "./district-select";
+import { DistrictSelector } from "./district-selector";
 
 /**
  * While the item pop-out shows, the chart's plot starts after it: the pop-out is 360rem wide at 6rem from the chart
@@ -33,6 +35,7 @@ const POPOUT_INSET_REM = 360 + 6 - 10 + 12;
 // Kept outside the component so the choice survives switching tabs or closing the panel.
 let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
 let rememberedSpan = DEFAULT_SPAN_MONTHS;
+let rememberedDistrict = CITY_KEY;
 
 /**
  * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the span stats
@@ -48,9 +51,11 @@ export const BudgetPage = () => {
   const totalIncome = useValue(economyBudget.totalIncome$);
   const totalExpenses = useValue(economyBudget.totalExpenses$);
   const history = useValue(history$);
+  const districts = useValue(districts$);
 
   const [enabled, setEnabled] = useState(rememberedEnabled);
   const [span, setSpanState] = useState(rememberedSpan);
+  const [district, setDistrictState] = useState(rememberedDistrict);
   const [rowHover, setRowHover] = useState<string | null>(null);
   const [lineHover, setLineHover] = useState<string | null>(null);
   const hoverKey = lineHover ?? rowHover;
@@ -60,6 +65,32 @@ export const BudgetPage = () => {
     rememberedSpan = span;
     sendSpan(span);
   }, [span]);
+
+  // Entire City, the districts, Outside; a choice no longer offered (deleted, recording off) falls back to Entire City.
+  const districtChoices = useMemo(() => districtOptions(districts ?? [], translate), [districts, translate]);
+  const selectedDistrict = effectiveKey(districtChoices, district);
+
+  // Sent on mount too, like the span: the C# side builds history for the district it was last told.
+  useEffect(() => {
+    rememberedDistrict = selectedDistrict;
+    sendDistrict(selectedDistrict);
+  }, [selectedDistrict]);
+
+  // Rows, values and lines follow the district the history binding carries, so they always match each other.
+  const inDistrict = isDistrictView(history);
+  const shownIncome = useMemo(
+    () => incomeItems.filter((i) => i.active && !(inDistrict && isCityOnlyItem(i, "income"))),
+    [incomeItems, inDistrict]
+  );
+  const shownExpense = useMemo(
+    () => expenseItems.filter((i) => i.active && !(inDistrict && isCityOnlyItem(i, "expense"))),
+    [expenseItems, inDistrict]
+  );
+  const incomeOf = (i: BudgetItemLike) => rowValue(i, incomeValues, history, "income");
+  const expenseOf = (i: BudgetItemLike) => rowValue(i, expenseValues, history, "expense");
+  // A district's totals are the sums of its rows; Entire City keeps the vanilla totals.
+  const shownTotalIncome = inDistrict ? shownIncome.reduce((t, i) => t + incomeOf(i), 0) : totalIncome;
+  const shownTotalExpenses = inDistrict ? shownExpense.reduce((t, i) => t + expenseOf(i), 0) : totalExpenses;
 
   const toggle = useCallback((key: string) => {
     setEnabled((prev) => {
@@ -82,8 +113,8 @@ export const BudgetPage = () => {
   );
 
   const allSeries: SeriesDef[] = useMemo(
-    () => (history ? buildSeries(history, incomeItems, expenseItems) : []),
-    [history, incomeItems, expenseItems]
+    () => (history ? buildSeries(history, shownIncome, shownExpense) : []),
+    [history, shownIncome, shownExpense]
   );
 
   const lines: ChartLine[] = useMemo(
@@ -100,14 +131,15 @@ export const BudgetPage = () => {
     [allSeries, enabled, label]
   );
 
-  // The vanilla detail panel pops out only for a hovered row (a line has its tooltip); totals have no detail.
+  // The vanilla detail panel pops out only for a hovered row (a line has its tooltip); totals have no detail. Off for
+  // a district: its breakdown is city-wide.
   const detail = useMemo(() => {
-    if (!rowHover) return null;
+    if (!rowHover || inDistrict) return null;
     const [kind, id] = rowHover.split(":");
     if (kind === "income") return { item: incomeItems.find((i) => i.id === id) ?? null, values: incomeValues };
     if (kind === "expense") return { item: expenseItems.find((i) => i.id === id) ?? null, values: expenseValues };
     return null;
-  }, [rowHover, incomeItems, incomeValues, expenseItems, expenseValues]);
+  }, [rowHover, inDistrict, incomeItems, incomeValues, expenseItems, expenseValues]);
 
   const hoveredSeries = hoverKey ? allSeries.find((s) => s.key === hoverKey) : undefined;
 
@@ -117,7 +149,10 @@ export const BudgetPage = () => {
       className={`${styles.row} ${header ? styles.headerRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
       onMouseEnter={() => setRowHover(key)}
       onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
-      onClick={() => toggle(key)}
+      onClick={() => {
+        playSound(SOUNDS.toggleLine);
+        toggle(key);
+      }}
     >
       <div
         className={`${styles.check} ${enabled.has(key) ? styles.checked : ""}`}
@@ -132,53 +167,64 @@ export const BudgetPage = () => {
 
   return (
     <div className={styles.budgetPage}>
-      <div className={styles.listColumn}>
-        <div className={styles.section}>
-          {row(INCOME_TOTAL, label(INCOME_TOTAL), TOTAL_COLORS[INCOME_TOTAL], totalIncome, true)}
-          {incomeItems
-            .filter((i) => i.active)
-            .map((i) => row(`income:${i.id}`, label("", i.id), rgbaToCss(i.color), itemValue(i, incomeValues)))}
-        </div>
-        <div className={styles.section}>
-          {row(EXPENSE_TOTAL, label(EXPENSE_TOTAL), TOTAL_COLORS[EXPENSE_TOTAL], totalExpenses, true)}
-          {expenseItems
-            .filter((i) => i.active)
-            .map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), itemValue(i, expenseValues)))}
-        </div>
-        <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], totalIncome + totalExpenses, true)}</div>
-        {hoveredSeries && (
-          <SeriesStats
-            series={hoveredSeries}
-            negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"}
-            translate={translate}
-          />
-        )}
-      </div>
-
-      <div className={styles.chartColumn}>
-        <div className={styles.spanBar}>
-          {SPAN_OPTIONS.map((months) => (
-            <div key={months} className={`${styles.spanButton} ${span === months ? styles.spanActive : ""}`} onClick={() => setSpanState(months)}>
-              {spanLabel(months, translate)}
-            </div>
-          ))}
-        </div>
-        <div className={styles.chartArea}>
-          <LineChart
-            lines={lines}
-            monthsAgo={history?.monthsAgo ?? []}
-            highlightKey={hoverKey}
-            onHoverLine={setLineHover}
-            insetLeftRem={detail?.item ? POPOUT_INSET_REM : 0}
-          />
-        </div>
-        {detail?.item && (
-          <div className={styles.detailPopout}>
-            <div className={styles.detailPopoutBox}>
-              <BudgetItemDetail item={detail.item} values={detail.values} />
-            </div>
+      {districtChoices.length > 1 && (
+        <DistrictSelector
+          options={districtChoices}
+          selected={selectedDistrict}
+          onSelect={(key) => {
+            rememberedDistrict = key;
+            setDistrictState(key);
+          }}
+        />
+      )}
+      <div className={styles.budgetBody}>
+        <div className={styles.listColumn}>
+          <div className={styles.section}>
+            {row(INCOME_TOTAL, label(INCOME_TOTAL), TOTAL_COLORS[INCOME_TOTAL], shownTotalIncome, true)}
+            {shownIncome.map((i) => row(`income:${i.id}`, label("", i.id), rgbaToCss(i.color), incomeOf(i)))}
           </div>
-        )}
+          <div className={styles.section}>
+            {row(EXPENSE_TOTAL, label(EXPENSE_TOTAL), TOTAL_COLORS[EXPENSE_TOTAL], shownTotalExpenses, true)}
+            {shownExpense.map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), expenseOf(i)))}
+          </div>
+          <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], shownTotalIncome + shownTotalExpenses, true)}</div>
+          {hoveredSeries && (
+            <SeriesStats
+              series={hoveredSeries}
+              negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"}
+              translate={translate}
+            />
+          )}
+        </div>
+
+        <div className={styles.chartColumn}>
+          <div className={styles.spanBar}>
+            {SPAN_OPTIONS.map((months) => (
+              <div key={months} className={`${styles.spanButton} ${span === months ? styles.spanActive : ""}`} onClick={() => {
+                  playSound(soundForPick(span, months, SOUNDS.pickSpan));
+                  setSpanState(months);
+                }}>
+                {spanLabel(months, translate)}
+              </div>
+            ))}
+          </div>
+          <div className={styles.chartArea}>
+            <LineChart
+              lines={lines}
+              monthsAgo={history?.monthsAgo ?? []}
+              highlightKey={hoverKey}
+              onHoverLine={setLineHover}
+              insetLeftRem={detail?.item ? POPOUT_INSET_REM : 0}
+            />
+          </div>
+          {detail?.item && (
+            <div className={styles.detailPopout}>
+              <div className={styles.detailPopoutBox}>
+                <BudgetItemDetail item={detail.item} values={detail.values} />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

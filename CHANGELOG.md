@@ -7,6 +7,25 @@ The version lives in `UI/mod.json` and `Mod/Properties/PublishConfiguration.xml`
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-06
+
+### Added
+
+- **Per-district budget:** a selector at the top of the Budget tab shows the chart and the rows for the Entire City,
+  any one district, or Outside Districts (everything not in a district). Step through them with the arrows either
+  side, or click the name to pick from a list, which scrolls when a city has many districts.
+- District taxes are what that district's buildings pay, at the district's own rates, so district policies such as
+  Low Commercial Tax count. Service fees and upkeep are shared out by each district's use. City-wide items (loan
+  interest, map tile upkeep, trade, subsidies) show under Entire City only.
+- District history is recorded from the first time the mod runs on a save, and kept in the save. A save still loads
+  without the mod.
+- Click sounds on the Budget and Taxation tabs, matching the game's own panels.
+
+### Changed
+
+- The Budget tab's padding matches the other Economy tabs, so the span stats under the rows no longer get cut off.
+- The selected district's name is the tab's header.
+
 ## [1.0.0] - 2026-11-05
 
 First public release, for Cities: Skylines II 1.6.x.
@@ -27,5 +46,6 @@ First public release, for Cities: Skylines II 1.6.x.
 - **Options:** Enable budget chart (on by default) and Enable density taxes (BETA, off by default); turning one off restores
   the vanilla tab, and Reset density tax offsets.
 
-[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/DarrenGKelly/fiscal-overhaul/releases/tag/v1.0.0
