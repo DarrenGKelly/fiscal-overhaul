@@ -43,7 +43,7 @@ function looksLikeId(text: string): boolean {
 }
 
 /**
- * Every selector choice in cycle order: Entire City, each district (the binding's order, by name), Outside districts.
+ * Every selector choice in cycle order: Entire City, each district (the binding's order, by name), Outside Districts.
  * No districts: only Entire City (the selector hides).
  */
 export function districtOptions(districts: DistrictLike[], translate: Translate | null = null): DistrictOption[] {
@@ -58,7 +58,7 @@ export function districtOptions(districts: DistrictLike[], translate: Translate 
 
 /**
  * Whether the list draws a divider line above option `index`: where the group changes, so Entire City, the districts
- * and Outside districts read as three blocks. Never above the first option.
+ * and Outside Districts read as three blocks. Never above the first option.
  */
 export function dividerBefore(options: { key: string }[], index: number): boolean {
   if (index <= 0 || index >= options.length) return false;

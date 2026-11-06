@@ -59,7 +59,7 @@ describe("districtOptions order", () => {
       { key: CITY_KEY, label: "Entire City" },
       { key: "12:1", label: "Downtown" },
       { key: "7:1", label: "Harbour" },
-      { key: OUTSIDE_KEY, label: "Outside districts" },
+      { key: OUTSIDE_KEY, label: "Outside Districts" },
     ]);
   });
 
@@ -69,7 +69,7 @@ describe("districtOptions order", () => {
 });
 
 describe("dividerBefore", () => {
-  it("draws a line after Entire City and before Outside districts only", () => {
+  it("draws a line after Entire City and before Outside Districts only", () => {
     const options = districtOptions(DISTRICTS); // Entire City, Downtown, Harbour, Outside
     expect(options.map((_, i) => dividerBefore(options, i))).toEqual([false, true, false, true]);
   });
