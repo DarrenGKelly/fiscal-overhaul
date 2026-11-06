@@ -128,4 +128,17 @@ describe("rowValue", () => {
     expect(rowValue(ELECTRICITY, vanillaIncome, districtHistory, "income")).toBe(9);
     expect(rowValue(item("subsidy", 0), vanillaExpense, districtHistory, "expense")).toBe(-15);
   });
+
+  // The binding now writes nowIncome / nowExpense as null for Entire City (one property set per Gameface type).
+  it("Entire City with null live sums still reads the vanilla values", () => {
+    const cityWithNulls: BudgetHistory = { ...cityHistory, nowIncome: null, nowExpense: null };
+    expect(rowValue(RESIDENTIAL_TAX, vanillaIncome, cityWithNulls, "income")).toBe(500);
+    expect(rowValue(item("subsidy", 0), vanillaExpense, cityWithNulls, "expense")).toBe(-40);
+  });
+
+  it("a district with null live sums reads 0, not the city's values", () => {
+    const districtWithNulls: BudgetHistory = { ...districtHistory, nowIncome: null, nowExpense: null };
+    expect(rowValue(RESIDENTIAL_TAX, vanillaIncome, districtWithNulls, "income")).toBe(0);
+    expect(rowValue(item("subsidy", 0), vanillaExpense, districtWithNulls, "expense")).toBe(-0);
+  });
 });

@@ -93,9 +93,9 @@ first save with the mod), not with the city.
 
 `BudgetHistoryUISystem` publishes `districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while
 recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
-unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and, for a district,
-`nowIncome[14]` / `nowExpense[15]` (live values, expenses positive) with series from the district's samples;
-city-only sources are 0.
+unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and `nowIncome[14]` /
+`nowExpense[15]` (a district's live values, expenses positive; `null` for Entire City: every view writes the same
+properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0.
 
 ### District selector
 
