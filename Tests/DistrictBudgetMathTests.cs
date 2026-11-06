@@ -145,6 +145,37 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void AtCityRate_WithoutAPolicy_IsExactlyWhatWasPaid()
+        {
+            // #30: the restatement is by the district's rate, so a district without a tax policy restates 1:1, exactly,
+            // even for sums where paid * rate / rate would not round-trip in floating point.
+            foreach (double paid in new[] { 16526552.0, 0.1 + 0.2, -4321.5, 1e15 + 1 })
+                foreach (double rate in new[] { 3.0, 7.0, 13.0, -2.0 })
+                    Assert.Equal(paid, DistrictBudgetMath.AtCityRate(paid, rate, rate));
+            // Fail case: a Low Commercial Tax district (rate 8 against the city's 10) restates upward.
+            Assert.Equal(125, DistrictBudgetMath.AtCityRate(100, 8, 10));
+            Assert.NotEqual(100, DistrictBudgetMath.AtCityRate(100, 8, 10));
+        }
+
+        [Fact]
+        public void Samples_Taxes_WithoutAPolicy_SumToTheVanillaRow_WithOne_FallShort()
+        {
+            // #30: payers restated by their district's rate. Residential (0): no policy anywhere, so atCity = paid and the
+            // districts sum to the vanilla row whatever the payers' own stored rates were. Commercial (1): district 1 has
+            // Low Commercial Tax (8 against the city's 10), so the row falls short by exactly its discount.
+            double[] weights = Weights(Row((0, 300), (1, 100)), Row((0, 700), (1, 80)), Row((0, 1)));
+            double[] atCity = new double[DistrictBudgetMath.TaxRowCount];
+            atCity[0] = DistrictBudgetMath.AtCityRate(300, 10, 10) + DistrictBudgetMath.AtCityRate(700, 12, 12) + DistrictBudgetMath.AtCityRate(1, 9, 9);
+            atCity[1] = DistrictBudgetMath.AtCityRate(100, 10, 10) + DistrictBudgetMath.AtCityRate(80, 8, 10);
+            double[] vanilla = Row((0, 5005), (1, 600));
+            float[][] samples = DistrictBudgetMath.Samples(weights, 3, vanilla, atCity);
+            Assert.Equal(5005.0, samples[0][0] + samples[1][0] + samples[2][0], 1);
+            double commercial = samples[0][1] + samples[1][1] + samples[2][1];
+            Assert.Equal(600.0 * 180 / 200, commercial, 2);
+            Assert.True(commercial < 600.0);
+        }
+
+        [Fact]
         public void Samples_Subsidies_UseTheirOwnTaxRow()
         {
             double[] weights = Weights(Row((11, 30)), Row((11, 10)));

@@ -58,10 +58,15 @@ namespace FiscalOverhaul.Logic
             return result;
         }
 
-        /// <summary>What a payer paid at its own (policy-adjusted) rate, restated at the city rate.</summary>
-        public static double AtCityRate(double paid, double payerRate, double cityRate)
+        /// <summary>
+        /// What a payer paid in its district, restated at the city rate: paid * cityRate / districtRate, where
+        /// districtRate is the rate the payer's district charges now (the city rate with any district tax policy, i.e.
+        /// Low Commercial Tax), not the payer's own stored average. Exactly <paramref name="paid"/> when the two rates
+        /// are equal (no policy) or the district rate is 0.
+        /// </summary>
+        public static double AtCityRate(double paid, double districtRate, double cityRate)
         {
-            return payerRate == 0 ? paid : paid * cityRate / payerRate;
+            return districtRate == 0 || districtRate == cityRate ? paid : paid * cityRate / districtRate;
         }
 
         /// <summary>vanillaRow / sumAtCityRate, or 0 when the denominator is 0. A district's tax = its payers' paid sum * this.</summary>

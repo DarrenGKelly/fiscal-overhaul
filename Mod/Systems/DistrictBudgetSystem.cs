@@ -153,6 +153,7 @@ namespace FiscalOverhaul
             var areaOf = new NativeHashMap<Entity, int>(districts.Length, Allocator.TempJob);
             var weights = new NativeArray<double>(areaCount * S, Allocator.TempJob);
             var atCityRate = new NativeArray<double>(DistrictBudgetMath.TaxRowCount, Allocator.TempJob);
+            var diag = new NativeArray<double>(DistrictBudgetMath.TaxRowCount * 6, Allocator.TempJob);
             try
             {
                 for (int i = 0; i < districts.Length; i++) areaOf[districts[i]] = i;
@@ -184,6 +185,8 @@ namespace FiscalOverhaul
                     m_Outside = outside,
                     m_Weights = weights,
                     m_AtCityRate = atCityRate,
+                    m_DistrictModifiers = GetBufferLookup<DistrictModifier>(true),
+                    m_Diag = diag,
                 };
                 JobHandle handle = taxJob.Schedule(m_PayerQuery, Dependency);
 
@@ -273,6 +276,17 @@ namespace FiscalOverhaul
                 m_LatestNetworkUpkeep = networkUpkeep;
 
                 if (LogSamples) Log(districts.Length, samples, vanilla, atCity, networkUpkeep);
+                if (LogSamples)
+                {
+                    var d = new StringBuilder("District budget TEMP diag (row: n paid ownRateAtCity districtRateAtCity ownRate!=city cityRate0 vanilla):");
+                    for (int r = 0; r < DistrictBudgetMath.TaxRowCount; r++)
+                    {
+                        int b = r * 6;
+                        int slot = r < 4 ? r : kSlotSubsidyStart + r - 4;
+                        d.Append($" [{r}: {diag[b]:0} {diag[b + 1]:0} {diag[b + 2]:0} {diag[b + 3]:0} {diag[b + 4]:0} {diag[b + 5]:0} {vanilla[slot]:0}]");
+                    }
+                    Mod.log.Info(d.ToString());
+                }
             }
             finally
             {
@@ -280,6 +294,7 @@ namespace FiscalOverhaul
                 areaOf.Dispose();
                 weights.Dispose();
                 atCityRate.Dispose();
+                diag.Dispose();
             }
         }
 
@@ -384,13 +399,19 @@ namespace FiscalOverhaul
         /// <summary>The district of a building, or of its owner (an upgrade, a sub-building), up the owner chain.</summary>
         private static int AreaOfBuilding(Entity entity, ref ComponentLookup<CurrentDistrict> currentDistricts, ref ComponentLookup<Owner> owners, NativeHashMap<Entity, int> areaOf, int outside)
         {
+            return AreaOf(DistrictOfBuilding(entity, ref currentDistricts, ref owners), areaOf, outside);
+        }
+
+        /// <summary>The district entity of a building or of its owner, up the owner chain; Entity.Null for none.</summary>
+        private static Entity DistrictOfBuilding(Entity entity, ref ComponentLookup<CurrentDistrict> currentDistricts, ref ComponentLookup<Owner> owners)
+        {
             for (int depth = 0; depth < 8 && entity != Entity.Null; depth++)
             {
-                if (currentDistricts.TryGetComponent(entity, out CurrentDistrict current)) return AreaOf(current.m_District, areaOf, outside);
+                if (currentDistricts.TryGetComponent(entity, out CurrentDistrict current)) return current.m_District;
                 if (!owners.TryGetComponent(entity, out Owner owner)) break;
                 entity = owner.m_Owner;
             }
-            return outside;
+            return Entity.Null;
         }
 
         /// <summary>Tax payers: paid sums per tax area (grouped as TaxSystem), restated at the city rate, and residents.</summary>
@@ -413,10 +434,13 @@ namespace FiscalOverhaul
             [ReadOnly] public NativeArray<int> m_TaxRates;
             [ReadOnly] public ComponentLookup<CurrentDistrict> m_CurrentDistricts;
             [ReadOnly] public ComponentLookup<Owner> m_Owners;
+            [ReadOnly] public BufferLookup<DistrictModifier> m_DistrictModifiers;
             [ReadOnly] public NativeHashMap<Entity, int> m_AreaOf;
             public int m_Outside;
             public NativeArray<double> m_Weights;
             public NativeArray<double> m_AtCityRate;
+            // TEMP diagnostics, per tax row (8) x 6: count, paid, atCity(own rate, old), atCity(district rate, new), own != city, city rate 0.
+            public NativeArray<double> m_Diag;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -431,10 +455,15 @@ namespace FiscalOverhaul
 
                 for (int i = 0; i < taxPayers.Length; i++)
                 {
-                    int area = AreaOfBuilding(renters[i].m_Property, ref m_CurrentDistricts, ref m_Owners, m_AreaOf, m_Outside);
+                    Entity district = DistrictOfBuilding(renters[i].m_Property, ref m_CurrentDistricts, ref m_Owners);
+                    int area = AreaOf(district, m_AreaOf, m_Outside);
                     int baseIndex = area * S;
                     int row; // 0 residential, 1 commercial, 2 industrial, 3 office
                     int cityRate;
+                    // The rate this payer's district charges now. Only Low Commercial Tax makes it differ from the city
+                    // rate; the payer's own stored average is not used (it blends job levels, lags rate changes, and
+                    // vanilla blends office companies toward the industrial rate), so every other row restates 1:1.
+                    int districtRate;
                     if (isHousehold)
                     {
                         row = 0;
@@ -453,6 +482,7 @@ namespace FiscalOverhaul
                             }
                         }
                         cityRate = TaxSystem.GetResidentialTaxRate(jobLevel, m_TaxRates);
+                        districtRate = cityRate;
                     }
                     else
                     {
@@ -463,24 +493,39 @@ namespace FiscalOverhaul
                         {
                             row = 1;
                             cityRate = output != Resource.NoResource ? TaxSystem.GetCommercialTaxRate(output, m_TaxRates) : TaxSystem.GetTaxRate(TaxAreaType.Commercial, m_TaxRates);
+                            districtRate = output != Resource.NoResource
+                                ? TaxSystem.GetModifiedCommercialTaxRate(output, m_TaxRates, district, m_DistrictModifiers)
+                                : TaxSystem.GetModifiedTaxRate(TaxAreaType.Commercial, m_TaxRates, district, m_DistrictModifiers);
                         }
                         else if (output != Resource.NoResource && m_ResourceDatas.TryGetComponent(m_ResourcePrefabs[output], out ResourceData data) && data.m_Weight == 0f)
                         {
                             // As TaxSystem.PayTax: a processing company whose output weighs nothing pays office tax.
                             row = 3;
                             cityRate = TaxSystem.GetOfficeTaxRate(output, m_TaxRates);
+                            districtRate = cityRate;
                         }
                         else
                         {
                             row = 2;
                             cityRate = output != Resource.NoResource ? TaxSystem.GetIndustrialTaxRate(output, m_TaxRates) : TaxSystem.GetTaxRate(TaxAreaType.Industrial, m_TaxRates);
+                            districtRate = cityRate;
                         }
                     }
 
                     TaxPayer payer = taxPayers[i];
                     int paid = payer.m_AverageTaxPaid;
                     if (paid == 0) continue;
-                    double atCity = DistrictBudgetMath.AtCityRate(paid, payer.m_AverageTaxRate, cityRate);
+                    double atCity = DistrictBudgetMath.AtCityRate(paid, districtRate, cityRate);
+                    {
+                        int d = ((paid > 0 ? 0 : 4) + row) * 6;
+                        double sign = paid > 0 ? 1 : -1;
+                        m_Diag[d] += 1;
+                        m_Diag[d + 1] += sign * paid;
+                        m_Diag[d + 2] += sign * (payer.m_AverageTaxRate == 0 ? paid : (double)paid * cityRate / payer.m_AverageTaxRate);
+                        m_Diag[d + 3] += sign * atCity;
+                        if (payer.m_AverageTaxRate != cityRate) m_Diag[d + 4] += 1;
+                        if (cityRate == 0) m_Diag[d + 5] += 1;
+                    }
                     if (paid > 0)
                     {
                         m_Weights[baseIndex + row] += paid;
