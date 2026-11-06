@@ -58,7 +58,7 @@ weights:
 
 | Source | Weight per district |
 |---|---|
-| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate |
+| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate (`AtCityRate`: paid x city rate / the rate the payer's district charges now) |
 | Electricity, water | `ElectricityConsumer.m_FulfilledConsumption`; `WaterConsumer.m_FulfilledFresh + m_FulfilledSewage` |
 | Healthcare, education | `Patient` / `Student` buffer length |
 | Garbage | `GarbageProducer.m_Garbage` |
@@ -68,7 +68,12 @@ weights:
 
 **Taxes are not apportioned**: vanilla's tax rows are policy-blind estimates (taxable income x city rate), while
 `m_AverageTaxPaid` includes a district's Low Commercial Tax policy; scaling the paid sums keeps a discount in its
-district, so the districts' taxes sum to the row only without such policies. A building's district is its
+district, so the districts' taxes sum to the row only without such policies. The restatement uses the district's
+current rate, never the payer's own `m_AverageTaxRate` (#30): that average blends a household's members' job levels,
+lags rate changes, and vanilla blends office companies toward the *industrial* rate (`ProcessingCompanySystem`), so
+using it put residential 2% low and office 20% high. Saves made before the game tracked tax paid
+(`FormatTags.TrackCompanyCustomersAndTaxes`) load with every `m_AverageTaxPaid` 0: the first sample or two after
+loading one has few or no payers, and a row with none records 0 for every district. A building's district is its
 `CurrentDistrict`, or its owner's (upgrades, sub-buildings). The system runs `UpdateAfter` the density tax restore
 system, so a sample on a tax frame reads the stored rates.
 
@@ -76,7 +81,7 @@ Each area's samples go into a `DistrictHistory` (36 months, `MaxSamples`); a dis
 dropped. The system is `IDefaultSerializable`, so the game saves it with the city (`FormatVersion`, then per area its
 `Entity`, sample count and `ToFlat()` floats); a save loaded without the mod skips the block
 (`ObsoleteSystemSerializer`). For the UI: `TryGetHistory(district, out history)`, `Areas`, and `LiveValues(district)`
-(the latest weights x the live vanilla rows). `DistrictBudgetSystem.LogSamples` writes one `Mod.log` line per sample
+(the latest weights x the live vanilla rows). `DistrictBudgetSystem.LogSamples` (off by default; set it for an in-game check) writes one `FiscalOverhaul.Mod.log` line per sample
 (district count, tax scales, sums against the vanilla rows).
 
 ## UI

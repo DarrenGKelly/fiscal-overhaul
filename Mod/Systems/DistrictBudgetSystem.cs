@@ -42,8 +42,8 @@ namespace FiscalOverhaul
         /// <summary>One sample per 1/32 month (a month is 262144 frames). Provisional.</summary>
         public const int kUpdateInterval = 262144 / 32;
 
-        /// <summary>Writes one Mod.log line per sample (district count, tax scales, sums against vanilla). For the in-game check.</summary>
-        public static bool LogSamples = true;
+        /// <summary>Writes one Mod.log line per sample (district count, tax scales, sums against vanilla). Off; set true for an in-game check.</summary>
+        public static bool LogSamples = false;
 
         private const int S = DistrictBudgetMath.SourceCount;
         // Slots within a sample (DistrictIncomeSources then DistrictExpenseSources).
@@ -153,7 +153,6 @@ namespace FiscalOverhaul
             var areaOf = new NativeHashMap<Entity, int>(districts.Length, Allocator.TempJob);
             var weights = new NativeArray<double>(areaCount * S, Allocator.TempJob);
             var atCityRate = new NativeArray<double>(DistrictBudgetMath.TaxRowCount, Allocator.TempJob);
-            var diag = new NativeArray<double>(DistrictBudgetMath.TaxRowCount * 6, Allocator.TempJob);
             try
             {
                 for (int i = 0; i < districts.Length; i++) areaOf[districts[i]] = i;
@@ -186,7 +185,6 @@ namespace FiscalOverhaul
                     m_Weights = weights,
                     m_AtCityRate = atCityRate,
                     m_DistrictModifiers = GetBufferLookup<DistrictModifier>(true),
-                    m_Diag = diag,
                 };
                 JobHandle handle = taxJob.Schedule(m_PayerQuery, Dependency);
 
@@ -276,17 +274,6 @@ namespace FiscalOverhaul
                 m_LatestNetworkUpkeep = networkUpkeep;
 
                 if (LogSamples) Log(districts.Length, samples, vanilla, atCity, networkUpkeep);
-                if (LogSamples)
-                {
-                    var d = new StringBuilder("District budget TEMP diag (row: n paid ownRateAtCity districtRateAtCity ownRate!=city cityRate0 vanilla):");
-                    for (int r = 0; r < DistrictBudgetMath.TaxRowCount; r++)
-                    {
-                        int b = r * 6;
-                        int slot = r < 4 ? r : kSlotSubsidyStart + r - 4;
-                        d.Append($" [{r}: {diag[b]:0} {diag[b + 1]:0} {diag[b + 2]:0} {diag[b + 3]:0} {diag[b + 4]:0} {diag[b + 5]:0} {vanilla[slot]:0}]");
-                    }
-                    Mod.log.Info(d.ToString());
-                }
             }
             finally
             {
@@ -294,7 +281,6 @@ namespace FiscalOverhaul
                 areaOf.Dispose();
                 weights.Dispose();
                 atCityRate.Dispose();
-                diag.Dispose();
             }
         }
 
@@ -439,8 +425,6 @@ namespace FiscalOverhaul
             public int m_Outside;
             public NativeArray<double> m_Weights;
             public NativeArray<double> m_AtCityRate;
-            // TEMP diagnostics, per tax row (8) x 6: count, paid, atCity(own rate, old), atCity(district rate, new), own != city, city rate 0.
-            public NativeArray<double> m_Diag;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -516,16 +500,6 @@ namespace FiscalOverhaul
                     int paid = payer.m_AverageTaxPaid;
                     if (paid == 0) continue;
                     double atCity = DistrictBudgetMath.AtCityRate(paid, districtRate, cityRate);
-                    {
-                        int d = ((paid > 0 ? 0 : 4) + row) * 6;
-                        double sign = paid > 0 ? 1 : -1;
-                        m_Diag[d] += 1;
-                        m_Diag[d + 1] += sign * paid;
-                        m_Diag[d + 2] += sign * (payer.m_AverageTaxRate == 0 ? paid : (double)paid * cityRate / payer.m_AverageTaxRate);
-                        m_Diag[d + 3] += sign * atCity;
-                        if (payer.m_AverageTaxRate != cityRate) m_Diag[d + 4] += 1;
-                        if (cityRate == 0) m_Diag[d + 5] += 1;
-                    }
                     if (paid > 0)
                     {
                         m_Weights[baseIndex + row] += paid;
