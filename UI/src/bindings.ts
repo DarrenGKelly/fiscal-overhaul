@@ -1,5 +1,11 @@
 import { bindValue, trigger } from "cs2/api";
 import { BudgetHistory } from "chart/chart-math";
+import { SoundName } from "sounds";
+
+/** Plays a vanilla UI sound (sounds.ts SOUNDS), as vanilla does: the "audio" group's playSound trigger, next frame. */
+export function playSound(sound: SoundName | null) {
+  if (sound) requestAnimationFrame(() => trigger("audio", "playSound", sound, 1));
+}
 
 // Bindings published by the C# systems in Mod/Systems (group "fiscalOverhaul").
 const GROUP = "fiscalOverhaul";

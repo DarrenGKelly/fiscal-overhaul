@@ -6,7 +6,9 @@ $row-hover: rgba(255, 255, 255, 0.08);
   flex-direction: column;
   width: 100%;
   height: 100%;
-  padding: 0 20rem 20rem 20rem;
+  // No side padding of our own: the economy panel's 32rem (vanilla .economy-panel) is the margin, as on the other
+  // Economy tabs. A small bottom gap only, so the rows and their span stats fit.
+  padding: 0 0 6rem 0;
 }
 
 // The rows and the chart, side by side, under the district selector.
@@ -23,7 +25,7 @@ $row-hover: rgba(255, 255, 255, 0.08);
   flex-direction: row;
   justify-content: center;
   flex: 0 0 auto;
-  margin-bottom: 8rem;
+  margin-bottom: 4rem;
 }
 
 .district-selector {
@@ -37,6 +39,8 @@ $row-hover: rgba(255, 255, 255, 0.08);
 // selector so it outranks .span-button (same element, defined later in this file), which would set 14rem.
 .district-selector .district-name {
   min-width: 320rem;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
   text-align: center;
   font-size: 24rem;
   font-weight: bold;
@@ -104,15 +108,15 @@ $row-hover: rgba(255, 255, 255, 0.08);
 .section {
   background-color: $panel-bg;
   border-radius: 4rem;
-  margin-bottom: 8rem;
-  padding: 4rem 0;
+  margin-bottom: 6rem;
+  padding: 2rem 0;
 }
 
 .row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 6rem 12rem;
+  padding: 4rem 12rem;
   cursor: pointer;
   font-size: 15rem;
   color: rgba(255, 255, 255, 0.9);
@@ -210,7 +214,7 @@ $row-hover: rgba(255, 255, 255, 0.08);
 }
 
 .stats {
-  margin-top: 8rem;
+  margin-top: 2rem;
   flex: 0 0 auto;
   background-color: $panel-bg;
   border-radius: 4rem;

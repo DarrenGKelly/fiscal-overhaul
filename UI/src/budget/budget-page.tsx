@@ -2,7 +2,8 @@ import { useValue } from "cs2/api";
 import { economyBudget } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { districts$, history$, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
+import { districts$, history$, playSound, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
+import { SOUNDS, soundForPick } from "sounds";
 import {
   BALANCE,
   buildSeries,
@@ -148,7 +149,10 @@ export const BudgetPage = () => {
       className={`${styles.row} ${header ? styles.headerRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
       onMouseEnter={() => setRowHover(key)}
       onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
-      onClick={() => toggle(key)}
+      onClick={() => {
+        playSound(SOUNDS.toggleLine);
+        toggle(key);
+      }}
     >
       <div
         className={`${styles.check} ${enabled.has(key) ? styles.checked : ""}`}
@@ -196,7 +200,10 @@ export const BudgetPage = () => {
         <div className={styles.chartColumn}>
           <div className={styles.spanBar}>
             {SPAN_OPTIONS.map((months) => (
-              <div key={months} className={`${styles.spanButton} ${span === months ? styles.spanActive : ""}`} onClick={() => setSpanState(months)}>
+              <div key={months} className={`${styles.spanButton} ${span === months ? styles.spanActive : ""}`} onClick={() => {
+                  playSound(soundForPick(span, months, SOUNDS.pickSpan));
+                  setSpanState(months);
+                }}>
                 {spanLabel(months, translate)}
               </div>
             ))}

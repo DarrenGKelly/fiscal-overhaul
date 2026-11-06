@@ -1,7 +1,8 @@
 import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
 import { useCallback, useState } from "react";
-import { densityTaxes$, densityTaxesEnabled$, DensityTaxCell, setDensityTax } from "bindings";
+import { densityTaxes$, densityTaxesEnabled$, DensityTaxCell, playSound, setDensityTax } from "bindings";
+import { SOUNDS } from "sounds";
 import { localize, Translate } from "l10n";
 import { TaxSlider } from "vanilla";
 import { arrowFor, cellsForArea, densityLabel, offsetSummary, payersSuffix } from "./density";
@@ -23,7 +24,10 @@ export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
   const data = useValue(densityTaxes$);
   const enabled = useValue(densityTaxesEnabled$);
   const [open, setOpen] = useState(false);
-  const toggle = useCallback(() => setOpen((o) => !o), []);
+  const toggle = useCallback(() => {
+    playSound(SOUNDS.expandRows);
+    setOpen((o) => !o);
+  }, []);
 
   const cells = cellsForArea(data?.cells, areaType.index, areaType.locked, enabled);
   if (!data || cells.length === 0) return null;

@@ -99,11 +99,13 @@ properties, `BudgetHistoryPayload`) with series from the district's samples; cit
 
 ### District selector
 
-`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, styled like the span buttons (the arrows
-are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the left one: the font has no arrows). The arrows cycle
-Entire City → each district (by name) → Outside Districts → Entire City, wrapping both ways; the name opens a list of
-every choice, with a divider line between the three groups (Entire City | the districts | Outside Districts;
-`dividerBefore`). It hides while `districts` is empty (recording off, or a city without districts), and a choice no
+`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, styled like the span buttons, the name
+the tab's header (bold 24rem, above the rows' bold 18rem titles; scoped under `.district-selector` so the later
+`.span-button` rule doesn't shrink it). The arrows are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the
+left one (the font has no arrows). They cycle Entire City → each district (by name) → Outside Districts → Entire
+City, wrapping both ways; the name opens a list of every choice, with a divider line between the three groups (Entire
+City | the districts | Outside Districts; `dividerBefore`). The list's items sit in vanilla's `Scrollable`, capped at
+520rem, so a long list gets the game's scroll bar instead of running past the panel. It hides while `districts` is empty (recording off, or a city without districts), and a choice no
 longer offered falls back to Entire City (`effectiveKey`). The choice persists for the session (module-level, like
 the span) and is sent on mount and on change.
 
@@ -120,6 +122,11 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
 
 - **Left column**: the filter rows, then the span stats for the hovered row or line (the column scrolls when they
   don't fit). There is no right-hand column, so the chart takes the rest of the width.
+- **Spacing**: the page adds no side padding of its own (the economy panel's 32rem is the margin, as on the other
+  Economy tabs), and rows, sections and the stats are kept tight so the span stats fit under the rows.
+- **Sounds**: every click that changes something plays a vanilla UI sound (`UI/src/sounds.ts`): a row toggles its line
+  (`select-toggle`), a new span (`select-item`, none for the current one), the arrows (`select-previous-item` /
+  `select-next-item`), opening the list (`select-dropdown`), a pick from it (`select-item`).
 - **Rows**: Revenues total, each active revenue item, Expenses total, each active expense item, Monthly
   balance. Each row shows the vanilla current value (`NumberField`). Clicking a row toggles its line, and hovering it
   sets the detail. Items group sources exactly as vanilla does (`BudgetItem.sources`), from
