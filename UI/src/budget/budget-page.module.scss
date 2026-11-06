@@ -3,10 +3,79 @@ $row-hover: rgba(255, 255, 255, 0.08);
 
 .budget-page {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   padding: 0 20rem 20rem 20rem;
+}
+
+// The rows and the chart, side by side, under the district selector.
+.budget-body {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// District selector: `< name >` centred above both columns, styled like the span buttons; the name opens a list.
+.district-bar {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-bottom: 8rem;
+}
+
+.district-selector {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: relative;
+}
+
+.district-name {
+  min-width: 260rem;
+  text-align: center;
+  font-size: 16rem;
+  color: white;
+}
+
+.district-arrow {
+  width: 16rem;
+  height: 16rem;
+}
+
+.district-arrow-left {
+  transform: scaleX(-1);
+}
+
+// Fixed rem max-height (a percentage one doesn't constrain an absolute box in Gameface).
+.district-list {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4rem;
+  min-width: 300rem;
+  max-height: 600rem;
+  overflow-y: auto;
+  z-index: 10;
+  background-color: rgba(14, 20, 32, 0.97);
+  border: 1rem solid rgba(255, 255, 255, 0.15);
+  border-radius: 4rem;
+  padding: 4rem 0;
+}
+
+.district-item {
+  padding: 6rem 16rem;
+  font-size: 15rem;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: $row-hover;
+  }
 }
 
 .list-column {
