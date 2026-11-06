@@ -97,6 +97,12 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
   `BudgetItemDetail`, `TaxSlider`) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.
+- **Scroll bars:** Gameface draws none for `overflow: auto` (it scrolls by wheel, with no sign there is more). Wrap the
+  content in vanilla's `Scrollable` (`game-ui/common/scrolling/scrollable.tsx`, in `vanilla.ts`) with a rem
+  `max-height` on its className, as vanilla dropdown menus do: it draws the game's scroll bar.
+- **Click sounds:** vanilla plays a `UISound` (`cs2/ui`; `select-item`, `select-toggle`, `select-dropdown`,
+  `select-previous-item`, …) with `trigger("audio", "playSound", name, 1)` on the next frame. Ours: `playSound` in
+  `bindings.ts`, the names in `UI/src/sounds.ts`. Play one only on a click that changes something.
 - Vanilla data comes through `cs2/bindings` (`economyBudget.incomeItems$`, `taxation.areaTypes$`, …) with
   `useValue` from `cs2/api`. Localised strings come from `useLocalization().translate("EconomyPanel.BUDGET_ITEM[<id>]")`.
   Keys are in the bundle's `EconomyPanel:{…}` table.
