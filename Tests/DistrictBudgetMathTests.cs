@@ -91,5 +91,78 @@ namespace FiscalOverhaul.Tests
                 Assert.Equal(h.Series(slot), back.Series(slot));
             Assert.Throws<ArgumentException>(() => DistrictHistory.FromFlat(4, new float[10]));
         }
+    
+        [Fact]
+        public void TaxRowOf_MapsTaxAndSubsidySlots_AndNothingElse()
+        {
+            for (int slot = 0; slot < 4; slot++) Assert.Equal(slot, DistrictBudgetMath.TaxRowOf(slot));
+            for (int k = 0; k < 4; k++) Assert.Equal(4 + k, DistrictBudgetMath.TaxRowOf(11 + k));
+            foreach (int slot in new[] { 4, 5, 6, 7, 8, 9, 10, 15, -1, 16 }) Assert.Equal(-1, DistrictBudgetMath.TaxRowOf(slot));
+        }
+
+        private static double[] Weights(params double[][] areas)
+        {
+            var w = new double[areas.Length * DistrictBudgetMath.SourceCount];
+            for (int a = 0; a < areas.Length; a++)
+                for (int s = 0; s < areas[a].Length; s++) w[a * DistrictBudgetMath.SourceCount + s] = areas[a][s];
+            return w;
+        }
+
+        private static double[] Row(params (int slot, double value)[] entries)
+        {
+            var r = new double[DistrictBudgetMath.SourceCount];
+            foreach (var (slot, value) in entries) r[slot] = value;
+            return r;
+        }
+
+        [Fact]
+        public void Samples_FeesAndUpkeep_SumToTheVanillaRow()
+        {
+            // Two districts and outside; electricity (4) 1:3:0, upkeep (15) 2:1:1.
+            double[] weights = Weights(Row((4, 1), (15, 2)), Row((4, 3), (15, 1)), Row((15, 1)));
+            double[] vanilla = Row((4, 400), (15, 1000));
+            float[][] samples = DistrictBudgetMath.Samples(weights, 3, vanilla, new double[DistrictBudgetMath.TaxRowCount]);
+            Assert.Equal(100f, samples[0][4], 3);
+            Assert.Equal(300f, samples[1][4], 3);
+            Assert.Equal(0f, samples[2][4], 3);
+            Assert.Equal(500f, samples[0][15], 3);
+            Assert.Equal(1000.0, samples[0][15] + samples[1][15] + samples[2][15], 2);
+            // A source nobody weighs gets nothing, not a share.
+            Assert.Equal(0f, samples[0][5]);
+        }
+
+        [Fact]
+        public void Samples_Taxes_ArePaidTimesTheScale_SoADiscountStaysInItsDistrict()
+        {
+            // Residential (slot 0): district 0 paid 100 at the city rate; district 1 paid 50 at half the rate (a
+            // discount), 100 at the city rate. Vanilla row 400 against 200 at city rate: scale 2.
+            double[] weights = Weights(Row((0, 100)), Row((0, 50)));
+            double[] atCity = new double[DistrictBudgetMath.TaxRowCount];
+            atCity[0] = 200;
+            float[][] samples = DistrictBudgetMath.Samples(weights, 2, Row((0, 400)), atCity);
+            Assert.Equal(200f, samples[0][0], 3);
+            Assert.Equal(100f, samples[1][0], 3); // not 200: the discount shows
+        }
+
+        [Fact]
+        public void Samples_Subsidies_UseTheirOwnTaxRow()
+        {
+            double[] weights = Weights(Row((11, 30)), Row((11, 10)));
+            double[] atCity = new double[DistrictBudgetMath.TaxRowCount];
+            atCity[4] = 40;   // residential subsidies
+            atCity[0] = 1000; // residential tax income, must not be used for the subsidy slot
+            float[][] samples = DistrictBudgetMath.Samples(weights, 2, Row((11, 80)), atCity);
+            Assert.Equal(60f, samples[0][11], 3);
+            Assert.Equal(20f, samples[1][11], 3);
+        }
+
+        [Fact]
+        public void Samples_RejectsMismatchedSizes()
+        {
+            var atCity = new double[DistrictBudgetMath.TaxRowCount];
+            Assert.Throws<ArgumentException>(() => DistrictBudgetMath.Samples(new double[DistrictBudgetMath.SourceCount], 2, Row(), atCity));
+            Assert.Throws<ArgumentException>(() => DistrictBudgetMath.Samples(Weights(Row()), 1, new double[3], atCity));
+            Assert.Throws<ArgumentException>(() => DistrictBudgetMath.Samples(Weights(Row()), 1, Row(), new double[2]));
+        }
     }
 }

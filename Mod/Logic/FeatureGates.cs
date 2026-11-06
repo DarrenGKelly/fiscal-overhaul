@@ -9,6 +9,15 @@ namespace FiscalOverhaul.Logic
         /// <summary>Default of the density taxes switch: off, it is a BETA feature.</summary>
         public const bool DensityTaxesDefault = false;
 
+        /// <summary>Default of the per-district budget switch: on (it only records while the budget chart is on too).</summary>
+        public const bool DistrictBudgetDefault = true;
+
+        /// <summary>
+        /// Whether DistrictBudgetSystem records a sample: the per-district view is part of the budget chart, so it
+        /// records only while both switches are on, whether or not the panel is open.
+        /// </summary>
+        public static bool RecordsDistrictBudget(bool budgetChartEnabled, bool districtBudgetEnabled) => budgetChartEnabled && districtBudgetEnabled;
+
         /// <summary>
         /// Whether a UI system builds its Economy panel data this frame: only while its feature is enabled and the
         /// panel is open. A disabled feature's tab is vanilla, so there's nothing to build for it.

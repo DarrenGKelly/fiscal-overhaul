@@ -136,7 +136,9 @@ namespace FiscalOverhaul.Tests
                 en["FiscalOverhaul.Options.Desc.EnableDensityTaxes"]);
             Assert.Equal("Sets every density offset (set in Economy > Taxation) back to 0, so buildings pay the vanilla rates again.",
                 en["FiscalOverhaul.Options.Desc.ResetDensityTaxes"]);
-            Assert.Equal(11, CountOptionKeys(en));
+            Assert.Equal("Record district budgets", en["FiscalOverhaul.Options.Label.EnableDistrictBudget"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictBudget"));
+            Assert.Equal(13, CountOptionKeys(en));
         }
 
         private static int CountOptionKeys(Dictionary<string, string> entries)

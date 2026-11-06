@@ -69,6 +69,58 @@ namespace FiscalOverhaul.Logic
         {
             return sumAtCityRate == 0 ? 0 : vanillaRow / sumAtCityRate;
         }
+
+        /// <summary>Tax rows (residential, commercial, industrial, office) and subsidy rows: income and expense.</summary>
+        public const int TaxRowCount = 8;
+
+        /// <summary>
+        /// For a sample slot: its index among the 8 tax rows (0-3 the tax income slots, 4-7 the subsidy slots, both
+        /// residential, commercial, industrial, office), or -1 for a fee or upkeep slot.
+        /// </summary>
+        public static int TaxRowOf(int slot)
+        {
+            if (slot >= 0 && slot < 4) return slot;
+            int subsidyStart = DistrictIncomeSources.Length;
+            if (slot >= subsidyStart && slot < subsidyStart + 4) return 4 + slot - subsidyStart;
+            return -1;
+        }
+
+        /// <summary>
+        /// One sample per area (districts, then "outside"). <paramref name="weights"/> holds areaCount x SourceCount
+        /// weights, area-major: for a tax slot the area's payers' paid sum (a subsidy as a positive amount), for any
+        /// other slot its share weight. <paramref name="vanilla"/> is the city value per slot (SourceCount wide), and
+        /// <paramref name="atCityRate"/> the city-wide paid sums restated at the city rate per tax row
+        /// (<see cref="TaxRowOf"/>). Tax slots get paid * <see cref="TaxScale"/>; the others
+        /// <see cref="Apportion"/> the vanilla value by the slot's weights across all areas.
+        /// </summary>
+        public static float[][] Samples(IReadOnlyList<double> weights, int areaCount, IReadOnlyList<double> vanilla, IReadOnlyList<double> atCityRate)
+        {
+            if (weights == null) throw new ArgumentNullException(nameof(weights));
+            if (vanilla == null) throw new ArgumentNullException(nameof(vanilla));
+            if (atCityRate == null) throw new ArgumentNullException(nameof(atCityRate));
+            if (areaCount < 0 || weights.Count != areaCount * SourceCount)
+                throw new ArgumentException("Weights must be areaCount * SourceCount.", nameof(weights));
+            if (vanilla.Count != SourceCount) throw new ArgumentException("Vanilla must have SourceCount entries.", nameof(vanilla));
+            if (atCityRate.Count != TaxRowCount) throw new ArgumentException("AtCityRate must have TaxRowCount entries.", nameof(atCityRate));
+
+            var samples = new float[areaCount][];
+            for (int a = 0; a < areaCount; a++) samples[a] = new float[SourceCount];
+            var column = new double[areaCount];
+            for (int slot = 0; slot < SourceCount; slot++)
+            {
+                int taxRow = TaxRowOf(slot);
+                if (taxRow >= 0)
+                {
+                    double scale = TaxScale(vanilla[slot], atCityRate[taxRow]);
+                    for (int a = 0; a < areaCount; a++) samples[a][slot] = (float)(weights[a * SourceCount + slot] * scale);
+                    continue;
+                }
+                for (int a = 0; a < areaCount; a++) column[a] = weights[a * SourceCount + slot];
+                double[] shares = Apportion(vanilla[slot], column);
+                for (int a = 0; a < areaCount; a++) samples[a][slot] = (float)shares[a];
+            }
+            return samples;
+        }
     }
 
     /// <summary>A capped per-district history of SourceCount-wide samples, with a flat encoding for the save.</summary>

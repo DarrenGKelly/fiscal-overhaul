@@ -30,6 +30,22 @@ namespace FiscalOverhaul.Tests
             Assert.True(FeatureGates.BuildsPanelData(featureEnabled: true, economyPanelOpen: true));
         }
 
+        [Fact]
+        public void DistrictBudget_IsOnByDefault()
+        {
+            Assert.True(FeatureGates.DistrictBudgetDefault);
+        }
+
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]  // district budget switched off
+        [InlineData(false, true, false)]  // budget chart switched off: the district view is part of it
+        [InlineData(false, false, false)]
+        public void RecordsDistrictBudget_OnlyWithBothOn(bool budgetChart, bool districtBudget, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.RecordsDistrictBudget(budgetChart, districtBudget));
+        }
+
         [Theory]
         [InlineData(false, true)]  // switched off in Options: the tab is vanilla
         [InlineData(true, false)]  // panel closed
