@@ -61,10 +61,12 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
 - **After a successful release** (not a private test) it tags the built commit `v<version>` (an annotated tag naming
   the mode and access level) and pushes the tag. A failed build or upload tags nothing.
 
-- **Screenshots** live in `Mod/Properties/Screenshots/` (`01-budget-chart.png` ... `05-budget-vanilla-detail.png`),
-  each listed as a `Screenshot` in `PublishConfiguration.xml` in the order the mod page shows them; the README embeds
-  the same files. They are 1920x1080 PNGs (about 1 MB each), cropped from 2560x1440 `game-control.ps1` screenshots
-  around the Economy panel or Options page, then scaled.
+- **Screenshots** live in `Mod/Properties/Screenshots/` (`01-budget-chart.png` ... `07-budget-district-list.png`;
+  the number is when a file was added, not its place on the page), each listed as a `Screenshot` in
+  `PublishConfiguration.xml` in the order the mod page shows them; the README embeds the same files. They are
+  1920x1080 PNGs (about 1 MB each) from `game-control.ps1 screenshot -Window` at 2560x1440: an Economy panel shot is
+  cropped to the 16:9 box (285, 193)-(2275, 1312) around the panel, the Options page is scaled whole. Take them on a
+  paused save that is never saved; a feature switch turned on for a shot (density taxes) goes back as it was.
 
 ## Private test uploads
 

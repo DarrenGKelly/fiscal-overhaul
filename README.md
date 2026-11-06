@@ -1,7 +1,8 @@
 # Fiscal Overhaul
 
 A Cities: Skylines II mod that reworks the Economy panel: a line chart of your city's budget history in place of
-the Budget tab's bar chart, and (as an optional beta feature) tax offsets by building density on the Taxation tab.
+the Budget tab's bar chart, for the whole city or any single district, and (as an optional beta feature) tax offsets
+by building density on the Taxation tab.
 
 ![The Budget tab's line chart](Mod/Properties/Screenshots/01-budget-chart.png)
 
@@ -25,6 +26,21 @@ the Budget tab's bar chart, and (as an optional beta feature) tax offsets by bui
 
 ![Hovering a budget row shows the game's own detail panel for it](Mod/Properties/Screenshots/05-budget-vanilla-detail.png)
 
+### Per-district budgets
+
+- **District selector** at the top of the Budget tab: Entire City, each of your districts, or Outside Districts
+  (everything not in a district). Step through them with the arrows either side, or click the name to pick from the
+  list.
+- **Taxes** are what each district's buildings pay, at that district's own rates, so district policies such as Low
+  Commercial Tax are counted.
+- **Service fees and upkeep** are shared out by each district's use. City-wide items (loan interest, map tile upkeep,
+  service trade, subsidies) show under Entire City only.
+- **District history** is recorded from the first time the mod runs on a save, 32 times a month, and kept in the save.
+
+![One district's budget, picked with the selector above the chart](Mod/Properties/Screenshots/06-budget-district.png)
+
+![The district list: Entire City, each district, and Outside Districts](Mod/Properties/Screenshots/07-budget-district-list.png)
+
 ### Taxation tab: tax offsets by density (BETA)
 
 This is a beta feature and is **off by default**: turn it on with **Enable density taxes (BETA)** in Options >
@@ -46,9 +62,11 @@ The mod has its own page in the game's Options menu:
 - **Enable budget chart** (default on). Turned off, the Budget tab is the vanilla one.
 - **Enable density taxes (BETA)** (default off). A beta feature: tick it to get the density rows on the Taxation tab.
   Off, the Taxation tab is the vanilla one and every building pays the vanilla rate; your offsets are kept.
+- **Record district budgets** (default on). Off, nothing new is recorded and the district selector is hidden; what
+  was recorded is kept.
 - **Reset density tax offsets**: sets every density offset back to 0, after a confirmation.
 
-![The Options page, with the budget chart and density taxes (BETA) ticked](Mod/Properties/Screenshots/04-options.png)
+![The Options page: the budget chart, density taxes (BETA) and district recording switches](Mod/Properties/Screenshots/04-options.png)
 
 ## Install
 
@@ -62,15 +80,19 @@ mods or DLC.
 - **Other mods:** Fiscal Overhaul replaces the Economy panel's vanilla `BudgetPage` and extends its `TaxationGroup`.
   Another mod that replaces either of those may conflict with it: one of the two will win. Mods that change how
   households and companies are taxed may interact with the density offsets.
-- **Saves:** the mod stores nothing in your save. The budget history is the game's own statistics, and the density
-  offsets are a global mod setting. Removing the mod is safe: the city goes back to the vanilla panel and the vanilla
-  tax rates.
+- **Saves:** the mod keeps its district history in your save. The city's budget history is the game's own
+  statistics, and the density offsets are a global mod setting. Removing the mod is safe: the save still loads (the
+  game skips the district data), and the city goes back to the vanilla panel and the vanilla tax rates.
 
 ## FAQ
 
 **My new city's chart is short. Is something wrong?**
 No. The chart can only show history the game has recorded; a new city starts with none, and the longer spans fill
 in as months pass.
+
+**Why is a district's chart shorter than the city's?**
+The game keeps budget history only for the whole city. The mod records each district's from the first time it runs on
+a save, so district charts start then.
 
 **Why are my density offsets the same in every city?**
 They are a mod setting, not part of the save, so they apply to every city you play. Per-save offsets may come in a

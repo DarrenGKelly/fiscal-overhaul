@@ -4,7 +4,7 @@
 	<!--Name of the mod to display to players (Paradox Mods: at most 60 characters)-->
 	<DisplayName Value="Fiscal Overhaul" />
 	<!--Short description of the mod (Paradox Mods: under 200 characters)-->
-	<ShortDescription Value="Replaces the Economy panel's budget bar chart with a filterable line chart of your city's income and expense history, and optional (beta) tax offsets by building density." />
+	<ShortDescription Value="Replaces the budget bar chart with a filterable line chart of your city's income and expense history, for the whole city or any district, plus optional (beta) density tax offsets." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
 	<!--
 	  Paradox Mods keeps only headings, **bold**, bullet and numbered lists, links and line breaks: italics, images,
@@ -12,14 +12,20 @@
 	  block), keep it under 10000 characters, and escape & and < for XML.
 	-->
 	<LongDescription>
-Fiscal Overhaul reworks the Economy panel: a line chart of your city's budget history in place of the Budget tab's bar chart, and, as an optional BETA feature, tax offsets by building density on the Taxation tab.
+Fiscal Overhaul reworks the Economy panel: a line chart of your city's budget history in place of the Budget tab's bar chart, for the whole city or any single district, and, as an optional BETA feature, tax offsets by building density on the Taxation tab.
 
 ## Budget tab
 * **Line chart** of total revenue, total expenses, the monthly balance and any single budget item, each as a per-month rate (the same figure the vanilla panel shows).
 * **Series filters**: click a row to show or hide its line. Only the items your city has are listed.
-* **Time span** from 1 month to all history (1M, 3M, 6M, 1Y, 3Y, All). The history is the game's own budget statistics, already kept in your save, so a loaded city shows everything back to its founding.
+* **Time span** from 1 month to all history (1M, 3M, 6M, 1Y, 3Y, All). The city's history is the game's own budget statistics, already kept in your save, so a loaded city shows everything back to its founding.
 * **Exact values on hover**: the tooltip shows the hovered line's monthly value and how long ago it was, with the span's now / average / low / high / change under the rows.
 * **Vanilla detail panel**: hovering a budget item pops out the game's own breakdown by source.
+
+## Per-district budgets
+* **District selector** at the top of the Budget tab: Entire City, each of your districts, or Outside Districts (everything not in a district). Step through them with the arrows, or click the name to pick from the list.
+* **Taxes** are what each district's buildings pay, at that district's own rates, so district policies such as Low Commercial Tax are counted.
+* **Service fees and upkeep** are shared out by each district's use. City-wide items (loan interest, map tile upkeep, service trade, subsidies) show under Entire City only.
+* **District history** is recorded from the first time the mod runs on a save, 32 times a month, and kept in the save.
 
 ## Taxation tab (BETA)
 This is a **beta feature, off by default**: enable it with **Enable density taxes (BETA)** in Options > Fiscal Overhaul.
@@ -30,12 +36,13 @@ This is a **beta feature, off by default**: enable it with **Enable density taxe
 ## Options
 * **Enable budget chart** (default on): turned off, the Budget tab is the vanilla one.
 * **Enable density taxes (BETA)** (default off): turned off, every building pays the vanilla rate and the Taxation tab is vanilla; your offsets are kept.
+* **Record district budgets** (default on): turned off, nothing new is recorded and the district selector is hidden; what was recorded is kept.
 * **Reset density tax offsets**: sets every offset back to 0.
 
 ## Compatibility
 * Game version 1.6.x.
 * Replaces the vanilla Budget page and extends the Taxation group of the Economy panel: another mod that replaces either may conflict.
-* The mod stores **nothing in your save**: density offsets are a global mod setting, shared by all your cities. Removing the mod is safe.
+* **Saves**: the mod keeps its district history in your save. Removing the mod is safe: the save still loads, and the game skips that data. Density offsets are a global mod setting, shared by all your cities.
 
 ## Bugs and source
 Bug reports and suggestions: [GitHub issues](https://github.com/DarrenGKelly/fiscal-overhaul/issues). Source code (MIT): [github.com/DarrenGKelly/fiscal-overhaul](https://github.com/DarrenGKelly/fiscal-overhaul).
@@ -44,6 +51,8 @@ Bug reports and suggestions: [GitHub issues](https://github.com/DarrenGKelly/fis
 	<Thumbnail Value="Properties/Thumbnail.png" />
 	<!--Screenshot, can be set multiple times (added with the screenshot files: Properties/Screenshots/*.png)-->
 	<Screenshot Value="Properties/Screenshots/01-budget-chart.png" />
+	<Screenshot Value="Properties/Screenshots/06-budget-district.png" />
+	<Screenshot Value="Properties/Screenshots/07-budget-district-list.png" />
 	<Screenshot Value="Properties/Screenshots/02-budget-tooltip.png" />
 	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail.png" />
 	<Screenshot Value="Properties/Screenshots/03-taxation-density.png" />
