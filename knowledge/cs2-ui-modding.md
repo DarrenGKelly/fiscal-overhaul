@@ -106,6 +106,11 @@ structured data, `TriggerBinding<…>` for UI→C# calls, all in group `fiscalOv
 with `updateSystem.UpdateAt<T>(SystemUpdatePhase.UIUpdate)`. Only compute while the panel is open
 (`GamePanelUISystem.activePanel is EconomyPanel`).
 
+**One property set per `TypeBegin` name, every time.** Gameface's writer fixes a type's properties the first time a
+type name is written; writing that name again with an extra or missing property crashes the game to desktop (native,
+in `cohtmlNativePINVOKE.TypeEnd`), with no managed exception. Write every property every time and `WriteNull()` the
+ones a case has no value for, as vanilla's `*Section` writers do (`BudgetHistoryPayload`, `Mod/Logic/`).
+
 ## Gameface (the game's browser) limits
 
 Coherent Gameface isn't Chrome:

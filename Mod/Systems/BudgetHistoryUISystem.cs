@@ -142,35 +142,35 @@ namespace FiscalOverhaul
             int span = BudgetHistoryMath.SamplesForSpan(m_SpanMonths, length);
             int[] picked = BudgetHistoryMath.PickIndices(length, span, kMaxPoints);
 
-            writer.TypeBegin("FiscalOverhaul.BudgetHistory");
-            writer.PropertyName("span");
-            writer.Write(m_SpanMonths);
-            writer.PropertyName("samples");
-            writer.Write(length);
-
-            writer.PropertyName("monthsAgo");
-            writer.ArrayBegin(picked.Length);
-            foreach (int index in picked) writer.Write((float)BudgetHistoryMath.MonthsAgo(index, length));
-            writer.ArrayEnd();
-
-            writer.PropertyName("income");
-            WriteSeriesSet(writer, income, length, picked);
-            writer.PropertyName("expense");
-            WriteSeriesSet(writer, expense, length, picked);
-            if (nowIncome != null)
+            // Every view writes the same properties (BudgetHistoryPayload): a type written with a different property
+            // set than its first write crashes Gameface natively in TypeEnd. Entire City (also the fallback for an
+            // unknown or deleted district) writes null live sums.
+            bool districtView = nowIncome != null;
+            writer.TypeBegin(BudgetHistoryPayload.TypeName);
+            foreach (string property in BudgetHistoryPayload.Properties(districtView))
             {
-                writer.PropertyName("district");
-                writer.Write(m_DistrictKey);
-                writer.PropertyName("nowIncome");
-                WriteRounded(writer, nowIncome);
-                writer.PropertyName("nowExpense");
-                WriteRounded(writer, nowExpense);
-            }
-            else
-            {
-                // Entire City (also the fallback for an unknown or deleted district).
-                writer.PropertyName("district");
-                writer.Write(DistrictKey.City);
+                writer.PropertyName(property);
+                if (BudgetHistoryPayload.IsNull(property, districtView))
+                {
+                    writer.WriteNull();
+                    continue;
+                }
+                switch (property)
+                {
+                    case "span": writer.Write(m_SpanMonths); break;
+                    case "samples": writer.Write(length); break;
+                    case "monthsAgo":
+                        writer.ArrayBegin(picked.Length);
+                        foreach (int index in picked) writer.Write((float)BudgetHistoryMath.MonthsAgo(index, length));
+                        writer.ArrayEnd();
+                        break;
+                    case "income": WriteSeriesSet(writer, income, length, picked); break;
+                    case "expense": WriteSeriesSet(writer, expense, length, picked); break;
+                    case "district": writer.Write(districtView ? m_DistrictKey ?? DistrictKey.City : DistrictKey.City); break;
+                    case "nowIncome": WriteRounded(writer, nowIncome); break;
+                    case "nowExpense": WriteRounded(writer, nowExpense); break;
+                    default: writer.WriteNull(); break;
+                }
             }
             writer.TypeEnd();
         }
