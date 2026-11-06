@@ -58,16 +58,73 @@ namespace FiscalOverhaul.Logic
             return result;
         }
 
-        /// <summary>What a payer paid at its own (policy-adjusted) rate, restated at the city rate.</summary>
-        public static double AtCityRate(double paid, double payerRate, double cityRate)
+        /// <summary>
+        /// What a payer paid in its district, restated at the city rate: paid * cityRate / districtRate, where
+        /// districtRate is the rate the payer's district charges now (the city rate with any district tax policy, i.e.
+        /// Low Commercial Tax), not the payer's own stored average. Exactly <paramref name="paid"/> when the two rates
+        /// are equal (no policy) or the district rate is 0.
+        /// </summary>
+        public static double AtCityRate(double paid, double districtRate, double cityRate)
         {
-            return payerRate == 0 ? paid : paid * cityRate / payerRate;
+            return districtRate == 0 || districtRate == cityRate ? paid : paid * cityRate / districtRate;
         }
 
         /// <summary>vanillaRow / sumAtCityRate, or 0 when the denominator is 0. A district's tax = its payers' paid sum * this.</summary>
         public static double TaxScale(double vanillaRow, double sumAtCityRate)
         {
             return sumAtCityRate == 0 ? 0 : vanillaRow / sumAtCityRate;
+        }
+
+        /// <summary>Tax rows (residential, commercial, industrial, office) and subsidy rows: income and expense.</summary>
+        public const int TaxRowCount = 8;
+
+        /// <summary>
+        /// For a sample slot: its index among the 8 tax rows (0-3 the tax income slots, 4-7 the subsidy slots, both
+        /// residential, commercial, industrial, office), or -1 for a fee or upkeep slot.
+        /// </summary>
+        public static int TaxRowOf(int slot)
+        {
+            if (slot >= 0 && slot < 4) return slot;
+            int subsidyStart = DistrictIncomeSources.Length;
+            if (slot >= subsidyStart && slot < subsidyStart + 4) return 4 + slot - subsidyStart;
+            return -1;
+        }
+
+        /// <summary>
+        /// One sample per area (districts, then "outside"). <paramref name="weights"/> holds areaCount x SourceCount
+        /// weights, area-major: for a tax slot the area's payers' paid sum (a subsidy as a positive amount), for any
+        /// other slot its share weight. <paramref name="vanilla"/> is the city value per slot (SourceCount wide), and
+        /// <paramref name="atCityRate"/> the city-wide paid sums restated at the city rate per tax row
+        /// (<see cref="TaxRowOf"/>). Tax slots get paid * <see cref="TaxScale"/>; the others
+        /// <see cref="Apportion"/> the vanilla value by the slot's weights across all areas.
+        /// </summary>
+        public static float[][] Samples(IReadOnlyList<double> weights, int areaCount, IReadOnlyList<double> vanilla, IReadOnlyList<double> atCityRate)
+        {
+            if (weights == null) throw new ArgumentNullException(nameof(weights));
+            if (vanilla == null) throw new ArgumentNullException(nameof(vanilla));
+            if (atCityRate == null) throw new ArgumentNullException(nameof(atCityRate));
+            if (areaCount < 0 || weights.Count != areaCount * SourceCount)
+                throw new ArgumentException("Weights must be areaCount * SourceCount.", nameof(weights));
+            if (vanilla.Count != SourceCount) throw new ArgumentException("Vanilla must have SourceCount entries.", nameof(vanilla));
+            if (atCityRate.Count != TaxRowCount) throw new ArgumentException("AtCityRate must have TaxRowCount entries.", nameof(atCityRate));
+
+            var samples = new float[areaCount][];
+            for (int a = 0; a < areaCount; a++) samples[a] = new float[SourceCount];
+            var column = new double[areaCount];
+            for (int slot = 0; slot < SourceCount; slot++)
+            {
+                int taxRow = TaxRowOf(slot);
+                if (taxRow >= 0)
+                {
+                    double scale = TaxScale(vanilla[slot], atCityRate[taxRow]);
+                    for (int a = 0; a < areaCount; a++) samples[a][slot] = (float)(weights[a * SourceCount + slot] * scale);
+                    continue;
+                }
+                for (int a = 0; a < areaCount; a++) column[a] = weights[a * SourceCount + slot];
+                double[] shares = Apportion(vanilla[slot], column);
+                for (int a = 0; a < areaCount; a++) samples[a][slot] = (float)shares[a];
+            }
+            return samples;
         }
     }
 

@@ -6,6 +6,8 @@ resource:
   - Mod/Systems/BudgetHistoryUISystem.cs
   - Mod/Logic/BudgetHistoryMath.cs
   - Mod/Logic/FeatureGates.cs
+  - Mod/Systems/DistrictBudgetSystem.cs
+  - Mod/Logic/DistrictBudgetMath.cs
   - UI/src/budget
   - UI/src/chart
 ---
@@ -45,6 +47,43 @@ It sends only the visible span (`setSpan(months)`, 0 = all), downsampled to ≤2
 amounts. It rebuilds only while the chart is enabled and the Economy panel is open, and then when the sample count or
 span changed (and straight away when the panel opens or the chart is switched back on).
 
+## Per-district recording
+
+The game keeps no per-district budget, so `DistrictBudgetSystem` (`GameSimulation`, every 8192 frames = 32 samples
+a month, panel open or not) records one while **Enable budget chart** and **Record district budgets**
+(`Setting.EnableDistrictBudget`, default on) are both on (`FeatureGates.RecordsDistrictBudget`). Each sample weighs
+every district (`District` without `Temp`) plus "outside" (`Entity.Null`, buildings in no district) per source, and
+`DistrictBudgetMath.Samples` splits the vanilla Budget row (`CityServiceBudgetSystem.GetIncome`/`GetExpense`) by those
+weights:
+
+| Source | Weight per district |
+|---|---|
+| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate (`AtCityRate`: paid x city rate / the rate the payer's district charges now) |
+| Electricity, water | `ElectricityConsumer.m_FulfilledConsumption`; `WaterConsumer.m_FulfilledFresh + m_FulfilledSewage` |
+| Healthcare, education | `Patient` / `Student` buffer length |
+| Garbage | `GarbageProducer.m_Garbage` |
+| Parking | parked cars x their lane's `ParkingLane.m_ParkingFee`, by the lane's district (`BorderDistrict` side, else the owner building's `CurrentDistrict`) |
+| Public transport | household residents |
+| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |
+
+**Taxes are not apportioned**: vanilla's tax rows are policy-blind estimates (taxable income x city rate), while
+`m_AverageTaxPaid` includes a district's Low Commercial Tax policy; scaling the paid sums keeps a discount in its
+district, so the districts' taxes sum to the row only without such policies. The restatement uses the district's
+current rate, never the payer's own `m_AverageTaxRate` (#30): that average blends a household's members' job levels,
+lags rate changes, and vanilla blends office companies toward the *industrial* rate (`ProcessingCompanySystem`), so
+using it put residential 2% low and office 20% high. Saves made before the game tracked tax paid
+(`FormatTags.TrackCompanyCustomersAndTaxes`) load with every `m_AverageTaxPaid` 0: the first sample or two after
+loading one has few or no payers, and a row with none records 0 for every district. A building's district is its
+`CurrentDistrict`, or its owner's (upgrades, sub-buildings). The system runs `UpdateAfter` the density tax restore
+system, so a sample on a tax frame reads the stored rates.
+
+Each area's samples go into a `DistrictHistory` (36 months, `MaxSamples`); a district gone since the last sample is
+dropped. The system is `IDefaultSerializable`, so the game saves it with the city (`FormatVersion`, then per area its
+`Entity`, sample count and `ToFlat()` floats); a save loaded without the mod skips the block
+(`ObsoleteSystemSerializer`). For the UI: `TryGetHistory(district, out history)`, `Areas`, and `LiveValues(district)`
+(the latest weights x the live vanilla rows). `DistrictBudgetSystem.LogSamples` (off by default; set it for an in-game check) writes one `FiscalOverhaul.Mod.log` line per sample
+(district count, tax scales, sums against the vanilla rows).
+
 ## UI
 
 - **Left column**: the filter rows, then the span stats for the hovered row or line (the column scrolls when they
@@ -78,5 +117,5 @@ span changed (and straight away when the panel opens or the chart is switched ba
 
 ## Tests
 
-`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gate. `UI/src/chart/chart-math.test.ts` covers series building,
+`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting.
