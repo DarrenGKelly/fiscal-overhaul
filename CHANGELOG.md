@@ -7,6 +7,10 @@ The version lives in `UI/mod.json` and `Mod/Properties/PublishConfiguration.xml`
 
 ## [Unreleased]
 
+### Added
+
+- A Ko-fi link on the store page and in the README, for anyone who asked where to donate.
+
 ## [1.2.0] - 2026-11-06
 
 ### Changed
