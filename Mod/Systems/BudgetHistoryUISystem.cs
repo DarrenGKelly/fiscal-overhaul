@@ -23,6 +23,8 @@ namespace FiscalOverhaul
     ///   budgetChartEnabled  bool  <see cref="Setting.EnableBudgetChart"/>; false = the UI shows the vanilla Budget tab
     ///   history             raw   { span, samples, monthsAgo: number[], income: number[14][], expense: number[15][] }
     ///   setSpan             trigger(int months)  months &lt;= 0 = all history
+    ///   districtBudgetEnabled bool  district recording on (<see cref="FeatureGates.RecordsDistrictBudget"/>): the UI shows
+    ///                       the district selector, even for a city without districts
     ///   districts           raw   [{ key, name }] the city's districts by name (empty while district budgets are off)
     ///   setDistrict         trigger(string key)  "" = Entire City, "outside", or a key from districts; with a district the
     ///                       history also has { district, nowIncome: number[14], nowExpense: number[15] }
@@ -40,6 +42,7 @@ namespace FiscalOverhaul
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_HistoryBinding;
         private ValueBinding<bool> m_EnabledBinding;
+        private ValueBinding<bool> m_DistrictsEnabledBinding;
         private DistrictBudgetSystem m_DistrictBudgetSystem;
         private NameSystem m_NameSystem;
         private EntityQuery m_DistrictQuery;
@@ -67,6 +70,7 @@ namespace FiscalOverhaul
             m_DistrictBudgetSystem = World.GetOrCreateSystemManaged<DistrictBudgetSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             m_DistrictQuery = GetEntityQuery(ComponentType.ReadOnly<Game.Areas.District>(), ComponentType.Exclude<Temp>());
+            AddBinding(m_DistrictsEnabledBinding = new ValueBinding<bool>(kGroup, "districtBudgetEnabled", false));
             AddBinding(m_DistrictsBinding = new RawValueBinding(kGroup, "districts", WriteDistricts));
             AddBinding(new TriggerBinding<string>(kGroup, "setDistrict", key => m_DistrictKey = key ?? DistrictKey.City));
             AddBinding(m_EnabledBinding = new ValueBinding<bool>(kGroup, "budgetChartEnabled", true));
@@ -79,6 +83,7 @@ namespace FiscalOverhaul
         {
             bool enabled = m_Setting == null || m_Setting.EnableBudgetChart;
             m_EnabledBinding.Update(enabled);
+            m_DistrictsEnabledBinding.Update(DistrictsEnabled());
 
             // Only rebuild while the chart is enabled, the Economy panel is open and something changed: a new sample
             // or a new span.

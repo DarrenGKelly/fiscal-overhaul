@@ -10,7 +10,37 @@ import {
   isCityOnlyItem,
   OUTSIDE_KEY,
   rowValue,
+  showsDistrictSelector,
 } from "./district-select";
+
+describe("showsDistrictSelector", () => {
+  it("shows for a city with no districts while recording is on (only Entire City)", () => {
+    const options = districtOptions([]);
+    expect(options.map((o) => o.key)).toEqual([CITY_KEY]);
+    expect(showsDistrictSelector(true, options)).toBe(true);
+  });
+
+  it("shows with districts while recording is on", () => {
+    expect(showsDistrictSelector(true, districtOptions(DISTRICTS))).toBe(true);
+  });
+
+  it("hides while recording is off, districts or not", () => {
+    expect(showsDistrictSelector(false, districtOptions([]))).toBe(false);
+    expect(showsDistrictSelector(false, districtOptions(DISTRICTS))).toBe(false);
+  });
+});
+
+describe("cycle with only Entire City", () => {
+  it("stays on Entire City both ways", () => {
+    const options = districtOptions([]);
+    expect(cycle(options, CITY_KEY, 1)).toBe(CITY_KEY);
+    expect(cycle(options, CITY_KEY, -1)).toBe(CITY_KEY);
+  });
+
+  it("falls back to Entire City from a district that is gone", () => {
+    expect(cycle(districtOptions([]), "12:1", 1)).toBe(CITY_KEY);
+  });
+});
 
 const DISTRICTS = [
   { key: "12:1", name: "Downtown" },

@@ -10,7 +10,7 @@ const ARROW = "Media/Glyphs/ThickStrokeArrowRight.svg";
 
 /**
  * `‹ [name] ›` centred above the Budget tab: the arrows step through the options (wrapping), the name opens a list of
- * every option. The parent hides it when there are no districts.
+ * every option. Shown whenever district recording is on (showsDistrictSelector), even with Entire City the only option.
  */
 export const DistrictSelector = ({
   options,
@@ -35,7 +35,7 @@ export const DistrictSelector = ({
   return (
     <div className={styles.districtBar}>
       <div className={styles.districtSelector}>
-        <div className={styles.spanButton} onClick={() => step(-1)}>
+        <div className={`${styles.spanButton} ${styles.districtArrowButton}`} onClick={() => step(-1)}>
           <img className={`${styles.districtArrow} ${styles.districtArrowLeft}`} src={ARROW} />
         </div>
         <div className={`${styles.spanButton} ${styles.districtName}`} onClick={() => {
@@ -44,7 +44,7 @@ export const DistrictSelector = ({
           }}>
           {current?.label ?? ""}
         </div>
-        <div className={styles.spanButton} onClick={() => step(1)}>
+        <div className={`${styles.spanButton} ${styles.districtArrowButton}`} onClick={() => step(1)}>
           <img className={styles.districtArrow} src={ARROW} />
         </div>
         {open && (

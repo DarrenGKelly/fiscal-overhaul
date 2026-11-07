@@ -54,7 +54,7 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
 ## Architecture
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
-  (`budgetChartEnabled`, `history`, `setSpan`, `districts`, `setDistrict`, `densityTaxesEnabled`, `densityTaxes`,
+  (`budgetChartEnabled`, `history`, `setSpan`, `districtBudgetEnabled`, `districts`, `setDistrict`, `densityTaxesEnabled`, `densityTaxes`,
   `setDensityTax`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
