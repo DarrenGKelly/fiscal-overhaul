@@ -41,6 +41,12 @@ autodev_rewrite_with_override() { ALLOW_AUTODEV_REWRITE=1; check_push_ref "$1" "
 push_autodev_tracking() { AUTODEV_TRACKING_REF=$1; check_push_ref refs/heads/autodev "$2"; r=$?; unset AUTODEV_TRACKING_REF; return $r; }
 run_pre_push() { printf '%s' "$1" | sh "$hist/.githooks/pre-push"; }
 
+# Hook entry points must be committed executable (100755): a 100644 hook is skipped on Linux and macOS with a hint.
+hook_committed_executable() { git -C "$repo_root" ls-files -s ".githooks/$1" | grep -q '^100755 '; }
+expect pass "pre-commit committed as 100755"         hook_committed_executable pre-commit
+expect pass "pre-merge-commit committed as 100755"   hook_committed_executable pre-merge-commit
+expect pass "pre-push committed as 100755"           hook_committed_executable pre-push
+
 # Commits
 expect pass "commit on feature/<name>"               check_commit_branch feature/chart-filters
 expect pass "commit on fix/<name>"                   check_commit_branch fix/tax-rounding
