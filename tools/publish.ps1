@@ -23,6 +23,8 @@
       - the Thumbnail or any Screenshot file is missing; a template placeholder is left ("This is a long description",
         an empty Tag, ExternalLink, Screenshot, Dependency or RequiredDLC); a required field is empty; AccessLevel
         isn't Public, Private or Unlisted (ModPublisher would quietly make it Public);
+      - a Screenshot whose path is the one the last released v* tag has but whose bytes changed (Paradox Mods caches
+        pictures by name, so the page would keep the old one: a retaken picture needs a new name);
       - for a release (Publish or NewVersion without -AccessLevel Private), the version is already published: a
         v<ModVersion> git tag exists;
       - a private test (-AccessLevel Private) of a mod that has had a release (ModId set and any v* tag): the access
@@ -206,6 +208,22 @@ function Invoke-Publish {
     if ($version -and $Mode -ne 'Update' -and -not $isTest) {
         $tagged = (Invoke-Git -Path $main -Arguments @('rev-parse', '--verify', '--quiet', "refs/tags/$tag^{commit}") -AllowFailure).Text
         if ($tagged) { $problems.Add("$tag is already published (tagged at $($tagged.Substring(0, 10))): bump the version (/promote) for a new release, or use -Mode Update for page-only changes. If that upload never happened, delete the tag (git tag -d $tag; git push origin :refs/tags/$tag).") }
+    }
+    # Paradox Mods caches page images by name: a screenshot replaced under the name the last release uploaded keeps
+    # showing the old picture. So a changed picture needs a new name (tools/store-screenshots.ps1 suffixes the version).
+    $lastRelease = @((Invoke-Git -Path $main -Arguments @('tag', '--list', 'v*', '--sort=-v:refname') -AllowFailure).Text -split "`n" | Where-Object { $_.Trim() }) | Select-Object -First 1
+    if ($lastRelease) {
+        $lastRelease = $lastRelease.Trim()
+        foreach ($element in @($elements | Where-Object { $_.LocalName -eq 'Screenshot' })) {
+            $value = Get-ElementValue $element
+            if (-not $value) { continue }
+            $path = 'Mod/' + ($value -replace '\\', '/')
+            $released = (Invoke-Git -Path $main -Arguments @('rev-parse', '--verify', '--quiet', "$lastRelease`:$path") -AllowFailure).Text
+            $current = (Invoke-Git -Path $main -Arguments @('rev-parse', '--verify', '--quiet', "$sha`:$path") -AllowFailure).Text
+            if ($released -and $current -and $released -ne $current) {
+                $problems.Add("Screenshot '$value' changed since $lastRelease under the same name: Paradox Mods caches pictures by name and would keep showing the old one. Give it a new name (tools/store-screenshots.ps1 adds the version: knowledge/releasing.md#screenshots); fix it on autodev and promote again (/promote).")
+            }
+        }
     }
     if ($isTest -and $modId) {
         $releases = (Invoke-Git -Path $main -Arguments @('tag', '--list', 'v*') -AllowFailure).Text

@@ -4,6 +4,7 @@ title: Releasing
 description: How a release reaches Paradox Mods — the version and ChangeLog stamped into the promotion, tools/publish.ps1's modes, refusals, dry run and private test uploads, the v<version> tags, the new mod's ModId, and what ModPublisher does.
 resource:
   - tools/publish.ps1
+  - tools/store-screenshots.ps1
   - .claude/skills/publish
 ---
 
@@ -55,18 +56,46 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
 - **It refuses before uploading**, each refusal naming its fix: `ModVersion` other than `UI/mod.json`'s version; an
   empty `ChangeLog` for `NewVersion` or `Update`; a missing `Thumbnail` or `Screenshot` file; a template leftover
   ("This is a long description", an empty `Tag`, `ExternalLink`, `Screenshot`, `Dependency` or `RequiredDLC`); an
-  `AccessLevel` other than `Public`, `Private` or `Unlisted`; for a release, a `v<version>` tag that already exists;
-  for a private test, a mod that has had a release. A refusal on `master` is fixed on `autodev` and promoted again.
+  `AccessLevel` other than `Public`, `Private` or `Unlisted`; a `Screenshot` whose path is the one the last released
+  `v*` tag has but whose bytes changed (it needs a new name: [Screenshots](#screenshots)); for a release, a
+  `v<version>` tag that already exists; for a private test, a mod that has had a release. A refusal on `master` is
+  fixed on `autodev` and promoted again.
 - **`-DryRun`** does all of that and the Release build, then prints the exact command and stops.
 - **After a successful release** (not a private test) it tags the built commit `v<version>` (an annotated tag naming
   the mode and access level) and pushes the tag. A failed build or upload tags nothing.
 
-- **Screenshots** live in `Mod/Properties/Screenshots/` (`01-budget-chart.png` ... `07-budget-district-list.png`;
-  the number is when a file was added, not its place on the page), each listed as a `Screenshot` in
-  `PublishConfiguration.xml` in the order the mod page shows them; the README embeds the same files. They are
-  1920x1080 PNGs (about 1 MB each) from `game-control.ps1 screenshot -Window` at 2560x1440: an Economy panel shot is
-  cropped to the 16:9 box (285, 193)-(2275, 1312) around the panel, the Options page is scaled whole. Take them on a
-  paused save that is never saved; a feature switch turned on for a shot (density taxes) goes back as it was.
+## Screenshots
+
+The page's pictures live in `Mod/Properties/Screenshots/`, each listed as a `Screenshot` in
+`PublishConfiguration.xml` in the order the mod page shows them; the README embeds the same files. The set is seven
+shots, by base name (the number is when a shot was added, not its place on the page): `01-budget-chart`,
+`02-budget-tooltip`, `03-taxation-density`, `04-options`, `05-budget-vanilla-detail`, `06-budget-district`,
+`07-budget-district-list`.
+
+- **Spec.** 1920x1080 PNGs (about 1 MB each) from full-scale window captures at 2560x1440: an Economy panel shot is
+  cropped to the 16:9 box (285, 193)-(2275, 1312) around the panel and scaled, the Options page is scaled whole.
+  Taken on a paused save that is never saved (Odiham: districts and a year of history); a feature switch turned on
+  for a shot (density taxes) goes back as it was.
+- **Every Budget-tab shot has all the lines on**: every row in the left column toggled on, not just the two totals
+  the tab starts with.
+- **New names for new pictures.** Paradox Mods caches page images by name, so a retaken picture under an old name
+  keeps showing the old one. Each set carries a version suffix: `01-budget-chart-v1-2-0.png`. The version is
+  `ModVersion`, or, when a `v*` tag at or above it says that one is already released, the next patch after the
+  highest tag (the version the next promotion will usually stamp). `publish.ps1` refuses a changed picture under a
+  released name.
+- **`tools/store-screenshots.ps1`** takes the set (`Get-Help ./tools/store-screenshots.ps1 -Full`): the same claim,
+  launch, paused check and quit as `in-game-check.ps1`; before the launch it sets the mod's settings file
+  (`FiscalOverhaul.coc` in the game's LocalLow folder: the chart, district recording and density taxes on, density
+  offsets from `-Offsets`, default three set) and puts the original back byte for byte after the game exits; it turns
+  every Budget row on (reading each check square off a full-scale capture, so a row already on isn't toggled off),
+  takes the seven shots, switches density taxes back off on the Options page, quits, then crops, scales and installs
+  them: the new files in `Screenshots/`, the `Screenshot` entries and README links renamed in place (the page order
+  kept), the old files of each base removed. All seven or nothing. Commit the result through a PR into `autodev`.
+- **Points it hasn't clicked before** (`-ListPoints`: source `derived`) each get a check shot in `-CheckDir`; a run
+  that misses one is redone with `-Point Name=x,y`, and the corrected value goes into `tools/game-run-common.ps1`.
+  `-FromDir <dir>` re-crops and installs captures already taken (`<base>.png` at 2560x1440) without the game.
+- **Discord's overlay** (its voice list at the window's left edge) shows in `04-options`, the one whole-window shot:
+  the script warns when Discord runs. Turn the overlay off, or retake that shot.
 
 ## Private test uploads
 

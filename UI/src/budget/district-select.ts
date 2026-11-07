@@ -44,7 +44,7 @@ function looksLikeId(text: string): boolean {
 
 /**
  * Every selector choice in cycle order: Entire City, each district (the binding's order, by name), Outside Districts.
- * No districts: only Entire City (the selector hides).
+ * No districts: only Entire City (the selector still shows, its arrows and list staying on Entire City).
  */
 export function districtOptions(districts: DistrictLike[], translate: Translate | null = null): DistrictOption[] {
   const city: DistrictOption = { key: CITY_KEY, label: localize(translate, "EntireCity") };
@@ -54,6 +54,15 @@ export function districtOptions(districts: DistrictLike[], translate: Translate 
     ...districts.map((d, i) => ({ key: d.key, label: districtLabel(d.name, i + 1, translate) })),
     { key: OUTSIDE_KEY, label: localize(translate, "OutsideDistricts") },
   ];
+}
+
+/**
+ * Whether the Budget tab shows the district selector: whenever district recording is on (the districtBudgetEnabled
+ * binding), whatever the districts are, so a city without districts still shows Entire City and the view can be found.
+ * Recording off is vanilla behaviour: no selector.
+ */
+export function showsDistrictSelector(recordingOn: boolean, options: { key: string }[]): boolean {
+  return recordingOn && options.length > 0;
 }
 
 /**

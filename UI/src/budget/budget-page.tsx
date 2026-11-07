@@ -2,7 +2,7 @@ import { useValue } from "cs2/api";
 import { economyBudget } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { districts$, history$, playSound, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
+import { districtBudgetEnabled$, districts$, history$, playSound, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
 import { SOUNDS, soundForPick } from "sounds";
 import {
   BALANCE,
@@ -23,7 +23,15 @@ import { ChartLine, LineChart } from "chart/line-chart";
 import { localizeVanilla, Translate } from "l10n";
 import { BudgetItemDetail, NumberField } from "vanilla";
 import styles from "./budget-page.module.scss";
-import { CITY_KEY, districtOptions, effectiveKey, isCityOnlyItem, isDistrictView, rowValue } from "./district-select";
+import {
+  CITY_KEY,
+  districtOptions,
+  effectiveKey,
+  isCityOnlyItem,
+  isDistrictView,
+  rowValue,
+  showsDistrictSelector,
+} from "./district-select";
 import { DistrictSelector } from "./district-selector";
 
 /**
@@ -38,9 +46,9 @@ let rememberedSpan = DEFAULT_SPAN_MONTHS;
 let rememberedDistrict = CITY_KEY;
 
 /**
- * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots, with the span stats
- * for the hovered row or line under them; the chart takes the rest, and the vanilla detail panel for a hovered item
- * row pops out over the chart's left edge, next to the rows.
+ * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots; the chart takes the
+ * rest, with the span stats (change, average) for the hovered row or line at its top left, and the vanilla detail
+ * panel for a hovered item row pops out over the chart's left edge, next to the rows.
  */
 export const BudgetPage = () => {
   const { translate } = useLocalization();
@@ -52,6 +60,7 @@ export const BudgetPage = () => {
   const totalExpenses = useValue(economyBudget.totalExpenses$);
   const history = useValue(history$);
   const districts = useValue(districts$);
+  const districtsOn = useValue(districtBudgetEnabled$);
 
   const [enabled, setEnabled] = useState(rememberedEnabled);
   const [span, setSpanState] = useState(rememberedSpan);
@@ -167,7 +176,7 @@ export const BudgetPage = () => {
 
   return (
     <div className={styles.budgetPage}>
-      {districtChoices.length > 1 && (
+      {showsDistrictSelector(districtsOn, districtChoices) && (
         <DistrictSelector
           options={districtChoices}
           selected={selectedDistrict}
@@ -188,13 +197,6 @@ export const BudgetPage = () => {
             {shownExpense.map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), expenseOf(i)))}
           </div>
           <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], shownTotalIncome + shownTotalExpenses, true)}</div>
-          {hoveredSeries && (
-            <SeriesStats
-              series={hoveredSeries}
-              negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"}
-              translate={translate}
-            />
-          )}
         </div>
 
         <div className={styles.chartColumn}>
@@ -215,6 +217,15 @@ export const BudgetPage = () => {
               highlightKey={hoverKey}
               onHoverLine={setLineHover}
               insetLeftRem={detail?.item ? POPOUT_INSET_REM : 0}
+              overlay={
+                hoveredSeries && (
+                  <SeriesStats
+                    series={hoveredSeries}
+                    negate={hoveredSeries.kind === "expense" || hoveredSeries.kind === "expense-total"}
+                    translate={translate}
+                  />
+                )
+              }
             />
           </div>
           {detail?.item && (
@@ -230,7 +241,7 @@ export const BudgetPage = () => {
   );
 };
 
-/** Now / average / low / high / change over the selected span (the points on the chart), per month. */
+/** Change and average over the selected span (the points on the chart), per month, side by side on one line. */
 const SeriesStats = ({ series, negate, translate }: { series: SeriesDef; negate: boolean; translate: Translate }) => {
   const stats = seriesStats(series.values, translate);
   if (stats.length === 0) return null;
@@ -238,9 +249,9 @@ const SeriesStats = ({ series, negate, translate }: { series: SeriesDef; negate:
   return (
     <div className={styles.stats}>
       {stats.map(([name, value]) => (
-        <div key={name} className={styles.statRow}>
-          <div>{name}</div>
-          <div>{formatMoney(sign * value)}</div>
+        <div key={name} className={styles.stat}>
+          <div className={styles.statName}>{name}</div>
+          <div className={styles.statValue}>{formatMoney(sign * value)}</div>
         </div>
       ))}
     </div>

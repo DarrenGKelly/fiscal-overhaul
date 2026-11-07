@@ -27,15 +27,14 @@ branch's `In-game`, `Expect` and `Risk` lines. Don't read docs beyond the sectio
 1. Verify the sha: `git fetch -q`, `git rev-parse origin/<branch>` against the plan's sha, in the worktree you were
    given (`git rev-parse HEAD`). A mismatch is a stop-and-report.
 2. Unit tests: `./tools/test.ps1`. Red is reported, and the in-game part still runs unless the build is broken.
-3. Deploy: `./tools/build.ps1` (no `-NoDeploy`). It refuses while the game runs (exit 2). Read its last line: the
-   deployed branch and commit must be the plan's.
-4. In game: follow [the in-game check](../../knowledge/testing.md#the-in-game-check) and its command sequence
-   ([on Windows without computer use](../../knowledge/testing.md#on-windows-without-computer-use)): launch, Resume in
-   the launcher, `wait-loaded`, open the panel, one screenshot per `In-game` step (`screenshot -Window -Scale 0.5`,
-   read with Read, convert pixels to screen coordinates as that section says), quit. Save the screenshots in your
-   scratchpad. Judge each against `Expect`: layout, data, overlaps, the game's look; one verdict line each. Read
-   each image once.
-5. Quit the game from its menu and confirm `./tools/check-batch-status.ps1` says `Game: not running` again.
+3. Deploy and run: `./tools/in-game-check.ps1 -Out <scratchpad>/igc` ([the in-game check](../../knowledge/testing.md#the-in-game-check)):
+   it refuses while the game runs (exit 2), deploys, launches, keeps the save paused, takes the fixed shots, and
+   always quits. Put the plan's `In-game` steps that the fixed shots don't cover in a `-Steps` file. Read
+   `manifest.md`: the deployed branch and commit must be the plan's.
+4. Judge each shot against `Expect`: layout, data, overlaps, the game's look; one verdict line each. Read each image
+   once. When the script fails, say where (the manifest), and do the rest by hand with the
+   [command sequence](../../knowledge/testing.md#on-windows-without-computer-use) (`./tools/build.ps1` first).
+5. Confirm `./tools/check-batch-status.ps1` says `Game: not running` again.
 
 Wait by completion notifications, not by watching: no `Monitor` on a command's output (every line wakes you), no sleep
 loops. Note each background command's task ID as you start it.

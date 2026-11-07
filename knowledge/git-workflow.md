@@ -132,6 +132,8 @@ When several branches are ready at once, test them **together**: one throwaway b
 
 - The policy lives in `.githooks/branch-policy.sh`, the doc checks in `doc-checks.sh`. After changing any hook, run
   `sh tools/test-git-hooks.sh`.
+- Hook entry points (`pre-commit`, `pre-merge-commit`, `pre-push`) must be committed `100755`: Linux and macOS skip a
+  non-executable hook with a hint. Set it with `git update-index --chmod=+x`; the test checks the index mode.
 - `core.hooksPath` is shared by every worktree; `tools/git-common.ps1` warns when it is unset or points elsewhere.
 - Overrides, only when the user asks: `ALLOW_MASTER_COMMIT=1`, `ALLOW_MASTER_PUSH=1`, `ALLOW_AUTODEV_REWRITE=1`,
   `ALLOW_DOC_ERRORS=1`. Branch names have no override: rename the branch.

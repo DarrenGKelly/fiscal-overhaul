@@ -4,7 +4,7 @@ A Cities: Skylines II mod that reworks the Economy panel: a line chart of your c
 the Budget tab's bar chart, for the whole city or any single district, and (as an optional beta feature) tax offsets
 by building density on the Taxation tab.
 
-![The Budget tab's line chart](Mod/Properties/Screenshots/01-budget-chart.png)
+![The Budget tab's line chart](Mod/Properties/Screenshots/01-budget-chart-v1-2-0.png)
 
 ## Features
 
@@ -22,9 +22,9 @@ by building density on the Taxation tab.
   line or row.
 - **The vanilla detail panel:** hovering a budget item row pops out the game's own breakdown of that item by source.
 
-![The tooltip and span stats](Mod/Properties/Screenshots/02-budget-tooltip.png)
+![The tooltip and span stats](Mod/Properties/Screenshots/02-budget-tooltip-v1-2-0.png)
 
-![Hovering a budget row shows the game's own detail panel for it](Mod/Properties/Screenshots/05-budget-vanilla-detail.png)
+![Hovering a budget row shows the game's own detail panel for it](Mod/Properties/Screenshots/05-budget-vanilla-detail-v1-2-0.png)
 
 ### Per-district budgets
 
@@ -37,9 +37,9 @@ by building density on the Taxation tab.
   service trade, subsidies) show under Entire City only.
 - **District history** is recorded from the first time the mod runs on a save, 32 times a month, and kept in the save.
 
-![One district's budget, picked with the selector above the chart](Mod/Properties/Screenshots/06-budget-district.png)
+![One district's budget, picked with the selector above the chart](Mod/Properties/Screenshots/06-budget-district-v1-2-0.png)
 
-![The district list: Entire City, each district, and Outside Districts](Mod/Properties/Screenshots/07-budget-district-list.png)
+![The district list: Entire City, each district, and Outside Districts](Mod/Properties/Screenshots/07-budget-district-list-v1-2-0.png)
 
 ### Taxation tab: tax offsets by density (BETA)
 
@@ -53,7 +53,7 @@ Fiscal Overhaul.
 - **Income only:** an offset changes the tax a building pays, not demand or happiness. The vanilla zone rates keep
   doing that job.
 
-![Density offsets on the Taxation tab, with density taxes enabled](Mod/Properties/Screenshots/03-taxation-density.png)
+![Density offsets on the Taxation tab, with density taxes enabled](Mod/Properties/Screenshots/03-taxation-density-v1-2-0.png)
 
 ## Options
 
@@ -66,7 +66,7 @@ The mod has its own page in the game's Options menu:
   was recorded is kept.
 - **Reset density tax offsets**: sets every density offset back to 0, after a confirmation.
 
-![The Options page: the budget chart, density taxes (BETA) and district recording switches](Mod/Properties/Screenshots/04-options.png)
+![The Options page: the budget chart, density taxes (BETA) and district recording switches](Mod/Properties/Screenshots/04-options-v1-2-0.png)
 
 ## Install
 

@@ -115,18 +115,34 @@ export function valueRange(series: { values: number[] }[]): [number, number] {
   return [min < 0 ? min - pad : 0, max + pad];
 }
 
-/** "Nice" round tick values covering [min, max], about `count` of them. */
-export function niceTicks(min: number, max: number, count = 5): number[] {
-  if (!(max > min) || count < 1) return [min];
+function niceStep(min: number, max: number, count: number): number {
   const rough = (max - min) / count;
   const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
   const residual = rough / magnitude;
-  const step = (residual > 5 ? 10 : residual > 2 ? 5 : residual > 1 ? 2 : 1) * magnitude;
+  return (residual > 5 ? 10 : residual > 2 ? 5 : residual > 1 ? 2 : 1) * magnitude;
+}
+
+/** "Nice" round tick values covering [min, max], about `count` of them. */
+export function niceTicks(min: number, max: number, count = 5): number[] {
+  if (!(max > min) || count < 1) return [min];
+  const step = niceStep(min, max, count);
   const ticks: number[] = [];
   for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9; v += step) {
     ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
   }
   return ticks;
+}
+
+/**
+ * Like niceTicks, but the range itself is extended to the tick step (max rounded up, a negative min
+ * rounded down) so the top tick is at or above the data's max and the bottom tick at or below its min.
+ */
+export function niceRange(min: number, max: number, count = 5): { min: number; max: number; ticks: number[] } {
+  if (!(max > min) || count < 1) return { min, max, ticks: [min] };
+  const step = niceStep(min, max, count);
+  const lo = min < 0 ? Math.floor(min / step + 1e-9) * step : min;
+  const hi = Math.ceil(max / step - 1e-9) * step;
+  return { min: lo, max: hi, ticks: niceTicks(lo, hi, count) };
 }
 
 /** Index of the point whose x is closest to `x` (xs ascending). -1 for an empty list. */
@@ -253,18 +269,16 @@ export function plotLeft(rem: number, labelWidth: number, gapRem: number, insetL
 }
 
 /**
- * The span stats under the rows, labelled: now, average, lowest, highest and change over the points given (the
- * selected span), per month. None for an empty series.
+ * The span stats drawn at the chart's top left for the hovered row or line, labelled: change, then average, over the
+ * points given (the selected span), per month. Now, low and high are left to the row's value and the line's tooltip.
+ * None for an empty series.
  */
 export function seriesStats(values: number[], translate: Translate | null): [string, number][] {
   const v = values;
   if (v.length === 0) return [];
   return [
-    [localizeVanilla(translate, "now"), v[v.length - 1]],
-    [localize(translate, "StatAverage"), v.reduce((a, b) => a + b, 0) / v.length],
-    [localize(translate, "StatLowest"), Math.min(...v)],
-    [localize(translate, "StatHighest"), Math.max(...v)],
     [localize(translate, "StatChange"), v[v.length - 1] - v[0]],
+    [localize(translate, "StatAverage"), v.reduce((a, b) => a + b, 0) / v.length],
   ];
 }
 

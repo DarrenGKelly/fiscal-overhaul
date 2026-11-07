@@ -14,6 +14,7 @@ import {
   itemValue,
   nearestIndex,
   nearestSeries,
+  niceRange,
   niceTicks,
   plotLeft,
   timeTicks,
@@ -292,14 +293,17 @@ describe("DEFAULT_SPAN_MONTHS", () => {
 });
 
 describe("seriesStats", () => {
-  it("labels now / average / lowest / highest / change over the span", () => {
+  it("shows exactly change then average over the span", () => {
     expect(seriesStats([10, 30, 20], null)).toEqual([
-      ["Now", 20],
-      ["Average", 20],
-      ["Lowest", 10],
-      ["Highest", 30],
       ["Change", 10],
+      ["Average", 20],
     ]);
+  });
+
+  it("drops now, lowest and highest", () => {
+    const labels = seriesStats([10, 30, 20], null).map(([l]) => l);
+    expect(labels).toHaveLength(2);
+    for (const gone of ["Now", "Lowest", "Highest"]) expect(labels).not.toContain(gone);
   });
 
   it("reads its labels through translate", () => {
@@ -336,5 +340,35 @@ describe("buildSeries with district history", () => {
   it("does not throw without nowIncome", () => {
     const { nowIncome, nowExpense, ...bare } = district;
     expect(() => buildSeries(bare, incomeItems, expenseItems)).not.toThrow();
+  });
+});
+
+describe("niceRange", () => {
+  it("ends on a tick at or above the data's peak", () => {
+    const [vMin, vMax] = valueRange([{ values: [0, 370e6] }]);
+    const old = niceTicks(vMin, vMax, 5);
+    expect(old[old.length - 1]).toBeLessThan(370e6); // the bug: ticks stopped short of the peak
+    const r = niceRange(vMin, vMax, 5);
+    expect(r.ticks[r.ticks.length - 1]).toBeGreaterThanOrEqual(370e6);
+    expect(r.max).toBe(r.ticks[r.ticks.length - 1]);
+  });
+
+  it("starts on a tick at or below a negative min", () => {
+    const [vMin, vMax] = valueRange([{ values: [-35, 100] }]);
+    const r = niceRange(vMin, vMax, 5);
+    expect(r.ticks[0]).toBeLessThanOrEqual(-35);
+    expect(r.min).toBe(r.ticks[0]);
+    expect(r.ticks[r.ticks.length - 1]).toBeGreaterThanOrEqual(100);
+  });
+
+  it("keeps about five ticks and a zero floor for positive data", () => {
+    const r = niceRange(0, 105, 5);
+    expect(r.min).toBe(0);
+    expect(r.ticks.length).toBeGreaterThanOrEqual(4);
+    expect(r.ticks.length).toBeLessThanOrEqual(8);
+  });
+
+  it("returns a single tick for an empty range", () => {
+    expect(niceRange(5, 5).ticks).toEqual([5]);
   });
 });

@@ -28,6 +28,9 @@ export interface DistrictChoice {
 /** The city's districts by name (not Entire City / Outside: the UI adds those). */
 export const districts$ = bindValue<DistrictChoice[]>(GROUP, "districts", []);
 
+/** Options > Record district budgets (with the chart on). Off: no district selector, vanilla Budget rows only. */
+export const districtBudgetEnabled$ = bindValue<boolean>(GROUP, "districtBudgetEnabled", false);
+
 /** "" = Entire City, "outside", or a district key from districts$. */
 export function setDistrict(key: string) {
   trigger(GROUP, "setDistrict", key);

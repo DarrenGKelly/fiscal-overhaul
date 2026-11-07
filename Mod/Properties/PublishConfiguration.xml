@@ -50,40 +50,32 @@ Bug reports and suggestions: [GitHub issues](https://github.com/DarrenGKelly/fis
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
 	<!--Screenshot, can be set multiple times (added with the screenshot files: Properties/Screenshots/*.png)-->
-	<Screenshot Value="Properties/Screenshots/01-budget-chart.png" />
-	<Screenshot Value="Properties/Screenshots/06-budget-district.png" />
-	<Screenshot Value="Properties/Screenshots/07-budget-district-list.png" />
-	<Screenshot Value="Properties/Screenshots/02-budget-tooltip.png" />
-	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail.png" />
-	<Screenshot Value="Properties/Screenshots/03-taxation-density.png" />
-	<Screenshot Value="Properties/Screenshots/04-options.png" />
+	<Screenshot Value="Properties/Screenshots/01-budget-chart-v1-2-0.png" />
+	<Screenshot Value="Properties/Screenshots/06-budget-district-v1-2-0.png" />
+	<Screenshot Value="Properties/Screenshots/07-budget-district-list-v1-2-0.png" />
+	<Screenshot Value="Properties/Screenshots/02-budget-tooltip-v1-2-0.png" />
+	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail-v1-2-0.png" />
+	<Screenshot Value="Properties/Screenshots/03-taxation-density-v1-2-0.png" />
+	<Screenshot Value="Properties/Screenshots/04-options-v1-2-0.png" />
 	<!--Tag, can be set multiple times. CS2's Paradox Mods tags: "Code Mod", "Map", "Savegame", "Prefab", plus asset tags-->
 	<Tag Value="Code Mod" />
 	<!--Link to the forum post where the mod can be discussed (optional; none yet)-->
 	<!--Version of the mod. Keep in step with UI/mod.json "version" and the newest CHANGELOG.md entry-->
-	<ModVersion Value="1.1.0" />
+	<ModVersion Value="1.2.0" />
 	<!--Recommended version of the base game to use the mod (at most 12 characters)-->
 	<GameVersion Value="1.6.*" />
 	<!--Dependency for the mod, can be set multiple times (none)-->
 	<!--Required DLC, can be set multiple times. Supported values are "Landmark Buildings", "San Fransisco Set", "Beach Properties", "Urban Promenades", "Modern Architecture" (none)-->
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset (as LongDescription)-->
 	<ChangeLog>
-### Added
-
-- **Per-district budget:** a selector at the top of the Budget tab shows the chart and the rows for the Entire City,
-  any one district, or Outside Districts (everything not in a district). Step through them with the arrows either
-  side, or click the name to pick from a list, which scrolls when a city has many districts.
-- District taxes are what that district's buildings pay, at the district's own rates, so district policies such as
-  Low Commercial Tax count. Service fees and upkeep are shared out by each district's use. City-wide items (loan
-  interest, map tile upkeep, trade, subsidies) show under Entire City only.
-- District history is recorded from the first time the mod runs on a save, and kept in the save. A save still loads
-  without the mod.
-- Click sounds on the Budget and Taxation tabs, matching the game's own panels.
-
 ### Changed
 
-- The Budget tab's padding matches the other Economy tabs, so the span stats under the rows no longer get cut off.
-- The selected district's name is the tab's header.
+- The district selector is always at the top of the Budget tab while district recording is on, also in a city
+  without districts (it then shows Entire City). Its name and arrows sit on a dark box, like the value fields.
+- The span stats are now Change and Average, on one line at the top left of the chart.
+- The chart's top gridline is always labelled and at or above every line's peak, and a negative balance gets a
+  labelled gridline at or below it.
+- New store page screenshots, with every budget line shown.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme"-->
 	<ExternalLink Type="github" Url="https://github.com/DarrenGKelly/fiscal-overhaul" />
