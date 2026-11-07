@@ -192,7 +192,8 @@ function Get-UncheckedRows([string]$Path, $Points) {
     finally { $bitmap.Dispose() }
 }
 
-# Crops a client screenshot to a box and scales it to Width x Height (high-quality bicubic), as a PNG.
+# Crops a client screenshot to a box and scales it to Width x Height (high-quality bicubic), as a 24-bit RGB PNG:
+# the captures are opaque, and the default 32-bit ARGB PNG of a game shot can pass Paradox Mods' 2.1 MB image limit.
 function Save-CroppedImage([string]$Source, [string]$Out, $Box, [int]$Width, [int]$Height) {
     Use-Drawing
     $bitmap = [System.Drawing.Bitmap]::FromFile($Source)
@@ -204,7 +205,7 @@ function Save-CroppedImage([string]$Source, [string]$Out, $Box, [int]$Width, [in
             $sourceRect = [System.Drawing.Rectangle]::new($Box.Left, $Box.Top, $Box.Right - $Box.Left, $Box.Bottom - $Box.Top)
         }
         else { $sourceRect = [System.Drawing.Rectangle]::new(0, 0, $bitmap.Width, $bitmap.Height) }
-        $image = [System.Drawing.Bitmap]::new($Width, $Height)
+        $image = [System.Drawing.Bitmap]::new($Width, $Height, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
         try {
             $g = [System.Drawing.Graphics]::FromImage($image)
             try {

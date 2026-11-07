@@ -80,6 +80,8 @@ $LongDescriptionPlaceholder = 'This is a long description'
 # large and useless to players. KEPT on purpose: the managed FiscalOverhaul.pdb (gives line numbers in players' error
 # logs) and FiscalOverhaul.mjs.LICENSE.txt (third-party licence notices the bundled UI must ship).
 $UploadExcludePatterns = @('*_x86_64.pdb')
+# Paradox Mods refuses a page image above 2.1 MB ("Image size should not exceed 2.1 MB"), after uploading the build.
+$MaxImageBytes = 2100000
 $ExternalLinkTypes = @('discord', 'github', 'youtube', 'twitch', 'x', 'paypal', 'patreon', 'buymeacoffee', 'kofi', 'crowdin', 'gitlab', 'gofundme')
 
 # The config's elements (comments skipped). ModPublisher reads Value="..." or, for multi-line fields, the text.
@@ -90,6 +92,14 @@ function Get-ElementValue($Element) {
     return $Element.InnerText.Trim()
 }
 function Get-ConfigValue($Elements, [string]$Name) { return Get-ElementValue ($Elements | Where-Object { $_.LocalName -eq $Name } | Select-Object -First 1) }
+
+# A page image Paradox Mods would refuse for its size.
+function Add-ImageSizeProblem($Problems, [string]$Root, [string]$Kind, [string]$Path) {
+    $bytes = (Get-Item -LiteralPath (Join-Path $Root "Mod\$Path")).Length
+    if ($bytes -gt $MaxImageBytes) {
+        $Problems.Add("$Kind '$Path' is $bytes bytes, over Paradox Mods' 2.1 MB image limit ($MaxImageBytes): save it smaller (a 24-bit RGB PNG, as tools/store-screenshots.ps1 writes; a new name if a released tag has this one); fix it on autodev and promote again (/promote).")
+    }
+}
 
 # Every reason the config at $Root can't be uploaded in $Mode, each naming its fix.
 function Get-PublishProblems([string]$Root, $Elements, [string]$Mode, [string]$Level) {
@@ -124,6 +134,7 @@ function Get-PublishProblems([string]$Root, $Elements, [string]$Mode, [string]$L
     $thumbnail = Get-ConfigValue $Elements 'Thumbnail'
     if (-not $thumbnail) { $problems.Add("Thumbnail is empty in $ConfigRelative`: ModPublisher would upload its default picture. Point it at Properties/Thumbnail.png.") }
     elseif (-not (Test-Path -LiteralPath (Join-Path $Root "Mod\$thumbnail") -PathType Leaf)) { $problems.Add("Thumbnail file '$thumbnail' doesn't exist (paths are relative to Mod/): add it or fix the path.") }
+    else { Add-ImageSizeProblem $problems $Root 'Thumbnail' $thumbnail }
     foreach ($element in $Elements) {
         $name = $element.LocalName
         $value = Get-ElementValue $element
@@ -131,6 +142,7 @@ function Get-PublishProblems([string]$Root, $Elements, [string]$Mode, [string]$L
             'Screenshot' {
                 if (-not $value) { $problems.Add("An empty <Screenshot Value=`"`" /> (a template placeholder) is in $ConfigRelative`: remove it or name a picture.") }
                 elseif (-not (Test-Path -LiteralPath (Join-Path $Root "Mod\$value") -PathType Leaf)) { $problems.Add("Screenshot file '$value' doesn't exist (paths are relative to Mod/): add it or fix the path.") }
+                else { Add-ImageSizeProblem $problems $Root 'Screenshot' $value }
             }
             'Tag' { if (-not $value) { $problems.Add("An empty <Tag Value=`"`" /> (a template placeholder) is in $ConfigRelative`: remove it or fill it in.") } }
             'Dependency' { if (-not $element.GetAttribute('Id').Trim()) { $problems.Add("An empty <Dependency Id=`"`" /> (a template placeholder) is in $ConfigRelative`: remove it.") } }

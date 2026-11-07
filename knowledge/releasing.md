@@ -54,7 +54,7 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
 - **The mode follows `ModId`.** Empty: `Publish` (a new mod). Set: `NewVersion`. `-Mode Update` changes the page only
   (descriptions, images, tags, access level): nothing is built or tagged.
 - **It refuses before uploading**, each refusal naming its fix: `ModVersion` other than `UI/mod.json`'s version; an
-  empty `ChangeLog` for `NewVersion` or `Update`; a missing `Thumbnail` or `Screenshot` file; a template leftover
+  empty `ChangeLog` for `NewVersion` or `Update`; a missing `Thumbnail` or `Screenshot` file; a `Thumbnail` or `Screenshot` over Paradox Mods' 2.1 MB image limit (2,100,000 bytes: Paradox refuses it only after the build is uploaded, "Image size should not exceed 2.1 MB"); a template leftover
   ("This is a long description", an empty `Tag`, `ExternalLink`, `Screenshot`, `Dependency` or `RequiredDLC`); an
   `AccessLevel` other than `Public`, `Private` or `Unlisted`; a `Screenshot` whose path is the one the last released
   `v*` tag has but whose bytes changed (it needs a new name: [Screenshots](#screenshots)); for a release, a
@@ -72,7 +72,7 @@ shots, by base name (the number is when a shot was added, not its place on the p
 `02-budget-tooltip`, `03-taxation-density`, `04-options`, `05-budget-vanilla-detail`, `06-budget-district`,
 `07-budget-district-list`.
 
-- **Spec.** 1920x1080 PNGs (about 1 MB each) from full-scale window captures at 2560x1440: an Economy panel shot is
+- **Spec.** 1920x1080 24-bit RGB PNGs (about 1.2 to 1.4 MB each; the captures are opaque, and the 32-bit ARGB a `System.Drawing` bitmap saves by default put some over the 2.1 MB limit) from full-scale window captures at 2560x1440: an Economy panel shot is
   cropped to the 16:9 box (285, 193)-(2275, 1312) around the panel and scaled, the Options page is scaled whole.
   Taken on a paused save that is never saved (Odiham: districts and a year of history); a feature switch turned on
   for a shot (density taxes) goes back as it was.
