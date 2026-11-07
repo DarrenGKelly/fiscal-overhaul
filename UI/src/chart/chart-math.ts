@@ -253,18 +253,16 @@ export function plotLeft(rem: number, labelWidth: number, gapRem: number, insetL
 }
 
 /**
- * The span stats under the rows, labelled: now, average, lowest, highest and change over the points given (the
- * selected span), per month. None for an empty series.
+ * The span stats drawn at the chart's top left for the hovered row or line, labelled: change, then average, over the
+ * points given (the selected span), per month. Now, low and high are left to the row's value and the line's tooltip.
+ * None for an empty series.
  */
 export function seriesStats(values: number[], translate: Translate | null): [string, number][] {
   const v = values;
   if (v.length === 0) return [];
   return [
-    [localizeVanilla(translate, "now"), v[v.length - 1]],
-    [localize(translate, "StatAverage"), v.reduce((a, b) => a + b, 0) / v.length],
-    [localize(translate, "StatLowest"), Math.min(...v)],
-    [localize(translate, "StatHighest"), Math.max(...v)],
     [localize(translate, "StatChange"), v[v.length - 1] - v[0]],
+    [localize(translate, "StatAverage"), v.reduce((a, b) => a + b, 0) / v.length],
   ];
 }
 
