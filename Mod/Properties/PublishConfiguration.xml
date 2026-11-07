@@ -46,6 +46,9 @@ This is a **beta feature, off by default**: enable it with **Enable density taxe
 
 ## Bugs and source
 Bug reports and suggestions: [GitHub issues](https://github.com/DarrenGKelly/fiscal-overhaul/issues). Source code (MIT): [github.com/DarrenGKelly/fiscal-overhaul](https://github.com/DarrenGKelly/fiscal-overhaul).
+
+## Support
+If you enjoy the mod and want to say thanks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/darrengkelly). Entirely optional: the mod is and stays free.
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
@@ -79,6 +82,7 @@ Bug reports and suggestions: [GitHub issues](https://github.com/DarrenGKelly/fis
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme"-->
 	<ExternalLink Type="github" Url="https://github.com/DarrenGKelly/fiscal-overhaul" />
+	<ExternalLink Type="kofi" Url="https://ko-fi.com/darrengkelly" />
 	<!--Supported values Public, Private, Unlisted-->
 	<AccessLevel Value="Public" />
 </Publish>
