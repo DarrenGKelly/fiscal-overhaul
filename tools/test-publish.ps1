@@ -327,6 +327,27 @@ try {
     $r = Invoke-Publish @('-DryRun')
     Check ($r.ExitCode -eq 0 -and $r.Output -notmatch 'changed since') 'the released name with its released bytes passes' $r.Output
 
+    Write-Host '--- a page image over the size limit ---'
+    $big = Join-Path $repo 'Mod\Properties\Screenshots\01-chart-v1-0-1.png'
+    [System.IO.File]::WriteAllBytes($big, [byte[]]::new(2100001))
+    Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- More'; Screenshot = 'Properties/Screenshots/01-chart-v1-0-1.png' } | Out-Null
+    $r = Invoke-Publish @('-DryRun')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match "Screenshot 'Properties/Screenshots/01-chart-v1-0-1\.png' is 2100001 bytes, over Paradox Mods' 2\.1 MB image limit") 'fail case: a screenshot over 2.1 MB is refused' $r.Output
+    $r = Invoke-Publish @('-Mode', 'Update')
+    Check ($r.ExitCode -eq 2 -and $r.Calls -notmatch 'publisher') '... a page Update too, before ModPublisher runs' $r.Output
+    [System.IO.File]::WriteAllBytes($big, [byte[]]::new(2100000))
+    Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- More'; Screenshot = 'Properties/Screenshots/01-chart-v1-0-1.png' } | Out-Null
+    $r = Invoke-Publish @('-DryRun')
+    Check ($r.ExitCode -eq 0 -and $r.Output -notmatch 'image limit') 'a screenshot at exactly the limit passes' $r.Output
+    $thumb = Join-Path $repo 'Mod\Properties\Thumbnail.png'
+    [System.IO.File]::WriteAllBytes($thumb, [byte[]]::new(2100001))
+    Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- More'; Screenshot = 'Properties/Screenshots/01-chart-v1-0-1.png' } | Out-Null
+    $r = Invoke-Publish @('-DryRun')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match "Thumbnail 'Properties/Thumbnail\.png' is 2100001 bytes") 'fail case: a thumbnail over 2.1 MB is refused' $r.Output
+    Write-File $thumb 'png'
+    Write-File $big 'png, retaken'
+    Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- More' } | Out-Null
+
     Write-Host '--- failures tag nothing ---'
     Set-Release @{ ModId = '4242'; Version = '1.0.2'; ChangeLog = '- More' } | Out-Null
     $r = Invoke-Publish @() -PublishExit 1

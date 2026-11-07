@@ -123,7 +123,7 @@ function New-Png([string]$Path, [int]$W, [int]$H, [scriptblock]$Paint = $null) {
 }
 function Get-ImageInfo([string]$Path) {
     $b = [System.Drawing.Bitmap]::FromFile($Path)
-    try { return [pscustomobject]@{ Width = $b.Width; Height = $b.Height; Bitmap = $null; Centre = $b.GetPixel([int]($b.Width / 2), [int]($b.Height / 2)); Corner = $b.GetPixel(10, 10) } }
+    try { return [pscustomobject]@{ Width = $b.Width; Height = $b.Height; Format = $b.PixelFormat; Bitmap = $null; Centre = $b.GetPixel([int]($b.Width / 2), [int]($b.Height / 2)); Corner = $b.GetPixel(10, 10) } }
     finally { $b.Dispose() }
 }
 
@@ -205,6 +205,8 @@ try {
     Save-CroppedImage $raw $cropped $StoreCropBox $StoreImageWidth $StoreImageHeight
     $info = Get-ImageInfo $cropped
     Check ($info.Width -eq 1920 -and $info.Height -eq 1080) 'a panel shot comes out 1920x1080'
+    Check ($info.Format -eq [System.Drawing.Imaging.PixelFormat]::Format24bppRgb) '... as a 24-bit RGB PNG (under the 2.1 MB page-image limit)' "$($info.Format)"
+    Check ($info.Format -ne [System.Drawing.Imaging.PixelFormat]::Format32bppArgb) 'fail case: not the default 32-bit ARGB, a third bigger for an opaque shot' "$($info.Format)"
     Check ($info.Centre.R -gt 200 -and $info.Centre.G -lt 60) '... centred on the box''s centre (the red block)'
     Check ($info.Corner.R -lt 60) 'fail case: what lies outside the box (the white corner) is cut off'
     $whole = Join-Path $root 'crop\options.png'
