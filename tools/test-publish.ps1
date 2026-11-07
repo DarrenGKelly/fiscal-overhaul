@@ -11,7 +11,7 @@
     or at a copy of ping.exe renamed fo-fake-game, so a real running game changes nothing.
     What must hold, each with a pass and a fail case: every refusal (the game running, no ModPublisher, an unknown ref,
     the mode against ModId, the version against UI/mod.json and the csproj, the ChangeLog, the Thumbnail and
-    Screenshots, template placeholders, AccessLevel, an existing v<version> tag); the dry run builds but never uploads
+    Screenshots, a Screenshot changed under the name the last v* tag released, template placeholders, AccessLevel, an existing v<version> tag); the dry run builds but never uploads
     or tags; the mode follows ModId; a private test (-AccessLevel Private) uploads <version>-test.<n> and Private from a
     copy, never the tracked config, tags nothing and ignores the release tag, but is refused once the mod has had a
     release; the public release after it is a NewVersion of the plain version with AccessLevel Public; a successful
@@ -309,6 +309,23 @@ try {
     Check ($r.Calls -notmatch '(?m)^(dotnet|npm) ') '... without building' $r.Calls
     Check ((Git $repo @('tag', '--list')).Trim() -eq 'v1.0.0') '... and tags nothing' (Git $repo @('tag', '--list'))
     Check ($r.Seen -match 'AccessLevel Value="Public"') 'without -AccessLevel the config''s own level is used' $r.Seen
+
+    Write-Host '--- a screenshot changed under its released name ---'
+    $shot = Join-Path $repo 'Mod\Properties\Screenshots\01-chart.png'
+    Write-File $shot 'png, retaken'
+    Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- More' } | Out-Null
+    $r = Invoke-Publish @('-DryRun')
+    Check ($r.ExitCode -eq 2 -and $r.Output -match "Screenshot 'Properties/Screenshots/01-chart\.png' changed since v1\.0\.0 under the same name") 'fail case: a screenshot whose bytes changed under the name v1.0.0 released is refused' $r.Output
+    $r = Invoke-Publish @('-Mode', 'Update')
+    Check ($r.ExitCode -eq 2 -and $r.Calls -notmatch 'publisher' -and $r.Output -match 'changed since v1\.0\.0') '... a page Update too, before ModPublisher runs' $r.Output
+    Write-File $shot 'png'
+    Write-File (Join-Path $repo 'Mod\Properties\Screenshots\01-chart-v1-0-1.png') 'png, retaken'
+    Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- More'; Screenshot = 'Properties/Screenshots/01-chart-v1-0-1.png' } | Out-Null
+    $r = Invoke-Publish @('-DryRun')
+    Check ($r.ExitCode -eq 0 -and $r.Output -notmatch 'changed since') 'the retaken picture under a new name passes' $r.Output
+    Set-Release @{ ModId = '4242'; Version = '1.0.1'; ChangeLog = '- More' } | Out-Null
+    $r = Invoke-Publish @('-DryRun')
+    Check ($r.ExitCode -eq 0 -and $r.Output -notmatch 'changed since') 'the released name with its released bytes passes' $r.Output
 
     Write-Host '--- failures tag nothing ---'
     Set-Release @{ ModId = '4242'; Version = '1.0.2'; ChangeLog = '- More' } | Out-Null
