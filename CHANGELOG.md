@@ -7,6 +7,17 @@ The version lives in `UI/mod.json` and `Mod/Properties/PublishConfiguration.xml`
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-06
+
+### Changed
+
+- The district selector is always at the top of the Budget tab while district recording is on, also in a city
+  without districts (it then shows Entire City). Its name and arrows sit on a dark box, like the value fields.
+- The span stats are now Change and Average, on one line at the top left of the chart.
+- The chart's top gridline is always labelled and at or above every line's peak, and a negative balance gets a
+  labelled gridline at or below it.
+- New store page screenshots, with every budget line shown.
+
 ## [1.1.0] - 2026-11-06
 
 ### Added
@@ -46,6 +57,7 @@ First public release, for Cities: Skylines II 1.6.x.
 - **Options:** Enable budget chart (on by default) and Enable density taxes (BETA, off by default); turning one off restores
   the vanilla tab, and Reset density tax offsets.
 
-[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/DarrenGKelly/fiscal-overhaul/releases/tag/v1.0.0
