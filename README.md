@@ -115,6 +115,11 @@ Please open an issue on [GitHub](https://github.com/DarrenGKelly/fiscal-overhaul
 game version, the mod's version, your other code mods, and the mod's log (`Logs/FiscalOverhaul.Mod.log` in the game's
 user data folder, `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`).
 
+## Support
+
+If you enjoy the mod and want to say thanks, you can
+[buy me a coffee on Ko-fi](https://ko-fi.com/darrengkelly). Entirely optional: the mod is and stays free.
+
 ## Building from source
 
 You need Cities: Skylines II with its modding toolchain installed (Options > Modding in the game), the .NET SDK and
