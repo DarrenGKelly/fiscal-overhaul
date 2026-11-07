@@ -292,14 +292,17 @@ describe("DEFAULT_SPAN_MONTHS", () => {
 });
 
 describe("seriesStats", () => {
-  it("labels now / average / lowest / highest / change over the span", () => {
+  it("shows exactly change then average over the span", () => {
     expect(seriesStats([10, 30, 20], null)).toEqual([
-      ["Now", 20],
-      ["Average", 20],
-      ["Lowest", 10],
-      ["Highest", 30],
       ["Change", 10],
+      ["Average", 20],
     ]);
+  });
+
+  it("drops now, lowest and highest", () => {
+    const labels = seriesStats([10, 30, 20], null).map(([l]) => l);
+    expect(labels).toHaveLength(2);
+    for (const gone of ["Now", "Lowest", "Highest"]) expect(labels).not.toContain(gone);
   });
 
   it("reads its labels through translate", () => {

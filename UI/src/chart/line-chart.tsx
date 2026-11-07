@@ -1,5 +1,5 @@
 import { useLocalization } from "cs2/l10n";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { localize } from "l10n";
 import {
   formatMoney,
@@ -33,7 +33,12 @@ interface Props {
   onHoverLine: (key: string | null) => void;
   /** Extra left margin in rem, e.g. room for a panel laid over the chart's left side; the plot starts after it. */
   insetLeftRem?: number;
+  /** Drawn at the plot's top left, just right of the y labels (and of any inset), e.g. the hovered series' stats. */
+  overlay?: ReactNode;
 }
+
+/** Gap between the plot's top-left corner and the overlay. */
+const OVERLAY_GAP_REM = 8;
 
 // Base sizes in rem. CS2 lays its UI out for 4K, so 1rem is about 0.67 px at 1440p; canvas pixels must be scaled by it.
 const PAD_REM = { right: 24, top: 16, bottom: 36 };
@@ -66,7 +71,7 @@ function scalePad(rem: number, labelWidth: number, insetLeftRem = 0) {
 }
 
 /** Drawn on a canvas: the game's UI (Coherent Gameface) supports 2D canvas well; inline SVG it does not. */
-export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLeftRem = 0 }: Props) => {
+export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLeftRem = 0, overlay }: Props) => {
   const { translate } = useLocalization();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -246,6 +251,15 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
       <canvas ref={canvasRef} className={styles.canvas} />
       <div ref={probeRef} className={styles.remProbe} />
       {lines.length === 0 && <div className={styles.empty}>{localize(translate, "ChartEmpty")}</div>}
+      {overlay && (
+        <div
+          className={styles.overlay}
+          style={{ left: `${geometry.PAD.left + OVERLAY_GAP_REM * size.rem}px`, top: `${geometry.PAD.top}px` }}
+        >
+          {overlay}
+        </div>
+      )}
+      {/* After the overlay, so a tooltip near the top left draws over it, never under it. */}
       {hover && hoverLine && hoverValue !== undefined && (
         <div className={styles.tooltip} style={{ left: `${tooltipLeft}px`, top: `${Math.max(0, hover.y - 30)}px` }}>
           <div className={styles.tooltipTitle}>

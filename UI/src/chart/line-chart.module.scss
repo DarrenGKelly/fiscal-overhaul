@@ -24,6 +24,13 @@
   font-size: 14rem;
 }
 
+// The overlay slot at the plot's top left (left/top set inline from the plot's padding). It never takes the hover.
+.overlay {
+  position: absolute;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .tooltip {
   position: absolute;
   min-width: 140rem;

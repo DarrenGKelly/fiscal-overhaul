@@ -91,21 +91,24 @@ first save with the mod), not with the city.
 
 ### Bindings
 
-`BudgetHistoryUISystem` publishes `districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while
-recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
+`BudgetHistoryUISystem` publishes `districtBudgetEnabled` (recording on: `FeatureGates.RecordsDistrictBudget`) and
+`districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
 unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and `nowIncome[14]` /
 `nowExpense[15]` (a district's live values, expenses positive; `null` for Entire City: every view writes the same
 properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0.
 
 ### District selector
 
-`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, styled like the span buttons, the name
-the tab's header (bold 24rem, above the rows' bold 18rem titles; scoped under `.district-selector` so the later
+`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, span buttons on the rows' value-field box
+(vanilla `NumberField`'s secondary background, `rgba(6,10,16,.7)` with 8rem corners: `$value-field-bg`), so the name
+and both arrows read as controls; the name is the tab's header (bold 24rem, above the rows' bold 18rem titles; scoped under `.district-selector` so the later
 `.span-button` rule doesn't shrink it). The arrows are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the
 left one (the font has no arrows). They cycle Entire City → each district (by name) → Outside Districts → Entire
 City, wrapping both ways; the name opens a list of every choice, with a divider line between the three groups (Entire
 City | the districts | Outside Districts; `dividerBefore`). The list's items sit in vanilla's `Scrollable`, capped at
-520rem, so a long list gets the game's scroll bar instead of running past the panel. It hides while `districts` is empty (recording off, or a city without districts), and a choice no
+520rem, so a long list gets the game's scroll bar instead of running past the panel. It shows whenever recording is on (`districtBudgetEnabled`, `showsDistrictSelector`), even in a city without
+districts, so the per-district view can be found: then Entire City is the only choice and the arrows and the list
+stay on it. With **Record district budgets** off it hides (vanilla behaviour). A choice no
 longer offered falls back to Entire City (`effectiveKey`). The choice persists for the session (module-level, like
 the span) and is sent on mount and on change.
 
@@ -120,10 +123,10 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
 
 ## UI
 
-- **Left column**: the filter rows, then the span stats for the hovered row or line (the column scrolls when they
-  don't fit). There is no right-hand column, so the chart takes the rest of the width.
+- **Left column**: just the filter rows (the column scrolls when they don't fit). There is no right-hand column, so
+  the chart takes the rest of the width.
 - **Spacing**: the page adds no side padding of its own (the economy panel's 32rem is the margin, as on the other
-  Economy tabs), and rows, sections and the stats are kept tight so the span stats fit under the rows.
+  Economy tabs), and rows and sections are kept tight.
 - **Sounds**: every click that changes something plays a vanilla UI sound (`UI/src/sounds.ts`): a row toggles its line
   (`select-toggle`), a new span (`select-item`, none for the current one), the arrows (`select-previous-item` /
   `select-next-item`), opening the list (`select-dropdown`), a pick from it (`select-item`).
@@ -148,14 +151,18 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
   unreadable; scaled by the root font size, the chart drew off-canvas.
 - **Detail pop-out**: hovering an item row floats the vanilla `BudgetItemDetail` (breakdown by source) over the
   chart's left edge, next to the rows, with `pointer-events: none`. A line hover has no pop-out (its tooltip is
-  enough). Totals have no vanilla detail. The span stats (now / average / low / high / change over the selected span, per month; no title) sit under the
-  rows in two columns, so they fit without scrolling. The pop-out always runs the chart panel's full height
+  enough). Totals have no vanilla detail. The pop-out always runs the chart panel's full height
   (`top` and `bottom` both set: a percentage `max-height` alone didn't constrain it in Gameface, and it ran below the
   panel), and while it shows, the plot starts after it (`LineChart insetLeftRem`): the y axis moves right and the x
   axis shrinks, so nothing is covered.
+- **Span stats**: for the hovered row or line, **Change** and **Average** over the selected span, per month
+  (`seriesStats`; no title), side by side on one dark box at the plot's top left: `LineChart`'s `overlay` slot, placed
+  at the plot's left padding (after the y labels and any pop-out inset) and top padding, so it clears the y labels, the
+  span buttons (above the chart area) and the pop-out. It takes no pointer events, and a line's tooltip draws over it.
+  Now, Low and High are gone: Now is the row's value, the rest the line and its tooltip.
 
 ## Tests
 
 `Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting; `UI/src/budget/district-select.test.ts` the selector's
-options, cycling, names, city-only rows and row values.
+options, when it shows, cycling, names, city-only rows and row values.

@@ -1,5 +1,9 @@
 $panel-bg: rgba(24, 33, 51, 0.6);
 $row-hover: rgba(255, 255, 255, 0.08);
+// The rows' value fields: vanilla NumberField (economy-panel money-field.module.scss .money-field.secondary, the
+// header rows' importance), with its 8rem corners. The district selector's name and arrows sit on it too.
+$value-field-bg: rgba(6, 10, 16, 0.7);
+$value-field-radius: 8rem;
 
 .budget-page {
   display: flex;
@@ -7,7 +11,7 @@ $row-hover: rgba(255, 255, 255, 0.08);
   width: 100%;
   height: 100%;
   // No side padding of our own: the economy panel's 32rem (vanilla .economy-panel) is the margin, as on the other
-  // Economy tabs. A small bottom gap only, so the rows and their span stats fit.
+  // Economy tabs. A small bottom gap only, so the rows fit.
   padding: 0 0 6rem 0;
 }
 
@@ -19,7 +23,8 @@ $row-hover: rgba(255, 255, 255, 0.08);
   min-height: 0;
 }
 
-// District selector: `< name >` centred above both columns, styled like the span buttons; the name opens a list.
+// District selector: `< name >` centred above both columns; the name opens a list. The name and the arrows are span
+// buttons on the value fields' dark box, so they read as controls.
 .district-bar {
   display: flex;
   flex-direction: row;
@@ -45,6 +50,20 @@ $row-hover: rgba(255, 255, 255, 0.08);
   font-size: 24rem;
   font-weight: bold;
   color: white;
+  background-color: $value-field-bg;
+  border-radius: $value-field-radius;
+}
+
+// The arrows' buttons: scoped like .district-name, to outrank .span-button's faint background.
+.district-selector .district-arrow-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  background-color: $value-field-bg;
+  border-radius: $value-field-radius;
 }
 
 .district-arrow {
@@ -213,25 +232,36 @@ $row-hover: rgba(255, 255, 255, 0.08);
   border-radius: 6rem;
 }
 
+// The span stats in the chart's top-left overlay (LineChart's overlay slot): change and average on one line, on the
+// pop-out's dark box so they stay readable over the grid and the lines.
 .stats {
-  margin-top: 2rem;
-  flex: 0 0 auto;
-  background-color: $panel-bg;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 4rem 10rem;
   border-radius: 4rem;
-  padding: 6rem 12rem;
+  background-color: rgba(14, 20, 32, 0.85);
   font-size: 13rem;
   color: rgba(255, 255, 255, 0.85);
-  // Two columns, so the five stats take three rows and fit under the filter rows.
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
 }
 
-.stat-row {
+.stat {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
-  width: 50%;
-  box-sizing: border-box;
-  padding: 2rem 8rem;
+  align-items: center;
+  margin-right: 18rem;
+
+  &:last-child {
+    margin-right: 0;
+  }
+}
+
+.stat-name {
+  margin-right: 6rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stat-value {
+  font-weight: bold;
+  color: white;
 }

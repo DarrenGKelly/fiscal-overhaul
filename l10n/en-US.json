@@ -14,8 +14,6 @@
   "FiscalOverhaul.Options.Warning.ResetDensityTaxes": "Reset all density tax offsets to 0?",
 
   "FiscalOverhaul.UI.StatAverage": "Average",
-  "FiscalOverhaul.UI.StatLowest": "Lowest",
-  "FiscalOverhaul.UI.StatHighest": "Highest",
   "FiscalOverhaul.UI.StatChange": "Change",
   "FiscalOverhaul.UI.SpanMonths": "{COUNT}M",
   "FiscalOverhaul.UI.SpanYears": "{COUNT}Y",
