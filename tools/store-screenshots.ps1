@@ -66,6 +66,7 @@
     game closed; 2 = refused (the game in use, bad arguments); 3 = the game still runs after the run.
     Tests: ./tools/test-store-screenshots.ps1
 #>
+#Requires -Version 7.0
 param(
     [string]$CheckDir,
     [switch]$SkipDeploy,
@@ -139,13 +140,12 @@ function Install-StoreSet {
         $base = Get-StoreBase $file.Name
         if ($newNames.ContainsKey($base) -and $file.Name -ne $newNames[$base]) { Remove-Item -LiteralPath $file.FullName; $removed += $file.Name }
     }
-    $utf8 = New-Object System.Text.UTF8Encoding($false)
     $newConfig = Update-StoreConfigText $configText $newNames
-    [IO.File]::WriteAllText($configPath, $newConfig, $utf8)
+    Write-TextKeepingBom $configPath $newConfig
     $listed = @([regex]::Matches($newConfig, '<Screenshot\s+Value="Properties/Screenshots/([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
     $unlisted = @($StoreShotSet | Where-Object { $listed -notcontains $newNames[$_.Base] } | ForEach-Object { $newNames[$_.Base] })
     if (Test-Path -LiteralPath $readmePath) {
-        [IO.File]::WriteAllText($readmePath, (Update-StoreReadmeText ([IO.File]::ReadAllText($readmePath)) $newNames), $utf8)
+        Write-TextKeepingBom $readmePath (Update-StoreReadmeText ([IO.File]::ReadAllText($readmePath)) $newNames)
     }
     Write-Store "installed $($StoreShotSet.Count) screenshots in $shotsDir; removed $(if ($removed) { $removed -join ', ' } else { 'nothing' })." 'Green'
     if ($unlisted) { Write-Store "not listed in PublishConfiguration.xml (add a <Screenshot> for each where the page should show it): $($unlisted -join ', ')" 'Yellow' }

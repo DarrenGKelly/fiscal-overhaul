@@ -14,6 +14,7 @@
     launched and says "Game: not running".
         ./tools/test-in-game-check.ps1     (exit 0 = all passed)
 #>
+#Requires -Version 7.0
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'git-common.ps1')
 . (Join-Path $PSScriptRoot 'game-run-common.ps1')
@@ -38,7 +39,8 @@ $shell = (Get-Process -Id $PID).Path
 $fakeName = "fo-fake-game-$id"
 $fakeExe = Join-Path $root "$fakeName.exe"
 $savedNames = 'FO_GAME_CONTROL', 'FO_GAME_LAUNCH', 'FO_GAME_LAUNCH_ARGS', 'FO_GAME_PROCESS_NAME', 'FO_GAME_DATA_DIR', 'FO_STUB_LOG',
-    'FO_STUB_FAIL_AT', 'FO_STUB_UNPAUSED', 'FO_STUB_ROWS_OFF', 'FO_STUB_EXIT_KILLS'
+    'FO_STUB_FAIL_AT', 'FO_STUB_UNPAUSED', 'FO_STUB_ROWS_OFF', 'FO_STUB_EXIT_KILLS', 'FO_STUB_RESUME_AFTER', 'FO_STUB_GAME_EXE',
+    'FO_GAME_LAUNCH_VIA_LAUNCHER'
 
 $Stub = @'
 param([Parameter(Position = 0)][string]$Command, [Parameter(Position = 1)][string]$Name, [string]$Out, [double]$Scale = 1,
@@ -52,7 +54,7 @@ if ($Out) { $line += " $([IO.Path]::GetFileName($Out)) scale $Scale" }
 Add-Content -LiteralPath $env:FO_STUB_LOG -Value $line
 if ($env:FO_STUB_FAIL_AT -and $line -like $env:FO_STUB_FAIL_AT) { [Console]::Error.WriteLine("stub: failing '$line'"); exit 1 }
 switch ($Command) {
-    'window' { 'client: 100,50,2560,1440' }
+    'window' { if ($Title) { 'client: 200,100,1282,677' } else { 'client: 100,50,2560,1440' } }
     'screenshot' {
         Add-Type -AssemblyName System.Drawing
         $s = $Scale
@@ -69,6 +71,12 @@ switch ($Command) {
         "screenshot: $Out"
     }
     'click' {
+        if ($X -eq 860 -and $Y -eq 346) {
+            # The launcher's Resume: the "game" starts on the FO_STUB_RESUME_AFTER-th click (default the first).
+            $resumes = @(Get-Content -LiteralPath $env:FO_STUB_LOG | Where-Object { $_ -eq 'click 860,346' }).Count
+            $after = if ($env:FO_STUB_RESUME_AFTER) { [int]$env:FO_STUB_RESUME_AFTER } else { 1 }
+            if ($resumes -eq $after) { Start-Process -FilePath $env:FO_STUB_GAME_EXE -ArgumentList '-n', '600', '127.0.0.1' -WindowStyle Hidden }
+        }
         if ($env:FO_STUB_EXIT_KILLS -and $X -eq 1378 -and $Y -eq 850) { Get-Process -Name $env:FO_GAME_PROCESS_NAME -ErrorAction SilentlyContinue | Stop-Process -Force }
         "click: $X,$Y"
     }
@@ -79,7 +87,13 @@ switch ($Command) {
             if (Get-Process -Name $env:FO_GAME_PROCESS_NAME -ErrorAction SilentlyContinue) { [Console]::Error.WriteLine('stub: still running'); exit 1 }
             'wait-process: gone'
         }
-        else { 'wait-process: up' }
+        elseif ($Title) { 'wait-process: launcher up' }
+        else {
+            $clock = [Diagnostics.Stopwatch]::StartNew()
+            while (-not (Get-Process -Name $env:FO_GAME_PROCESS_NAME -ErrorAction SilentlyContinue) -and $clock.Elapsed.TotalSeconds -lt [Math]::Min($Timeout, 4)) { Start-Sleep -Milliseconds 200 }
+            if (-not (Get-Process -Name $env:FO_GAME_PROCESS_NAME -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine('stub: no game window'); exit 1 }
+            'wait-process: up'
+        }
     }
     default { "$Command ok" }
 }
@@ -93,7 +107,7 @@ function New-Bitmap([int]$W, [int]$H, [System.Drawing.Color]$Fill) {
 
 function Invoke-Check([string[]]$Arguments, [hashtable]$Env = @{}) {
     Set-Content -LiteralPath $log -Value $null
-    foreach ($name in 'FO_STUB_FAIL_AT', 'FO_STUB_UNPAUSED', 'FO_STUB_ROWS_OFF', 'FO_STUB_EXIT_KILLS') { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
+    foreach ($name in 'FO_STUB_FAIL_AT', 'FO_STUB_UNPAUSED', 'FO_STUB_ROWS_OFF', 'FO_STUB_EXIT_KILLS', 'FO_STUB_RESUME_AFTER', 'FO_GAME_LAUNCH_VIA_LAUNCHER') { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
     foreach ($key in $Env.Keys) { Set-Item "Env:$key" $Env[$key] }
     $global:LASTEXITCODE = 0
     $ErrorActionPreference = 'Continue'
@@ -115,6 +129,12 @@ try {
     Check ($GameRunPoints.ChartPoint.X -eq 2045) '... on a copy: the table itself is unchanged'
     Check (Throws { Merge-GameRunPoints @('ChartPoint=1700') } "isn't Name=x,y") 'fail case: a malformed -Point is refused'
     Check (Throws { Merge-GameRunPoints @('Nowhere=1,2') } "no point named 'Nowhere'") 'fail case: an unknown point name is refused'
+    $small = Get-ScaledScreenPoint ([pscustomobject]@{ X = 200; Y = 100; Width = 1282; Height = 677 }) $GameRunPoints.LauncherResume
+    Check ($small.X -eq 860 -and $small.Y -eq 346) 'LauncherResume at the launcher size it was measured at (1282x677): 660,246 from its origin' "$($small.X),$($small.Y)"
+    $big = Get-ScaledScreenPoint ([pscustomobject]@{ X = 0; Y = 0; Width = 1923; Height = 1016 }) $GameRunPoints.LauncherResume
+    Check ($big.X -eq 990 -and $big.Y -eq 369) '... scaled for a 1.5x launcher (1923x1016): 990,369, near the 994,368 an earlier run clicked' "$($big.X),$($big.Y)"
+    $fixed = Get-ScaledScreenPoint ([pscustomobject]@{ X = 0; Y = 0; Width = 1923; Height = 1016 }) (Merge-GameRunPoints @('LauncherResume=700,300')).LauncherResume
+    Check ($fixed.X -eq 700 -and $fixed.Y -eq 300) 'fail case: a -Point override is this launcher''s own offset, not scaled again' "$($fixed.X),$($fixed.Y)"
     $s = ConvertTo-ScreenPoint ([pscustomobject]@{ X = 100; Y = 50 }) 1950 1406
     Check ($s.X -eq 2050 -and $s.Y -eq 1456) 'screen = client origin + offset'
     $client = ConvertFrom-WindowOutput "window: 'Cities: Skylines II'`nrect:   0,0,2576,1479`nclient: 8,31,2560,1440`nfront:  True"
@@ -160,6 +180,7 @@ try {
     $env:FO_GAME_PROCESS_NAME = $fakeName
     $env:FO_GAME_LAUNCH = $fakeExe
     $env:FO_GAME_LAUNCH_ARGS = '-n 600 127.0.0.1'
+    $env:FO_STUB_GAME_EXE = $fakeExe
     $env:FO_GAME_DATA_DIR = Join-Path $root 'game-data'
     $out = Join-Path $root 'out'
 
@@ -210,6 +231,22 @@ try {
     $spaces = @($r.Calls -split "`n" | Where-Object { $_ -eq 'key Space' }).Count
     Check ($r.ExitCode -eq 1 -and $spaces -eq 1 -and $r.Output -match "isn't paused after one Space") 'fail case: still running after one Space is red, without a second Space' "$spaces Space(s)`n$($r.Output)"
     Check (-not (Test-FakeRunning) -and $r.Output -match 'Game: not running') '... and the launched game is still stopped' $r.Output
+
+    Write-Host '--- the launcher ---'
+    # The "Steam launch" is a no-op process; the stub's launcher is 1282x677 at 200,100 and the game starts on Resume.
+    $viaLauncher = @{ FO_GAME_LAUNCH = (Join-Path $env:SystemRoot 'System32\PING.EXE'); FO_GAME_LAUNCH_ARGS = '-n 1 127.0.0.1'; FO_GAME_LAUNCH_VIA_LAUNCHER = '1'; FO_STUB_EXIT_KILLS = '1' }
+    $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) $viaLauncher
+    $resumes = @($r.Calls -split "`n" | Where-Object { $_ -eq 'click 860,346' }).Count
+    Check ($r.ExitCode -eq 0 -and $resumes -eq 1 -and (Test-Path -LiteralPath (Join-Path $out 'launcher.png'))) 'Resume is clicked once, at the point scaled to the launcher (1282x677 at 200,100: 860,346)' "$resumes Resume click(s)`n$($r.Output)"
+    $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) ($viaLauncher + @{ FO_STUB_RESUME_AFTER = '2' })
+    $resumes = @($r.Calls -split "`n" | Where-Object { $_ -eq 'click 860,346' }).Count
+    Check ($r.ExitCode -eq 0 -and $resumes -eq 2 -and $r.Output -match 'clicking it again' -and (Test-Path -LiteralPath (Join-Path $out 'launcher-2.png'))) 'no game after Resume: it clicks Resume once more, then goes on' "$resumes Resume click(s)`n$($r.Output)"
+    $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) ($viaLauncher + @{ FO_STUB_RESUME_AFTER = '3' })
+    $resumes = @($r.Calls -split "`n" | Where-Object { $_ -eq 'click 860,346' }).Count
+    Check ($r.ExitCode -eq 1 -and $resumes -eq 2 -and $r.Output -match "didn't come after two clicks on Resume" -and $r.Output -match 'Game: not running') 'fail case: still no game after the second click: red, two clicks and no more' "$resumes Resume click(s)`n$($r.Output)"
+    $env:FO_GAME_LAUNCH = $fakeExe
+    $env:FO_GAME_LAUNCH_ARGS = '-n 600 127.0.0.1'
+    Remove-Item Env:FO_GAME_LAUNCH_VIA_LAUNCHER -ErrorAction SilentlyContinue
 
     Write-Host '--- a red run ---'
     $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) @{ FO_STUB_FAIL_AT = 'click 1380,356' }

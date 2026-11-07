@@ -62,7 +62,8 @@ below the same way every time, and leaves step 5, judging, to you:
 ```
 
 - It refuses (exit 2) unless the game is free (`Game: not running`), deploys with `build.ps1` (`-Ref` passes through),
-  launches through Steam, clicks Resume, waits for the load, refuses a client area other than 2560x1440, and makes
+  launches through Steam, clicks Resume (scaled to the launcher's size, and clicked once more when no game window
+  comes within 60 s), waits for the load, refuses a client area other than 2560x1440, and makes
   sure the save is paused from the PAUSED banner (Space only when the banner is missing, then checked again).
 - The shots in `-Out`: `loaded.png` (full scale), `budget.png` (cursor parked), `budget-hover.png` (the tooltip at
   `ChartPoint`), `taxation.png`, each `-Steps` screenshot, and `quit-menu.png`/`quit-dialog.png`; `manifest.md` names
@@ -73,6 +74,7 @@ below the same way every time, and leaves step 5, judging, to you:
 - It always quits, red or green, in a `finally`: Escape, Escape, Exit, Exit to Desktop; a failed run (unknown state)
   or a quit that doesn't end the game within 30 s stops the instance. It closes only an instance it launched (one
   started after the claim) and ends with `Game: not running` (exit 3 if not).
+- Both scripts need PowerShell 7 (`pwsh`; `#Requires -Version 7.0`): Windows PowerShell 5.1 refuses them.
 - **The points** are client offsets in a 2560x1440 window, in one table in `tools/game-run-common.ps1`, each marked
   `measured` (clicked in a run) or `derived` (read off a reference shot). `-Point Name=x,y` corrects one for a run;
   a corrected point goes back into the table.
@@ -137,7 +139,8 @@ Start-Process steam://rungameid/949230
   Read the PNG with the Read tool, find the target, convert. With the game window's client area at 2560x1440 these
   client offsets held (screen = the `window` client origin + offset): money total 1950,1406; Budget tab 736,306;
   Taxation tab 1280,306; a chart point around 1800,660; pause menu Exit 818,1140; Exit to Desktop 1278,800. The
-  launcher's Resume was at its client origin + 994,368. A different window size or position moves them all: take the
+  launcher's size varies between runs and its layout scales with it: Resume was at its client origin + 660,246 in a
+  1282x677 launcher and + 994,368 in one about 1.5 times that. A different window size or position moves them all: take the
   screenshot first.
 - **Timings** seen: the launcher's window 2 s after `Start-Process` (Steam already running); the game's window 2-3 s
   after Resume; the save loaded 55-80 s after Resume; a panel fades in over about a second (a screenshot straight

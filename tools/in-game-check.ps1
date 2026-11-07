@@ -59,6 +59,7 @@
     after the run (stop it: Stop-Process -Name Cities2, if this run launched it).
     Tests: ./tools/test-in-game-check.ps1
 #>
+#Requires -Version 7.0
 param(
     [string]$Out,
     [switch]$SkipDeploy,

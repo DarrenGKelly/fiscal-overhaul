@@ -16,6 +16,7 @@
     settings copy is put back first.
         ./tools/test-store-screenshots.ps1     (exit 0 = all passed)
 #>
+#Requires -Version 7.0
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'git-common.ps1')
 . (Join-Path $PSScriptRoot 'game-run-common.ps1')
@@ -134,7 +135,9 @@ function Reset-Fixture {
     Git $repo @('config', 'user.email', 'test@example.com') | Out-Null
     Git $repo @('config', 'user.name', 'Test') | Out-Null
     Git $repo @('config', 'core.hooksPath', (Join-Path $root 'no-hooks')) | Out-Null
-    Write-File (Join-Path $repo 'Mod\Properties\PublishConfiguration.xml') $FixtureConfig
+    # With a byte-order mark, as the real config has one; the README without.
+    New-Item -ItemType Directory -Force (Join-Path $repo 'Mod\Properties') | Out-Null
+    [IO.File]::WriteAllText((Join-Path $repo 'Mod\Properties\PublishConfiguration.xml'), $FixtureConfig, (New-Object System.Text.UTF8Encoding($true)))
     Write-File (Join-Path $repo 'README.md') $FixtureReadme
     foreach ($base in $OldOrder + '99-extra') { Write-File (Join-Path $repo "Mod\Properties\Screenshots\$base.png") 'old' }
     Git $repo @('add', '-A') | Out-Null
@@ -255,6 +258,10 @@ try {
     $listed = @([regex]::Matches($config, 'Screenshots/([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
     Check (($listed -join ',') -eq ($expected -join ',')) '... the config renamed in page order' ($listed -join "`n")
     Check ([IO.File]::ReadAllText((Join-Path $repo 'README.md')) -match '01-budget-chart-v1-1-1\.png') '... and the README'
+    $configBytes = [IO.File]::ReadAllBytes((Join-Path $repo 'Mod\Properties\PublishConfiguration.xml'))
+    $readmeBytes = [IO.File]::ReadAllBytes((Join-Path $repo 'README.md'))
+    Check ($configBytes[0] -eq 0xEF -and $configBytes[1] -eq 0xBB -and $configBytes[2] -eq 0xBF -and $configBytes[3] -eq [byte][char]'<') '... the config keeping its byte-order mark (once, not doubled)'
+    Check ($readmeBytes[0] -eq [byte][char]'#') 'fail case: the README, which had none, gets none'
     Check ($r.Calls -eq '') '... without touching the game' $r.Calls
 
     Write-Host '--- the claim ---'

@@ -7,9 +7,10 @@
 
     Testing hooks (never set in a real run): FO_GAME_CONTROL names a stand-in for game-control.ps1; FO_GAME_LAUNCH
     (+ FO_GAME_LAUNCH_ARGS) a program started instead of steam://rungameid/949230, after which the launcher steps are
-    skipped; FO_GAME_PROCESS_NAME the game's process name (git-common.ps1's Get-GameProcess); FO_GAME_DATA_DIR the
+    skipped unless FO_GAME_LAUNCH_VIA_LAUNCHER is set; FO_GAME_PROCESS_NAME the game's process name (git-common.ps1's Get-GameProcess); FO_GAME_DATA_DIR the
     game's LocalLow folder (where FiscalOverhaul.coc lives).
 #>
+#Requires -Version 7.0
 
 $GameRunSteamUri = 'steam://rungameid/949230'
 $GameRunLauncherTitle = '^Paradox Launcher$'
@@ -22,7 +23,9 @@ $GameRunClientHeight = 1440
 # (the 1920x1080 store set, or a half-scale run shot) and converted, not yet clicked by a script: each script takes a
 # check screenshot after clicking one, so a run can correct it with -Point Name=x,y.
 $GameRunPoints = [ordered]@{
-    LauncherResume    = @{ X = 994;  Y = 368;  Source = 'measured'; What = "the Paradox launcher's Resume (launcher client)" }
+    # The launcher's size varies (1282x677 in one run, about 1.5x that in another), so this one scales with its client
+    # area from the size it was measured at (RefWidth x RefHeight); see Get-LauncherResumePoint.
+    LauncherResume    = @{ X = 660;  Y = 246;  RefWidth = 1282; RefHeight = 677; Source = 'measured'; What = "the Paradox launcher's Resume (launcher client, scaled to its size)" }
     MoneyTotal        = @{ X = 1950; Y = 1406; Source = 'measured'; What = 'the money total in the bottom bar: opens the Economy panel on Budget' }
     BudgetTab         = @{ X = 736;  Y = 306;  Source = 'measured'; What = 'the Economy panel''s Budget tab' }
     TaxationTab       = @{ X = 1280; Y = 306;  Source = 'measured'; What = 'the Economy panel''s Taxation tab' }
@@ -81,6 +84,18 @@ function Merge-GameRunPoints([string[]]$Overrides = @()) {
 # The screen point for a client offset: screen = client origin + offset.
 function ConvertTo-ScreenPoint($Client, [int]$X, [int]$Y) {
     return [pscustomobject]@{ X = $Client.X + $X; Y = $Client.Y + $Y }
+}
+
+# The screen point of a point measured in a window of RefWidth x RefHeight, scaled to the window's actual client size
+# (the Paradox launcher's layout scales with its window). A point without a reference size (a -Point override, given
+# for this run's window) is used as it is.
+function Get-ScaledScreenPoint($Client, $Point) {
+    if ($Point.RefWidth -and $Point.RefHeight) {
+        $x = [int][Math]::Round($Point.X * $Client.Width / $Point.RefWidth)
+        $y = [int][Math]::Round($Point.Y * $Client.Height / $Point.RefHeight)
+        return ConvertTo-ScreenPoint $Client $x $y
+    }
+    return ConvertTo-ScreenPoint $Client $Point.X $Point.Y
 }
 
 # "client: x,y,w,h" from game-control.ps1 window's output, as an object; $null when absent.
@@ -323,13 +338,27 @@ function Start-GameRun($Session, [string]$CheckDir) {
     else {
         Write-Host "Launching through Steam ($GameRunSteamUri)."
         Start-Process $GameRunSteamUri
+    }
+    if (-not $env:FO_GAME_LAUNCH -or $env:FO_GAME_LAUNCH_VIA_LAUNCHER) {
         Invoke-GameControl wait-process -Title $GameRunLauncherTitle -Timeout 120 | Out-Null
-        Invoke-GameControl focus -Title $GameRunLauncherTitle | Out-Null
-        Invoke-GameControl screenshot -Out (Join-Path $CheckDir 'launcher.png') -Window -Title $GameRunLauncherTitle -Scale 0.5 -Delay 3000 | Out-Null
-        $launcher = ConvertFrom-WindowOutput (Invoke-GameControl window -Title $GameRunLauncherTitle)
-        if (-not $launcher) { throw 'game-control window -Title printed no client rect for the Paradox launcher' }
-        $resume = ConvertTo-ScreenPoint $launcher $Session.Points.LauncherResume.X $Session.Points.LauncherResume.Y
-        Invoke-GameControl click -X $resume.X -Y $resume.Y | Out-Null
+        # Resume, and once more if the game's window doesn't come (a click that missed, or a launcher still drawing).
+        $attempt = 0
+        while ($true) {
+            $attempt++
+            $shot = if ($attempt -eq 1) { 'launcher.png' } else { "launcher-$attempt.png" }
+            Invoke-GameControl focus -Title $GameRunLauncherTitle | Out-Null
+            Invoke-GameControl screenshot -Out (Join-Path $CheckDir $shot) -Window -Title $GameRunLauncherTitle -Scale 0.5 -Delay 3000 | Out-Null
+            $launcher = ConvertFrom-WindowOutput (Invoke-GameControl window -Title $GameRunLauncherTitle)
+            if (-not $launcher) { throw 'game-control window -Title printed no client rect for the Paradox launcher' }
+            $resume = Get-ScaledScreenPoint $launcher $Session.Points.LauncherResume
+            Write-Host "Resume at $($resume.X),$($resume.Y) (launcher client $($launcher.Width)x$($launcher.Height); attempt $attempt)."
+            Invoke-GameControl click -X $resume.X -Y $resume.Y | Out-Null
+            try { Invoke-GameControl wait-process -Timeout 60 | Out-Null; break }
+            catch {
+                if ($attempt -ge 2) { throw "the game's window didn't come after two clicks on Resume: look at $shot and correct LauncherResume (-Point LauncherResume=x,y, in this launcher's client)" }
+                Write-Host 'No game window 60 s after Resume: clicking it again.' -ForegroundColor Yellow
+            }
+        }
     }
     Invoke-GameControl wait-process -Timeout 120 | Out-Null
     Invoke-GameControl wait-loaded -Timeout 300 | Out-Null
@@ -448,6 +477,18 @@ function Get-ScreenshotVersion([string]$Declared, [string[]]$Tags = @(), [string
 
 # 01-budget-chart + 1.2.0 -> 01-budget-chart-v1-2-0.png
 function Get-StoreFileName([string]$Base, [string]$Version) { return "$Base-v$($Version -replace '\.', '-').png" }
+
+# Writes UTF-8 text over a file, keeping whether it starts with a byte-order mark (PublishConfiguration.xml has one,
+# the README hasn't); a new file gets none.
+function Write-TextKeepingBom([string]$Path, [string]$Text) {
+    $bom = $false
+    if (Test-Path -LiteralPath $Path) {
+        $stream = [IO.File]::OpenRead($Path)
+        try { $head = [byte[]]::new(3); $read = $stream.Read($head, 0, 3) } finally { $stream.Dispose() }
+        $bom = $read -eq 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF
+    }
+    [IO.File]::WriteAllText($Path, $Text, (New-Object System.Text.UTF8Encoding($bom)))
+}
 
 # A screenshot file's base name: the name without .png and any -vX-Y-Z suffix.
 function Get-StoreBase([string]$FileName) {
