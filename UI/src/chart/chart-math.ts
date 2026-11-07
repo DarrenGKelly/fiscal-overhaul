@@ -115,18 +115,34 @@ export function valueRange(series: { values: number[] }[]): [number, number] {
   return [min < 0 ? min - pad : 0, max + pad];
 }
 
-/** "Nice" round tick values covering [min, max], about `count` of them. */
-export function niceTicks(min: number, max: number, count = 5): number[] {
-  if (!(max > min) || count < 1) return [min];
+function niceStep(min: number, max: number, count: number): number {
   const rough = (max - min) / count;
   const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
   const residual = rough / magnitude;
-  const step = (residual > 5 ? 10 : residual > 2 ? 5 : residual > 1 ? 2 : 1) * magnitude;
+  return (residual > 5 ? 10 : residual > 2 ? 5 : residual > 1 ? 2 : 1) * magnitude;
+}
+
+/** "Nice" round tick values covering [min, max], about `count` of them. */
+export function niceTicks(min: number, max: number, count = 5): number[] {
+  if (!(max > min) || count < 1) return [min];
+  const step = niceStep(min, max, count);
   const ticks: number[] = [];
   for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9; v += step) {
     ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
   }
   return ticks;
+}
+
+/**
+ * Like niceTicks, but the range itself is extended to the tick step (max rounded up, a negative min
+ * rounded down) so the top tick is at or above the data's max and the bottom tick at or below its min.
+ */
+export function niceRange(min: number, max: number, count = 5): { min: number; max: number; ticks: number[] } {
+  if (!(max > min) || count < 1) return { min, max, ticks: [min] };
+  const step = niceStep(min, max, count);
+  const lo = min < 0 ? Math.floor(min / step + 1e-9) * step : min;
+  const hi = Math.ceil(max / step - 1e-9) * step;
+  return { min: lo, max: hi, ticks: niceTicks(lo, hi, count) };
 }
 
 /** Index of the point whose x is closest to `x` (xs ascending). -1 for an empty list. */

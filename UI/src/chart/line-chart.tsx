@@ -9,7 +9,7 @@ import {
   formatMonthsAxis,
   nearestIndex,
   nearestSeries,
-  niceTicks,
+  niceRange,
   plotLeft,
   scale,
   timeTicks,
@@ -91,7 +91,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
 
   const geometry = useMemo(() => {
     const [vMin, vMax] = valueRange(lines);
-    const ticks = niceTicks(vMin, vMax, 5);
+    const { min: yMin, max: yMax, ticks } = niceRange(vMin, vMax, 5);
     const ctx = canvasRef.current?.getContext("2d");
     let labelWidth = 60 * size.rem;
     if (ctx) {
@@ -99,8 +99,6 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
       labelWidth = Math.max(0, ...ticks.map((t) => ctx.measureText(formatMoneyShort(t)).width));
     }
     const PAD = scalePad(size.rem, labelWidth, insetLeftRem);
-    const yMin = Math.min(vMin, ticks[0] ?? vMin);
-    const yMax = Math.max(vMax, ticks[ticks.length - 1] ?? vMax);
     const xFirst = monthsAgo.length > 0 ? monthsAgo[0] : -1;
     const xLast = monthsAgo.length > 0 ? monthsAgo[monthsAgo.length - 1] : 0;
     const x = scale(xFirst, xLast === xFirst ? xFirst + 1 : xLast, PAD.left, Math.max(PAD.left + 1, size.w - PAD.right));
