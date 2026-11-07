@@ -3,6 +3,7 @@
 ## 2026-11-06
 
 * **Scripted game runs**: `tools/in-game-check.ps1` runs the in-game check end to end (claim, deploy, Steam launch, paused check, Budget/tooltip/Taxation shots, `-Steps`, a manifest, always quit) and `tools/store-screenshots.ps1` takes and installs the Paradox Mods set, both on `tools/game-run-common.ps1`. Two new screenshot rules: every Budget-tab shot has all lines on, and each set gets new, version-suffixed names, which `publish.ps1` now enforces (a changed picture under a released name is refused) ([releasing.md § Screenshots](releasing.md#screenshots)).
+* **v1.2.0 upload refused for image size**: Paradox Mods rejected two of the new screenshots (2.15 and 2.36 MB) as over its 2.1 MB image limit, after the build had gone up. `Save-CroppedImage` now writes 24-bit RGB PNGs (the captures are opaque; the 32-bit ARGB default was a third bigger), the set was re-encoded pixel for pixel (1.17 to 1.40 MB), and `publish.ps1` refuses an image over 2,100,000 bytes before uploading ([releasing.md](releasing.md#toolspublishps1)).
 
 ## 2026-11-05
 
