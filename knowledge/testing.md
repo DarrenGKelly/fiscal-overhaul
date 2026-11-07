@@ -4,6 +4,7 @@ title: Testing
 description: How Fiscal Overhaul is tested — the testing rule, where pure logic lives, running the xunit and vitest suites and the compile check, the in-game screenshot check, and the tests of the tools themselves.
 resource:
   - tools/test.ps1
+  - tools/in-game-check.ps1
   - Tests
 ---
 
@@ -50,6 +51,34 @@ How a session or the test agent checks a change in the running game. The mistake
 stale build** (the Mods folder holds whichever checkout deployed last) and **taking the game from someone else**
 ([the shared game instance](orchestration.md#the-shared-game-instance)). The game is driven from the shell with
 `tools/game-control.ps1` ([below](#on-windows-without-computer-use)); computer use is never needed.
+
+**Run it with `tools/in-game-check.ps1`** (`Get-Help ./tools/in-game-check.ps1 -Full`), which does steps 1 to 4 and 6
+below the same way every time, and leaves step 5, judging, to you:
+
+```
+./tools/in-game-check.ps1 -Out <dir>                       # deploy this checkout, launch, shoot, quit
+./tools/in-game-check.ps1 -Out <dir> -SkipDeploy           # test what the Mods folder holds
+./tools/in-game-check.ps1 -Out <dir> -Steps <plan-steps>   # plus the plan's own clicks, hovers and shots
+```
+
+- It refuses (exit 2) unless the game is free (`Game: not running`), deploys with `build.ps1` (`-Ref` passes through),
+  launches through Steam, clicks Resume, waits for the load, refuses a client area other than 2560x1440, and makes
+  sure the save is paused from the PAUSED banner (Space only when the banner is missing, then checked again).
+- The shots in `-Out`: `loaded.png` (full scale), `budget.png` (cursor parked), `budget-hover.png` (the tooltip at
+  `ChartPoint`), `taxation.png`, each `-Steps` screenshot, and `quit-menu.png`/`quit-dialog.png`; `manifest.md` names
+  the deployed branch and commit (`build-info.txt`), the save, each shot and what it shows, and how the run ended.
+- **`-Steps`**: one step a line, `#` comments: `click|right-click|move|hover <point>`, `key <name>`, `wait <ms>`,
+  `screenshot <name> <what it shows>`. A point is `@Name` (`-ListPoints` prints them) or `x,y` in client offsets.
+  The steps start on the Taxation tab with the panel open; Space is refused.
+- It always quits, red or green, in a `finally`: Escape, Escape, Exit, Exit to Desktop; a failed run (unknown state)
+  or a quit that doesn't end the game within 30 s stops the instance. It closes only an instance it launched (one
+  started after the claim) and ends with `Game: not running` (exit 3 if not).
+- **The points** are client offsets in a 2560x1440 window, in one table in `tools/game-run-common.ps1`, each marked
+  `measured` (clicked in a run) or `derived` (read off a reference shot). `-Point Name=x,y` corrects one for a run;
+  a corrected point goes back into the table.
+
+The manual sequence (steps 1 to 6 and [the commands below](#on-windows-without-computer-use)) is the reference for
+what the script does, and the way to work when it fails.
 
 1. **Claim and deploy.** `./tools/check-batch-status.ps1`. `Game: RUNNING` and not yours: the user or another agent has
    it; ask, never close it. `Game: not running`: `./tools/build.ps1` from the checkout under test; its last line names
@@ -148,6 +177,7 @@ sh tools/test-git-hooks.sh; sh tools/test-build-linux.sh
 ./tools/test-land-pr.ps1; ./tools/test-claude-merge-guard.ps1; ./tools/test-test.ps1
 ./tools/test-new-test-batch.ps1; ./tools/test-check-batch-status.ps1
 ./tools/test-prune-worktrees.ps1; ./tools/test-remove-worktree.ps1; ./tools/test-publish.ps1
+./tools/test-in-game-check.ps1; ./tools/test-store-screenshots.ps1   # a stub game-control and a fake game process
 ./tools/test-game-control.ps1      # shows a small window at 200,200 and moves the cursor for ~40 s
 ```
 
