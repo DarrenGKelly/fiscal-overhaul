@@ -2,7 +2,16 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 4rem 20rem 4rem 72rem;
+  padding: 4rem 20rem 4rem 32rem;
+}
+
+// Vanilla's taxation-item icon box (the education rows): 32rem square, 12rem before the title. An empty box keeps the
+// title aligned for a cell without an icon.
+.icon {
+  width: 32rem;
+  height: 32rem;
+  margin: 0 12rem 0 0;
+  flex: 0 0 auto;
 }
 
 .row-title {
