@@ -41,7 +41,6 @@ export interface DensityTaxCell {
   density: number;
   offset: number;
   estimate: number;
-  payers: number;
 }
 
 export interface DensityTaxes {
