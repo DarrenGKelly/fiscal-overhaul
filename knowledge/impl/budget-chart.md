@@ -225,9 +225,27 @@ the list; `districtLabel`). The pure logic is `district/district-select.ts` and 
   span buttons (above the chart area) and the pop-out. It takes no pointer events, and a line's tooltip draws over it.
   Now, Low and High are gone: Now is the row's value, the rest the line and its tooltip.
 
+## Load time
+
+The chart should draw within a frame or two of the tab mounting. What happens on a mount:
+- **Data is there at once.** `useValue(history$)` subscribes, and `RawValueBinding.OnSubscribe` writes the history
+  synchronously, for the span and district the C# side last had; the UI's `setSpan`/`setDistrict` on mount and the
+  panel's first `OnUpdate` rebuild it the next frame.
+- **The size is not.** Gameface lays out once a frame, so the just-mounted chart reads 0 wide in its layout effect and
+  can't draw. It used to retry only on its 500 ms resize poll or the next history rebuild (every 60 frames), so it drew
+  up to a second late. `LineChart` now measures every animation frame until it has a size and for
+  `FAST_MEASURE_FRAMES` after mount (the panel settling), then polls every 500 ms (`UI/src/chart/load-timing.ts`
+  `nextMeasure`). A draw resizes the canvas only when the size changed (a resize reallocates it).
+- **Timings in Mod.log.** `BudgetHistoryUISystem` writes `BudgetChart: build <n> compute <ms>, write <ms>; <samples>,
+  <points>, <series>, <services>, view <key>` for the first `BudgetLoadTiming.BuildsPerOpen` builds after each
+  subscribe (`kLogEveryBuild` logs all), and the chart sends one line per mount through the `logTiming` trigger:
+  `BudgetChart UI: data +<ms>, size +<ms>, draw +<ms>; draw took <ms>, <n> draws, <n> measures, <w>x<h> px, rem <r>,
+  <lines> lines x <points> points` (milliseconds since the chart mounted; also on the UI console).
+
 ## Tests
 
-`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
+`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/BudgetLoadTimingTests.cs` and
+`UI/src/chart/load-timing.test.ts` the load timings and the per-frame measuring, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting; `UI/src/district/district-select.test.ts` and `UI/src/economy/header-picker.test.ts` the selector's
 options, when it shows, cycling, names, city-only rows and row values; `UI/src/budget/budget-rows.test.ts` the
 subcategory rows (keys, which categories expand, district filtering, colours, values and series),
