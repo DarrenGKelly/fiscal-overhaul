@@ -89,7 +89,8 @@ Mod.log carries the version, the structure result and every decision change (`Ta
 incompatible game. None while the master switch is off.
 
 **A new game version**: compare vanilla `TaxSystem` (PayTaxJob, OnUpdate, OnGameLoaded) with the copy, update the
-copy and its headers, then add the version to `KnownGameVersions`.
+copy and its headers, then add the version to `KnownGameVersions`. The known list is `1.6.0f1` (the copy's source)
+and `1.6.3f1`; any other version stays blocked unless forced.
 
 `Setting.EnableSimulationChanges` (default on, `FeatureGates.SimulationChangesDefault`) and
 `Setting.RunOnUntestedGameVersion` (default off) sit in Options > Features; `Mod.ApplyFeatureSwitches` calls

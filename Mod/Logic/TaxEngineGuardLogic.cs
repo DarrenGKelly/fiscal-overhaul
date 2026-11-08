@@ -38,7 +38,7 @@ namespace FiscalOverhaul.Logic
         /// Add a version only after comparing vanilla TaxSystem's charge (PayTaxJob, OnUpdate, OnGameLoaded) with the
         /// copy in TaxEngineSystem.
         /// </summary>
-        public static readonly string[] KnownGameVersions = { "1.6.0f1" };
+        public static readonly string[] KnownGameVersions = { "1.6.0f1", "1.6.3f1" };
 
         /// <summary>
         /// Whether <paramref name="version"/> is a known one: its first word equals one exactly ("1.6.0f1" and
