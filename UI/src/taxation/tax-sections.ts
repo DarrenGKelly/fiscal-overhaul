@@ -6,9 +6,16 @@ import { UiKey } from "../l10n";
 /** A section's id: also its key in the expand state and in tax-sections-view.tsx's renderers. */
 export type TaxSectionId = "density" | "vanilla";
 
+/**
+ * "main": the zone's income tax itself (vanilla's education/resource rows); "additional": a tax charged on top of it
+ * (density, and any later tax type). The main section is drawn first, then the additional ones.
+ */
+export type TaxSectionKind = "main" | "additional";
+
 
 export interface TaxSectionDef {
   id: TaxSectionId;
+  kind: TaxSectionKind;
   /** The header's text for a tax area (vanilla TaxAreaType index: Residential = 1, Commercial = 2, ...). */
   title: (areaIndex: number) => UiKey;
 
@@ -17,14 +24,20 @@ export interface TaxSectionDef {
 }
 
 /**
- * Every section type, top to bottom. Density is always first. A district view shows the same sections as Entire City,
- * with the district's own values in them (district-tax-view.tsx).
+ * Every section type. Drawn main first, then the additional taxes in this order (orderedSections): a new tax type is
+ * one more "additional" entry. A district view shows the same sections as Entire City, with the district's own values
+ * in them (district-tax-view.tsx).
  */
 export const TAX_SECTIONS: readonly TaxSectionDef[] = [
-  { id: "density", title: () => "SectionDensity" },
   // Vanilla's own sub-rows (TaxationItem): education levels for Residential, resources for the other zones.
-  { id: "vanilla", title: (areaIndex) => (areaIndex === 1 ? "SectionEducation" : "SectionResources") },
+  { id: "vanilla", kind: "main", title: (areaIndex) => (areaIndex === 1 ? "SectionEducation" : "SectionResources") },
+  { id: "density", kind: "additional", title: () => "SectionDensity" },
 ];
+
+/** The draw order: every main section (in list order), then every additional one (in list order). */
+export function orderedSections(sections: readonly TaxSectionDef[]): TaxSectionDef[] {
+  return [...sections.filter((s) => s.kind === "main"), ...sections.filter((s) => s.kind !== "main")];
+}
 
 export interface TaxSection {
   id: TaxSectionId;
@@ -33,7 +46,7 @@ export interface TaxSection {
 }
 
 /**
- * The sections a zone group shows: each type that has rows there (rowCounts[id] > 0), in TAX_SECTIONS order. None for
+ * The sections a zone group shows: each type that has rows there (rowCounts[id] > 0), in orderedSections order. None for
  * a locked zone (vanilla doesn't expand one either).
  */
 export function sectionsForArea(
@@ -43,7 +56,7 @@ export function sectionsForArea(
   sections: readonly TaxSectionDef[] = TAX_SECTIONS,
 ): TaxSection[] {
   if (locked) return [];
-  return sections
+  return orderedSections(sections)
     .filter((s) => (rowCounts[s.id] ?? 0) > 0)
     .map((s) => ({ id: s.id, title: s.title(areaIndex), startsOpen: s.startsOpen ?? false }));
 }

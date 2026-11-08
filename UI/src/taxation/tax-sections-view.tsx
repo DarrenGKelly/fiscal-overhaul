@@ -16,8 +16,8 @@ import { groupClasses, sectionExpandState, sectionsForArea, TaxSection, TaxSecti
 import styles from "./tax-sections.module.scss";
 
 // The Taxation tab with density taxes on: under each zone's main slider, collapsible sections (tax-sections.ts):
-// Density tax, then vanilla's own rows (education levels or resources), whose vanilla expander is hidden. A district
-// picked in the selector (district-tax-view.tsx) shows the same sections (Density tax only while density taxes are on)
+// vanilla's own rows (education levels or resources, whose vanilla expander is hidden), then Density. A district
+// picked in the selector (district-tax-view.tsx) shows the same sections (Density only while density taxes are on)
 // with the district's own values. Density taxes off, in the Entire City view: the vanilla TaxationGroup exactly.
 
 type AreaType = taxation.TaxAreaType;

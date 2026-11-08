@@ -89,6 +89,8 @@ namespace FiscalOverhaul
             updateSystem.UpdateAt<DensityTaxUISystem>(SystemUpdatePhase.UIUpdate);
             // The Taxation tab's per-district rates (taxRates, setTaxRate, resetDistrictTaxRates).
             updateSystem.UpdateAt<TaxRatesUISystem>(SystemUpdatePhase.UIUpdate);
+            // The Taxation tab's estimates in a district view (districtTaxEstimates, setTaxEstimateArea).
+            updateSystem.UpdateAt<DistrictTaxEstimateUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.World.GetOrCreateSystemManaged<BudgetHistoryUISystem>().SetSettings(m_Setting);
             updateSystem.World.GetOrCreateSystemManaged<DensityTaxUISystem>().SetSettings(m_Setting);
             // The district list the tabs' selectors share, and the Services tab's per-district budgets.

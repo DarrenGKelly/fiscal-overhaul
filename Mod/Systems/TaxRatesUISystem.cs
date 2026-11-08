@@ -12,8 +12,11 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// Taxation tab bindings for the per-district rates (group "fiscalOverhaul"):
-    ///   taxRates     raw      { engineOn, districts: [{ area, type, zone, key, value }] }: every stored district
-    ///                         override (a missing one follows the city), keyed by <see cref="DistrictKey"/>, value as
+    ///   taxRates     raw      { engineOn, defaults: { zoneRate, itemOffset, density }, districts: [{ area, type, zone, key, value }] }:
+    ///                         vanilla's default rates (<see cref="TaxRateModel.DefaultZoneRate"/>: a city row's reset
+    ///                         target) and every stored district
+    ///                         override (a missing one follows the city), keyed by <see cref="TaxRateRows.AreaKey"/>
+    ///                         (a district's <see cref="DistrictKey"/>, or "outside" for Outside Districts), value as
     ///                         stored (<see cref="TaxType"/>: a full zone rate, a level/resource offset from the zone
     ///                         rate, a density tax rate); engineOn = the tax engine charges (<see cref="TaxEngineMode.Engine"/>)
     ///   setTaxRate   trigger(int type, int zone, string target, int value)  target = "key@area" (<see cref="TaxRateRows.SplitTarget"/>;
@@ -21,7 +24,9 @@ namespace FiscalOverhaul
     ///                         shows it (<see cref="TaxRateModel.SetDistrictValue"/>: clamped to vanilla's limits; the
     ///                         value it would have without the override removes it); area "" + Density = the city's
     ///                         density tax rate
-    ///   resetDistrictTaxRates  trigger(string area)  removes every override of the district ("Use city rates")
+    ///   clearTaxRate trigger(int type, int zone, string target)  target "key@area": removes that one district
+    ///                         override (a row's reset button), so the row follows the city again
+    ///   resetDistrictTaxRates  trigger(string area)  removes every override of the district (no UI uses it now)
     /// The UI picks the selected district's rows itself, so the selection stays the UI's (district/selection.ts). The
     /// district keys change on every load (entity indexes): the UI takes them from the <c>districts</c> binding only.
     /// Rewritten only when a rate or the engine's mode changes.
@@ -42,6 +47,7 @@ namespace FiscalOverhaul
             m_TaxSystem = World.GetOrCreateSystemManaged<TaxSystem>();
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "taxRates", Write));
             AddBinding(new TriggerBinding<int, int, string, int>(BudgetHistoryUISystem.kGroup, "setTaxRate", SetTaxRate));
+            AddBinding(new TriggerBinding<int, int, string>(BudgetHistoryUISystem.kGroup, "clearTaxRate", ClearTaxRate));
             AddBinding(new TriggerBinding<string>(BudgetHistoryUISystem.kGroup, "resetDistrictTaxRates", ResetDistrict));
         }
 
@@ -68,15 +74,24 @@ namespace FiscalOverhaul
                 DensityTaxState.Set((TaxZone)zone, (Density)keyIndex, value);
                 return;
             }
-            if (!DistrictExists(areaIndex, areaVersion)) return;
+            if (!TaxRateTable.IsOutside(areaIndex, areaVersion) && !DistrictExists(areaIndex, areaVersion)) return;
             int[] cityRates = TaxRateResolver.CityRates(m_TaxSystem);
             TaxLimits limits = TaxRateResolver.LimitsFrom(m_TaxSystem.GetTaxParameterData());
             DensityTaxState.SetDistrictValue(taxType, (TaxZone)zone, keyIndex, areaIndex, areaVersion, value, cityRates, limits);
         }
 
+        /// <summary>A district row's reset button: its override removed (the city has none to remove).</summary>
+        private void ClearTaxRate(int type, int zone, string target)
+        {
+            TaxRateRows.SplitTarget(target, out string key, out string area);
+            if (!TaxRateRows.TryResolve(type, zone, key, area, out TaxType taxType, out int keyIndex, out int areaIndex, out int areaVersion)) return;
+            if (areaIndex == TaxRateTable.CityArea && areaVersion == 0) return;
+            DensityTaxState.ClearDistrictValue(taxType, (TaxZone)zone, keyIndex, areaIndex, areaVersion);
+        }
+
         private void ResetDistrict(string area)
         {
-            if (!DistrictKey.TryParse(area, out int index, out int version)) return;
+            if (!TaxRateRows.TryArea(area, out int index, out int version)) return;
             DensityTaxState.ClearDistrict(index, version);
         }
 
@@ -93,6 +108,15 @@ namespace FiscalOverhaul
             writer.TypeBegin("FiscalOverhaul.TaxRates");
             writer.PropertyName("engineOn");
             writer.Write(EngineOn());
+            writer.PropertyName("defaults");
+            writer.TypeBegin("FiscalOverhaul.TaxDefaults");
+            writer.PropertyName("zoneRate");
+            writer.Write(TaxRateModel.DefaultZoneRate);
+            writer.PropertyName("itemOffset");
+            writer.Write(TaxRateModel.DefaultItemOffset);
+            writer.PropertyName("density");
+            writer.Write(TaxRateModel.DefaultDensityRate);
+            writer.TypeEnd();
             writer.PropertyName("districts");
             writer.ArrayBegin(rows.Count);
             foreach (DistrictRateRow row in rows)

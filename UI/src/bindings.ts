@@ -16,6 +16,11 @@ export const budgetChartEnabled$ = bindValue<boolean>(GROUP, "budgetChartEnabled
 
 export const history$ = bindValue<BudgetHistory | null>(GROUP, "history", null);
 
+/** Writes a Budget chart load timing to Mod.log ("BudgetChart UI: <text>", BudgetHistoryUISystem). */
+export function logTiming(text: string) {
+  trigger(GROUP, "logTiming", text);
+}
+
 /** Months of history the chart shows; 0 = all. */
 export function setSpan(months: number) {
   trigger(GROUP, "setSpan", months);
@@ -48,6 +53,11 @@ export interface DensityTaxes {
   minRate: number;
   maxRate: number;
   cells: DensityTaxCell[];
+  /**
+   * Per zone (0 Residential .. 3 Office): what district and Outside income-tax overrides add to vanilla's tax a month,
+   * as the city books it. The zone totals and ESTIMATED TOTAL add it (vanilla's estimate leaves it out).
+   */
+  districtParts?: number[];
 }
 
 /** Options > Enable density taxes. Off: the Taxation tab has no density rows. */
@@ -81,9 +91,20 @@ export interface DistrictTaxRate {
   value: number;
 }
 
+/** Vanilla's default rates (C# TaxRateModel.DefaultZoneRate ...): a city row's reset target. */
+export interface TaxDefaults {
+  /** A zone's rate. */
+  zoneRate: number;
+  /** An education level's or resource's offset from its zone's rate. */
+  itemOffset: number;
+  /** A density tax rate. */
+  density: number;
+}
+
 export interface TaxRates {
   /** The tax engine charges (Simulation changes on, guard happy): district rates take effect. */
   engineOn: boolean;
+  defaults?: TaxDefaults;
   /** Every stored district override. */
   districts: DistrictTaxRate[];
 }
@@ -115,7 +136,39 @@ export function setDistrictServiceBudget(serviceKey: string, districtKey: string
   trigger(GROUP, "setDistrictServiceBudget", serviceKey, districtKey, budget);
 }
 
-/** "Use city rates": removes every override of the district. */
-export function resetDistrictTaxRates(area: string) {
-  trigger(GROUP, "resetDistrictTaxRates", area);
+/** A district row's reset button: removes that one override (type TAX_TYPE_*, zone, key), so the row follows the city. */
+export function clearTaxRate(type: number, zone: number, key: number, area: string) {
+  trigger(GROUP, "clearTaxRate", type, zone, `${key}@${area}`);
+}
+
+/** One row's estimate in a district view (C# DistrictTaxEstimateUISystem); a row with none is 0. */
+export interface TaxEstimateRow {
+  zone: number;
+  /** Education level 0..4 (Residential) or resource index. */
+  key: number;
+  estimate: number;
+}
+
+export interface TaxEstimateCell {
+  zone: number;
+  density: number;
+  estimate: number;
+}
+
+/** The shown district's estimates at its own rates: per row, per zone (rows + density) and the total. */
+export interface DistrictTaxEstimates {
+  /** The district they are for ("" = none yet): compare with the view before using them. */
+  area: string;
+  items: TaxEstimateRow[];
+  density: TaxEstimateCell[];
+  /** Per zone, 0 Residential .. 3 Office: its rows plus its density rows. */
+  zones: number[];
+  total: number;
+}
+
+export const districtTaxEstimates$ = bindValue<DistrictTaxEstimates | null>(GROUP, "districtTaxEstimates", null);
+
+/** The district the Taxation tab shows ("" = the city view), so C# computes its estimates. */
+export function setTaxEstimateArea(area: string) {
+  trigger(GROUP, "setTaxEstimateArea", area);
 }

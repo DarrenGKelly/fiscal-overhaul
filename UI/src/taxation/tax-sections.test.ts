@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import EN_US from "../../../l10n/en-US.json";
 import { english } from "../l10n";
 import * as density from "./density";
-import { groupClasses, SectionExpandState, sectionsForArea, TAX_SECTIONS, TaxSectionDef } from "./tax-sections";
+import { groupClasses, orderedSections, SectionExpandState, sectionsForArea, TAX_SECTIONS, TaxSectionDef } from "./tax-sections";
 
 const RESIDENTIAL = 1;
 const COMMERCIAL = 2;
@@ -10,9 +10,11 @@ const INDUSTRIAL = 3;
 const OFFICE = 4;
 
 describe("TAX_SECTIONS", () => {
-  it("puts Density first", () => {
-    expect(TAX_SECTIONS[0].id).toBe("density");
-    expect(TAX_SECTIONS.map((s) => s.id)).toEqual(["density", "vanilla"]);
+  it("puts the main income tax (vanilla rows) first and Density after it", () => {
+    expect(orderedSections(TAX_SECTIONS).map((s) => s.id)).toEqual(["vanilla", "density"]);
+    expect(orderedSections(TAX_SECTIONS)[0].id).not.toBe("density");
+    expect(TAX_SECTIONS.find((s) => s.id === "vanilla")?.kind).toBe("main");
+    expect(TAX_SECTIONS.find((s) => s.id === "density")?.kind).toBe("additional");
     // The old ±adjustment District section is gone: a district view shows these same sections with its own values.
     expect(TAX_SECTIONS.map((s) => s.id)).not.toContain("district");
     expect(Object.keys(EN_US)).not.toContain("FiscalOverhaul.UI.SectionDistrict");
@@ -25,19 +27,20 @@ describe("TAX_SECTIONS", () => {
 });
 
 describe("sectionsForArea", () => {
-  it("gives Density then Education for Residential", () => {
+  it("gives Education then Density for Residential", () => {
     expect(sectionsForArea(RESIDENTIAL, false, { density: 3, vanilla: 5 })).toEqual([
-      { id: "density", title: "SectionDensity", startsOpen: false },
       { id: "vanilla", title: "SectionEducation", startsOpen: false },
+      { id: "density", title: "SectionDensity", startsOpen: false },
     ]);
-    expect(english("SectionDensity")).toBe("Density tax");
+    expect(english("SectionDensity")).toBe("Density");
+    expect(english("SectionDensity")).not.toBe("Density tax");
     expect(english("SectionEducation")).toBe("Education");
   });
 
   it("names the other zones' vanilla rows Resources, not Education", () => {
     for (const area of [COMMERCIAL, INDUSTRIAL, OFFICE]) {
       const titles = sectionsForArea(area, false, { density: 2, vanilla: 4 }).map((s) => s.title);
-      expect(titles).toEqual(["SectionDensity", "SectionResources"]);
+      expect(titles).toEqual(["SectionResources", "SectionDensity"]);
       expect(titles).not.toContain("SectionEducation");
     }
   });
@@ -53,11 +56,13 @@ describe("sectionsForArea", () => {
     expect(sectionsForArea(RESIDENTIAL, false, {})).toEqual([]);
   });
 
-  it("takes a new tax type as one more entry, after Density", () => {
-    const withNew = [...TAX_SECTIONS, { id: "land", title: () => "SectionResources" } as unknown as TaxSectionDef];
+  it("takes a new additional tax type as one more entry, after the main section and Density", () => {
+    const land = { id: "land", kind: "additional", title: () => "SectionResources" } as unknown as TaxSectionDef;
     const counts = { density: 1, vanilla: 1, land: 2 } as Record<string, number>;
-    expect(sectionsForArea(RESIDENTIAL, false, counts, withNew).map((s) => s.id)).toEqual(["density", "vanilla", "land"]);
-    expect(sectionsForArea(RESIDENTIAL, false, counts).map((s) => s.id)).toEqual(["density", "vanilla"]);
+    expect(sectionsForArea(RESIDENTIAL, false, counts, [...TAX_SECTIONS, land]).map((s) => s.id)).toEqual(["vanilla", "density", "land"]);
+    // Listed before the main section, an additional one is still drawn after it.
+    expect(sectionsForArea(RESIDENTIAL, false, counts, [land, ...TAX_SECTIONS]).map((s) => s.id)).toEqual(["vanilla", "land", "density"]);
+    expect(sectionsForArea(RESIDENTIAL, false, counts).map((s) => s.id)).toEqual(["vanilla", "density"]);
   });
 });
 

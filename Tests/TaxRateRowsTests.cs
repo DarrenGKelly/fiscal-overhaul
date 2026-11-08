@@ -40,7 +40,6 @@ namespace FiscalOverhaul.Tests
         }
 
         [Theory]
-        [InlineData(2, 0, "0", "outside")]  // Outside Districts is not a district
         [InlineData(2, 0, "0", "x:1")]      // bad district key
         [InlineData(2, 4, "0", "12:3")]     // zone out of range
         [InlineData(2, -1, "0", "12:3")]

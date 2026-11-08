@@ -17,6 +17,8 @@ export const SOUNDS = {
   pickFromList: "select-item",
   /** Expanding or collapsing rows: the density tax rows on the Taxation tab, a Budget tab category's subcategories. */
   expandRows: "expand-panel",
+  /** A slider row's reset button (common/reset-button.tsx): the row back to its default, or to the city's value. */
+  resetRow: "select-item",
 } as const;
 
 export type SoundName = (typeof SOUNDS)[keyof typeof SOUNDS];

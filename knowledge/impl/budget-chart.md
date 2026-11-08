@@ -137,7 +137,7 @@ One picker for the Budget, Taxation and Services tabs, in the **Economy panel's 
 tabs follow it: [Budget | Taxation | Services], a divider line, [Production | Loans] (`withTabGroupDivider`, by tab id).
 It shows on the selected tab only by that tab's own rule (`headerPicker`: Budget while recording is on, Services while
 district service budgets are on, Taxation while the tax engine charges and the city has a district) and its choices
-(Taxation has no Outside Districts: a shared choice of Outside shows the city there and stays for the other tabs). On
+(every one offers Outside Districts; a deleted district shows the city and the choice stays for the other tabs). On
 Production and Loans, or a tab whose feature is off, its slot stays empty so the tabs never move; with every district
 feature off there is no slot (`reservesPickerSlot`). The city option is the **city's name** (vanilla
 `toolbarBottom.cityName`; `cityLabel` falls back to "Entire City" while it is blank).
@@ -195,6 +195,11 @@ the list; `districtLabel`). The pure logic is `district/district-select.ts` and 
   any source rows. Its line (`buildServiceSeries`) starts at the service's `start`: `SeriesDef`/`ChartLine` `start`,
   which the chart skips when drawing, scaling (`shownValues`, `valueRange`), hit-testing (`nearestSeries`) and the span
   stats.
+- **Group checkboxes** (`UI/src/budget/group-toggle.ts`): a category with child rows (sources or services, expanded
+  or not) is a group, and its box reads from its own key and every child's (`groupState`): filled while all are on,
+  empty while none are, a small filled square inside while only some are. A click on the group (`toggledGroup`) turns
+  it and all its children off when all are on, else all on; a child row, a total, the balance and a category without
+  children toggle only their own line, so turning a child off makes its group partial.
 - **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All, opening on 3M (`DEFAULT_SPAN_MONTHS` / `BudgetHistoryMath.DefaultSpanMonths`). Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
@@ -220,12 +225,32 @@ the list; `districtLabel`). The pure logic is `district/district-select.ts` and 
   span buttons (above the chart area) and the pop-out. It takes no pointer events, and a line's tooltip draws over it.
   Now, Low and High are gone: Now is the row's value, the rest the line and its tooltip.
 
+## Load time
+
+The chart should draw within a frame or two of the tab mounting. What happens on a mount:
+- **Data is there at once.** `useValue(history$)` subscribes, and `RawValueBinding.OnSubscribe` writes the history
+  synchronously, for the span and district the C# side last had; the UI's `setSpan`/`setDistrict` on mount and the
+  panel's first `OnUpdate` rebuild it the next frame.
+- **The size is not.** Gameface lays out once a frame, so the just-mounted chart reads 0 wide in its layout effect and
+  can't draw. It used to retry only on its 500 ms resize poll or the next history rebuild (every 60 frames), so it drew
+  up to a second late. `LineChart` now measures every animation frame until it has a size and for
+  `FAST_MEASURE_FRAMES` after mount (the panel settling), then polls every 500 ms (`UI/src/chart/load-timing.ts`
+  `nextMeasure`). A draw resizes the canvas only when the size changed (a resize reallocates it).
+- **Timings in Mod.log.** `BudgetHistoryUISystem` writes `BudgetChart: build <n> compute <ms>, write <ms>; <samples>,
+  <points>, <series>, <services>, view <key>` for the first `BudgetLoadTiming.BuildsPerOpen` builds after each
+  subscribe (`kLogEveryBuild` logs all), and the chart sends one line per mount through the `logTiming` trigger:
+  `BudgetChart UI: data +<ms>, size +<ms>, draw +<ms>; draw took <ms>, <n> draws, <n> measures, <w>x<h> px, rem <r>,
+  <lines> lines x <points> points` (milliseconds since the chart mounted; also on the UI console).
+
 ## Tests
 
-`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
+`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/BudgetLoadTimingTests.cs` and
+`UI/src/chart/load-timing.test.ts` the load timings and the per-frame measuring, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting; `UI/src/district/district-select.test.ts` and `UI/src/economy/header-picker.test.ts` the selector's
 options, when it shows, cycling, names, city-only rows and row values; `UI/src/budget/budget-rows.test.ts` the
-subcategory rows (keys, which categories expand, district filtering, colours, values and series);
+subcategory rows (keys, which categories expand, district filtering, colours, values and series),
+`UI/src/budget/group-toggle.test.ts` the group checkboxes (off to all on, all on to all off, partial to all on, a child
+making its group partial);
 `Tests/ServiceUpkeepSplitTests.cs` the per-service split (exact sums, rounding, zero / one / negative inputs, gaps,
 alignment, the save codec and a format 1 load) and `UI/src/budget/service-rows.test.ts` the service rows and lines
 with a `start`.

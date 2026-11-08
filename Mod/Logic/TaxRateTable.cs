@@ -48,6 +48,9 @@ namespace FiscalOverhaul.Logic
 
         public bool IsCity => Area == 0 && AreaVersion == 0;
 
+        /// <summary>An Outside Districts override (<see cref="TaxRateTable.OutsideArea"/>): the buildings in no district.</summary>
+        public bool IsOutside => TaxRateTable.IsOutside(Area, AreaVersion);
+
         public bool Equals(TaxRateEntry other) => Type == other.Type && Zone == other.Zone && Key == other.Key && Area == other.Area && AreaVersion == other.AreaVersion && Value == other.Value;
         public override bool Equals(object obj) => obj is TaxRateEntry e && Equals(e);
         public override int GetHashCode() => (((((int)Type * 31 + Zone) * 31 + Key) * 31 + Area) * 31 + AreaVersion) * 31 + Value;
@@ -66,10 +69,12 @@ namespace FiscalOverhaul.Logic
     public sealed class TaxRateTable
     {
         /// <summary>
-        /// The save and text format. 2 keys every entry by area (city or district entity). A version-1 block (the old
-        /// ±adjustment model) loads its density entries and drops its district ones; any other version loads empty.
+        /// The save and text format. 3 writes each entry's area kind (<see cref="AreaKind"/>: city, district entity,
+        /// Outside Districts) before its entity; 2 keys every entry by area entity (city or district) and loads as
+        /// before. A version-1 block (the old ±adjustment model) loads its density entries and drops its district
+        /// ones; any other version loads empty.
         /// </summary>
-        public const int FormatVersion = 2;
+        public const int FormatVersion = 3;
 
         /// <summary>The density tax's own rate range: a tax break down to −5, a tax up to +10.</summary>
         public const int DensityMin = -5;
@@ -79,6 +84,27 @@ namespace FiscalOverhaul.Logic
         public const int RateGuard = 100;
 
         public const int CityArea = 0;
+
+        /// <summary>
+        /// Outside Districts' area: (-1, 0), an index no entity has, so it is neither the city nor any district. Never
+        /// written as an entity: the save writes <see cref="AreaKind.Outside"/> and Entity.Null.
+        /// </summary>
+        public const int OutsideArea = -1;
+        public const int OutsideVersion = 0;
+
+        public static bool IsOutside(int area, int areaVersion) => area == OutsideArea && areaVersion == OutsideVersion;
+
+        /// <summary>How a format-3 save writes an entry's area.</summary>
+        public enum AreaKind
+        {
+            City = 0,
+            District = 1,
+            Outside = 2,
+        }
+
+        /// <summary>An area's kind, for the save.</summary>
+        public static AreaKind KindOf(int area, int areaVersion)
+            => area == CityArea && areaVersion == 0 ? AreaKind.City : IsOutside(area, areaVersion) ? AreaKind.Outside : AreaKind.District;
 
         private readonly Dictionary<(TaxType, int, int, int, int), int> m_Values = new Dictionary<(TaxType, int, int, int, int), int>();
 
@@ -184,13 +210,13 @@ namespace FiscalOverhaul.Logic
 
         /// <summary>
         /// Drops the district entries whose district no longer exists (<paramref name="exists"/>(index, version) false).
-        /// City entries are never dropped. Returns how many were dropped.
+        /// City and Outside Districts entries are never dropped. Returns how many were dropped.
         /// </summary>
         public int PruneDistricts(Func<int, int, bool> exists)
         {
             var remove = new List<(TaxType, int, int, int, int)>();
             foreach (var k in m_Values.Keys)
-                if (!(k.Item4 == CityArea && k.Item5 == 0) && !exists(k.Item4, k.Item5)) remove.Add(k);
+                if (KindOf(k.Item4, k.Item5) == AreaKind.District && !exists(k.Item4, k.Item5)) remove.Add(k);
             foreach (var k in remove) m_Values.Remove(k);
             return remove.Count;
         }
@@ -245,7 +271,8 @@ namespace FiscalOverhaul.Logic
             if (string.IsNullOrWhiteSpace(text)) return table;
             string[] parts = text.Split(';');
             if (!int.TryParse(parts[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int version)) return table;
-            int fields = version == FormatVersion ? 6 : version == 1 ? 5 : 0;
+            // Version 2 text has the same fields (it just had no Outside Districts area).
+            int fields = version == FormatVersion || version == 2 ? 6 : version == 1 ? 5 : 0;
             if (fields == 0) return table;
             for (int i = 1; i < parts.Length; i++)
             {
@@ -270,6 +297,33 @@ namespace FiscalOverhaul.Logic
         public static void LoadVersion1(TaxRateTable table, TaxType type, int zone, int key, int value)
         {
             if (type == TaxType.Density) table.Set(TaxType.Density, zone, key, value);
+        }
+
+        /// <summary>
+        /// One entry of a saved block (TaxRatesSystem.Deserialize). Format 3 says the area's <paramref name="kind"/>;
+        /// format 2 has none (pass null): Entity.Null (<paramref name="areaIsNull"/>) was the city, anything else a
+        /// district. A district entry whose entity came back Null (deleted before the save) is dropped, never read as
+        /// the city's; a city entry is kept only for a type with a city value. Returns whether it was stored.
+        /// </summary>
+        public static bool LoadSavedEntry(TaxRateTable table, AreaKind? kind, TaxType type, int zone, int key, bool areaIsNull, int areaIndex, int areaVersion, int value)
+        {
+            AreaKind k = kind ?? (areaIsNull ? AreaKind.City : AreaKind.District);
+            switch (k)
+            {
+                case AreaKind.City:
+                    if (!HasCityValue(type)) return false;
+                    table.Set(type, zone, key, value);
+                    return true;
+                case AreaKind.Outside:
+                    table.Set(type, zone, key, OutsideArea, OutsideVersion, value);
+                    return true;
+                case AreaKind.District:
+                    if (areaIsNull) return false;
+                    table.Set(type, zone, key, areaIndex, areaVersion, value);
+                    return true;
+                default:
+                    return false;
+            }
         }
     }
 }

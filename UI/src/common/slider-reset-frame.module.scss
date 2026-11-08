@@ -1,0 +1,25 @@
+// A slider with its reset button and marker over it (slider-reset-frame.tsx). The frame takes the slider's layout
+// class; the slider (its first child) fills it.
+
+.frame {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+
+  & > div:first-child {
+    flex: 1;
+  }
+}
+
+// The button's column: the frame's full height, the button centred in it.
+.icon {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
