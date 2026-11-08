@@ -215,7 +215,7 @@ try {
     foreach ($name in 'loaded.png', 'budget.png', 'budget-hover.png', 'taxation.png', 'budget-again.png', 'quit-menu.png', 'manifest.md') {
         Check (Test-Path -LiteralPath (Join-Path $out $name)) "... writes $name"
     }
-    Check ($r.Calls -match '(?m)^click 2050,1456$' -and $r.Calls -match '(?m)^hover 2145,701$' -and $r.Calls -match '(?m)^click 1380,356$') '... clicking the money total, hovering ChartPoint and clicking Taxation at origin + offset' $r.Calls
+    Check ($r.Calls -match '(?m)^click 2050,1456$' -and $r.Calls -match '(?m)^hover 2145,701$' -and $r.Calls -match '(?m)^click 1108,356$') '... clicking the money total, hovering ChartPoint and clicking Taxation at origin + offset' $r.Calls
     Check ($r.Calls -match '(?m)^click 836,356$') '... then the steps file''s click (BudgetTab)' $r.Calls
     Check ($r.Calls -notmatch '(?m)^key Space$') '... never pressing Space on a paused save' $r.Calls
     Check ($r.Calls -match '(?ms)^key Escape$.*^key Escape$.*^click 918,1190$.*^click 1378,850$') '... quitting through Escape, Escape, Exit, Exit to Desktop' $r.Calls
@@ -249,7 +249,7 @@ try {
     Remove-Item Env:FO_GAME_LAUNCH_VIA_LAUNCHER -ErrorAction SilentlyContinue
 
     Write-Host '--- a red run ---'
-    $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) @{ FO_STUB_FAIL_AT = 'click 1380,356' }
+    $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) @{ FO_STUB_FAIL_AT = 'click 1108,356' }
     Check ($r.ExitCode -eq 1 -and $r.Output -match 'failed: game-control click') 'a failing step makes the run red (exit 1)' $r.Output
     Check (-not (Test-FakeRunning) -and $r.Output -match 'Stopping the instance this run launched' -and $r.Output -match 'Game: not running') '... and the finally still stops the instance it launched: Game: not running' $r.Output
     Check ($r.Calls -notmatch '(?m)^key Escape$') '... without menu keys in an unknown state' $r.Calls
