@@ -2,9 +2,10 @@ import { useValue } from "cs2/api";
 import { ModRegistrar } from "cs2/modding";
 import { budgetChartEnabled$ } from "bindings";
 import { BudgetPage } from "budget/budget-page";
+import { withServiceDetailDistricts, withServicePageDistricts } from "services/service-page";
 import { DensityRows } from "taxation/density-rows";
 import { useZoneDensityExtra, withEstimatedTotalDensityExtra, withTotalDensityExtra, withZoneDensityExtra, ZoneDensityExtra } from "taxation/density-totals";
-import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
+import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, SERVICE_DETAIL_PATH, SERVICE_PAGE_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
 
 const register: ModRegistrar = (moduleRegistry) => {
   // Budget tab: the line-chart page in place of the whole vanilla page (bar chart + lists), or the vanilla page
@@ -30,6 +31,11 @@ const register: ModRegistrar = (moduleRegistry) => {
   moduleRegistry.extend(TAXATION_PAGE_PATH, "TaxationPage", withTotalDensityExtra);
   moduleRegistry.extend(TAX_SLIDER_PATH, "TaxSlider", withZoneDensityExtra);
   moduleRegistry.extend(MONEY_FIELD_PATH, "NumberField", withEstimatedTotalDensityExtra);
+
+  // Services tab, per-district budgets (BETA): the district selector above the page, and in a district view the
+  // district's own detail (slider, "Use city budget", upkeep) in place of vanilla's. Off: both are vanilla.
+  moduleRegistry.extend(SERVICE_PAGE_PATH, "ServicePage", withServicePageDistricts);
+  moduleRegistry.extend(SERVICE_DETAIL_PATH, "ServiceDetail", withServiceDetailDistricts);
 };
 
 export default register;
