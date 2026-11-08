@@ -2,7 +2,7 @@
 // education/resource rates), so the row shows only its own rate ("3 %", "0 %" by default), never the zone rate plus it.
 
 /** The density rate slider's range, in percentage points. The C# side clamps what it stores to its own cap. */
-export const DENSITY_RATE_RANGE = { min: -5, max: 10 };
+export const DENSITY_RATE_RANGE = { min: -5, max: 5 };
 
 export interface DensitySliderValues {
   /** The value the slider's thumb and % column show: the density tax rate itself. */

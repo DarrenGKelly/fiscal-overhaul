@@ -145,7 +145,7 @@ try {
     Write-Host '--- the steps grammar ---'
     $steps = ConvertFrom-GameRunSteps @('# a comment', 'click @TaxationTab', 'hover 1800,660   # the chart', 'key Escape', 'wait 500', 'screenshot after-escape the panel closed', '') (Merge-GameRunPoints)
     Check ($steps.Count -eq 5) 'comments and blank lines are skipped' "$($steps.Count) steps"
-    Check ($steps[0].X -eq 1280 -and $steps[0].Y -eq 306 -and $steps[0].Point -eq 'TaxationTab') '@Name resolves to the named point''s offsets'
+    Check ($steps[0].X -eq 1008 -and $steps[0].Y -eq 306 -and $steps[0].Point -eq 'TaxationTab') '@Name resolves to the named point''s offsets'
     Check ($steps[1].Verb -eq 'hover' -and $steps[1].X -eq 1800 -and $steps[1].Y -eq 660) 'x,y is a client offset'
     Check ($steps[3].Ms -eq 500 -and $steps[4].Name -eq 'after-escape' -and $steps[4].What -eq 'the panel closed') 'wait and screenshot keep their values'
     Check (Throws { ConvertFrom-GameRunSteps @('jump 1,2') (Merge-GameRunPoints) } "line 1.*unknown verb 'jump'") 'fail case: an unknown verb names its line'
@@ -215,7 +215,7 @@ try {
     foreach ($name in 'loaded.png', 'budget.png', 'budget-hover.png', 'taxation.png', 'budget-again.png', 'quit-menu.png', 'manifest.md') {
         Check (Test-Path -LiteralPath (Join-Path $out $name)) "... writes $name"
     }
-    Check ($r.Calls -match '(?m)^click 2050,1456$' -and $r.Calls -match '(?m)^hover 2145,701$' -and $r.Calls -match '(?m)^click 1380,356$') '... clicking the money total, hovering ChartPoint and clicking Taxation at origin + offset' $r.Calls
+    Check ($r.Calls -match '(?m)^click 2050,1456$' -and $r.Calls -match '(?m)^hover 2145,701$' -and $r.Calls -match '(?m)^click 1108,356$') '... clicking the money total, hovering ChartPoint and clicking Taxation at origin + offset' $r.Calls
     Check ($r.Calls -match '(?m)^click 836,356$') '... then the steps file''s click (BudgetTab)' $r.Calls
     Check ($r.Calls -notmatch '(?m)^key Space$') '... never pressing Space on a paused save' $r.Calls
     Check ($r.Calls -match '(?ms)^key Escape$.*^key Escape$.*^click 918,1190$.*^click 1378,850$') '... quitting through Escape, Escape, Exit, Exit to Desktop' $r.Calls
@@ -249,7 +249,7 @@ try {
     Remove-Item Env:FO_GAME_LAUNCH_VIA_LAUNCHER -ErrorAction SilentlyContinue
 
     Write-Host '--- a red run ---'
-    $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) @{ FO_STUB_FAIL_AT = 'click 1380,356' }
+    $r = Invoke-Check @('-Out', $out, '-SkipDeploy', '-ModsPath', $mods) @{ FO_STUB_FAIL_AT = 'click 1108,356' }
     Check ($r.ExitCode -eq 1 -and $r.Output -match 'failed: game-control click') 'a failing step makes the run red (exit 1)' $r.Output
     Check (-not (Test-FakeRunning) -and $r.Output -match 'Stopping the instance this run launched' -and $r.Output -match 'Game: not running') '... and the finally still stops the instance it launched: Game: not running' $r.Output
     Check ($r.Calls -notmatch '(?m)^key Escape$') '... without menu keys in an unknown state' $r.Calls
