@@ -67,7 +67,15 @@ namespace FiscalOverhaul
             return ok;
         }
 
-        /// <summary>Removes every override of one district ("Use city rates"). Returns how many.</summary>
+        /// <summary>Removes one district override (<see cref="TaxRateModel.ClearDistrictValue"/>: a row's reset button). Returns whether one was stored.</summary>
+        public static bool ClearDistrictValue(TaxType type, TaxZone zone, int key, int area, int areaVersion)
+        {
+            bool removed = TaxRateModel.ClearDistrictValue(s_Table.Rates, type, zone, key, area, areaVersion);
+            if (removed) Version++;
+            return removed;
+        }
+
+        /// <summary>Removes every override of one district (the resetDistrictTaxRates trigger). Returns how many.</summary>
         public static int ClearDistrict(int area, int areaVersion)
         {
             int removed = s_Table.Rates.ClearArea(area, areaVersion);

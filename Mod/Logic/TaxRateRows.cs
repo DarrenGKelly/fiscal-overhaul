@@ -29,7 +29,7 @@ namespace FiscalOverhaul.Logic
     /// </summary>
     public static class TaxRateRows
     {
-        /// <summary>Every stored district override of a real zone, keyed for the UI (<see cref="DistrictKey.Format"/>), in table order.</summary>
+        /// <summary>Every stored district override of a real zone, keyed for the UI (<see cref="AreaKey"/>: "index:version", or "outside"), in table order.</summary>
         public static List<DistrictRateRow> DistrictRows(TaxRateTable table)
         {
             var rows = new List<DistrictRateRow>();
@@ -37,7 +37,7 @@ namespace FiscalOverhaul.Logic
             foreach (TaxRateEntry e in table.Entries())
             {
                 if (e.IsCity || e.Zone < 0 || e.Zone >= DensityTaxTable.ZoneCount) continue;
-                rows.Add(new DistrictRateRow(DistrictKey.Format(e.Area, e.AreaVersion), e.Type, e.Zone, e.Key, e.Value));
+                rows.Add(new DistrictRateRow(AreaKey(e.Area, e.AreaVersion), e.Type, e.Zone, e.Key, e.Value));
             }
             return rows;
         }
@@ -45,7 +45,7 @@ namespace FiscalOverhaul.Logic
         /// <summary>
         /// What a setTaxRate call names: a type, a zone, a key ("0".."2" density, "0".."4" education level, a resource
         /// index; ignored for a zone rate) and an area: "" for the city (density only: the city's zone and resource
-        /// rates are vanilla's own sliders) or a district key ("index:version"; not Outside). False for anything else.
+        /// rates are vanilla's own sliders), a district key ("index:version") or "outside" (Outside Districts). False for anything else.
         /// </summary>
         public static bool TryResolve(int type, int zone, string key, string area, out TaxType taxType, out int keyIndex, out int areaIndex, out int areaVersion)
         {
@@ -55,7 +55,7 @@ namespace FiscalOverhaul.Logic
             areaVersion = 0;
             if (zone < 0 || zone >= DensityTaxTable.ZoneCount) return false;
             bool city = string.IsNullOrEmpty(area);
-            if (!city && !DistrictKey.TryParse(area, out areaIndex, out areaVersion)) return false;
+            if (!city && !TryArea(area, out areaIndex, out areaVersion)) return false;
             switch (taxType)
             {
                 case TaxType.Density:
@@ -80,6 +80,25 @@ namespace FiscalOverhaul.Logic
             int at = target.IndexOf('@');
             key = at < 0 ? target : target.Substring(0, at);
             area = at < 0 ? "" : target.Substring(at + 1);
+        }
+
+        /// <summary>The UI's key for a table area: a district's <see cref="DistrictKey.Format"/>, or <see cref="DistrictKey.Outside"/>.</summary>
+        public static string AreaKey(int area, int areaVersion)
+            => TaxRateTable.IsOutside(area, areaVersion) ? DistrictKey.Outside : DistrictKey.Format(area, areaVersion);
+
+        /// <summary>
+        /// A UI area key as a table area: "outside" is <see cref="TaxRateTable.OutsideArea"/>, "index:version" a district.
+        /// False for the city ("") or anything else.
+        /// </summary>
+        public static bool TryArea(string area, out int areaIndex, out int areaVersion)
+        {
+            if (area == DistrictKey.Outside)
+            {
+                areaIndex = TaxRateTable.OutsideArea;
+                areaVersion = TaxRateTable.OutsideVersion;
+                return true;
+            }
+            return DistrictKey.TryParse(area, out areaIndex, out areaVersion);
         }
 
         private static bool TryKey(string key, out int value)

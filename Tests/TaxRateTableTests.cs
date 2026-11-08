@@ -112,7 +112,7 @@ namespace FiscalOverhaul.Tests
             Assert.Equal(4, parsed.Get(TaxType.Density, 0, 2));
             Assert.Equal(-5, parsed.Get(TaxType.Density, 1, 0));
             Assert.Equal(0, parsed.Get(TaxType.District, 0, 12, 12, 3));
-            Assert.Equal(2, TaxRateTable.FormatVersion);
+            Assert.Equal(3, TaxRateTable.FormatVersion);
         }
 
         [Fact]

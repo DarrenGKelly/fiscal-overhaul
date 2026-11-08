@@ -49,12 +49,13 @@ interface AreaLike {
 }
 
 /**
- * The density offsets' extra monthly revenue in one tax area: the sum of its rows' estimates (negative offsets lower
- * it). 0 while density taxes are off, for the city-wide area, a locked zone, or with every offset 0.
+ * The density tax's monthly revenue in one tax area: the sum of its rows' estimates (each payer's own density part as
+ * charged, so a cell at the city's 0 still counts what its districts' rates bring; a subsidy lowers it). 0 while
+ * density taxes are off, for the city-wide area, a locked zone, or with no payer paying density tax.
  */
 export function densityExtraForArea(cells: EstimateCell[] | null | undefined, areaIndex: number, locked: boolean, enabled: boolean): number {
   let sum = 0;
-  for (const c of cellsForArea(cells, areaIndex, locked, enabled)) if (c.offset !== 0) sum += c.estimate;
+  for (const c of cellsForArea(cells, areaIndex, locked, enabled)) sum += c.estimate;
   return sum;
 }
 
@@ -62,6 +63,40 @@ export function densityExtraForArea(cells: EstimateCell[] | null | undefined, ar
 export function densityExtraTotal(cells: EstimateCell[] | null | undefined, areas: AreaLike[] | null | undefined, enabled: boolean): number {
   let sum = 0;
   for (const a of areas ?? []) sum += densityExtraForArea(cells, a.index, a.locked, enabled);
+  return sum;
+}
+
+/**
+ * What district and Outside income-tax overrides add to a tax area's vanilla total (the densityTaxes binding's
+ * districtParts, per zone): booked by the city as tax income whatever the density switch. 0 for the city-wide area, a
+ * locked zone, or no data.
+ */
+export function districtPartForArea(parts: number[] | null | undefined, areaIndex: number, locked: boolean): number {
+  const zone = zoneForAreaIndex(areaIndex);
+  if (locked || zone < 0) return 0;
+  return parts?.[zone] ?? 0;
+}
+
+/** A zone's whole extra on top of vanilla's total: its density tax plus its district part. */
+export function zoneExtra(
+  cells: EstimateCell[] | null | undefined,
+  districtParts: number[] | null | undefined,
+  areaIndex: number,
+  locked: boolean,
+  enabled: boolean,
+): number {
+  return densityExtraForArea(cells, areaIndex, locked, enabled) + districtPartForArea(districtParts, areaIndex, locked);
+}
+
+/** ESTIMATED TOTAL's extra: every area's {@link zoneExtra}, so it matches the zone totals. */
+export function totalExtra(
+  cells: EstimateCell[] | null | undefined,
+  districtParts: number[] | null | undefined,
+  areas: AreaLike[] | null | undefined,
+  enabled: boolean,
+): number {
+  let sum = 0;
+  for (const a of areas ?? []) sum += zoneExtra(cells, districtParts, a.index, a.locked, enabled);
   return sum;
 }
 

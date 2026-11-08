@@ -31,14 +31,16 @@ namespace FiscalOverhaul
     /// <item>its density tax: the district's rate for its building's (zone, density) cell, else the city's (0 while
     /// density taxes are off);</item>
     /// </list>
-    /// clamped by <see cref="EffectiveTaxRate.Compute"/>. A payer outside every district (or with no property) pays the
-    /// city's values. Burst-safe: build one on the main thread with <see cref="Create"/>, hand it to a job, then
+    /// clamped by <see cref="EffectiveTaxRate.Compute"/>. A payer whose building is in no district pays Outside Districts'
+    /// overrides (<see cref="TaxRateTable.OutsideArea"/>), else the city's values; one with no property the city's. Burst-safe: build one on the main thread with <see cref="Create"/>, hand it to a job, then
     /// <see cref="Dispose(JobHandle)"/> with the job's handle.
     /// </summary>
     public struct TaxRateResolver
     {
         /// <summary>District entity → block index into <see cref="m_Deltas"/> and (block + 1) into <see cref="m_Density"/>.</summary>
         [ReadOnly] public NativeParallelHashMap<Entity, int> m_DistrictBlocks;
+        /// <summary>Outside Districts' block (a building in no district), or -1 when it has no override.</summary>
+        public int m_OutsideBlock;
         /// <summary><see cref="TaxRateModel.BlockSize"/> ints per district with overrides (<see cref="TaxRateModel.DeltaIndex"/>).</summary>
         [ReadOnly] public NativeArray<int> m_Deltas;
         /// <summary><see cref="TaxRateModel.DensityCells"/> ints per area: block 0 the city's, block i + 1 district block i's.</summary>
@@ -72,6 +74,7 @@ namespace FiscalOverhaul
                 if (!e.IsCity && !districts.Contains((e.Area, e.AreaVersion))) districts.Add((e.Area, e.AreaVersion));
 
             var blocks = new NativeParallelHashMap<Entity, int>(math.max(1, districts.Count), allocator);
+            int outsideBlock = -1;
             var deltas = new NativeArray<int>(math.max(1, districts.Count) * TaxRateModel.BlockSize, allocator);
             var density = new NativeArray<int>((districts.Count + 1) * TaxRateModel.DensityCells, allocator);
             int[] city = TaxRateModel.DistrictDensityRates(table, TaxRateTable.CityArea, 0, densityOn);
@@ -79,7 +82,8 @@ namespace FiscalOverhaul
             for (int i = 0; i < districts.Count; i++)
             {
                 (int index, int version) = districts[i];
-                blocks[new Entity { Index = index, Version = version }] = i;
+                if (TaxRateTable.IsOutside(index, version)) outsideBlock = i;
+                else blocks[new Entity { Index = index, Version = version }] = i;
                 int[] d = TaxRateModel.DistrictDeltas(table, index, version, cityRates, limits);
                 NativeArray<int>.Copy(d, 0, deltas, i * TaxRateModel.BlockSize, d.Length);
                 int[] cells = TaxRateModel.DistrictDensityRates(table, index, version, densityOn);
@@ -89,6 +93,7 @@ namespace FiscalOverhaul
             return new TaxRateResolver
             {
                 m_DistrictBlocks = blocks,
+                m_OutsideBlock = outsideBlock,
                 m_Deltas = deltas,
                 m_Density = density,
                 m_WageByLevel = wageByLevel,
@@ -192,10 +197,12 @@ namespace FiscalOverhaul
             block = -1;
             densityTax = 0;
             if (property == Entity.Null) return false;
-            if (!m_DistrictBlocks.IsEmpty)
+            if (!m_DistrictBlocks.IsEmpty || m_OutsideBlock >= 0)
             {
                 Entity district = m_Keys.District(property);
-                if (district != Entity.Null && m_DistrictBlocks.TryGetValue(district, out int b)) block = b;
+                // A building in no district pays Outside Districts' overrides.
+                int districtBlock = district != Entity.Null && m_DistrictBlocks.TryGetValue(district, out int b) ? b : -1;
+                block = TaxRateModel.AreaBlock(district != Entity.Null, districtBlock, m_OutsideBlock);
             }
             if (m_Keys.TryDensityCell(property, isHousehold, out int cell))
                 densityTax = m_Density[(block + 1) * TaxRateModel.DensityCells + cell];
@@ -226,6 +233,58 @@ namespace FiscalOverhaul
 
         /// <summary>The city's residential rate for an education level, as vanilla computes it from the resolver's rates.</summary>
         public int CityResidentRate(int level) => TaxSystem.GetResidentialTaxRate(level, m_CityRates);
+
+        /// <summary>
+        /// A company's Taxation tab row: its zone (<see cref="TaxPayerZone"/>: Office for a weightless industrial output)
+        /// and its output resource's index. False for a household or a company with no output.
+        /// </summary>
+        public bool TryCompanyRow(Entity payer, TaxPayerKind kind, out TaxZone zone, out int key)
+        {
+            zone = TaxZone.Commercial;
+            key = -1;
+            if (kind == TaxPayerKind.Household || !TryOutput(payer, out Resource resource, out bool weightless)) return false;
+            zone = TaxPayerZone.Of(false, kind == TaxPayerKind.Commercial, weightless);
+            key = EconomyUtils.GetResourceIndex(resource);
+            return key >= 0 && key < TaxRateModel.ResourceCount;
+        }
+
+        /// <summary>
+        /// Books a household's income part (an amount) to its workers' education-level rows by wage
+        /// (<see cref="DistrictTaxEstimate.AddHousehold"/>'s loop; no worker: level 0), indexed by
+        /// <see cref="TaxRateModel.DeltaIndex"/>.
+        /// </summary>
+        public void AddHouseholdAmount(Entity household, double amount, NativeArray<double> itemBases)
+        {
+            long total = 0;
+            DynamicBuffer<HouseholdCitizen> citizens = default;
+            bool has = m_HouseholdCitizens.HasBuffer(household);
+            if (has)
+            {
+                citizens = m_HouseholdCitizens[household];
+                for (int i = 0; i < citizens.Length; i++)
+                    if (m_Workers.HasComponent(citizens[i].m_Citizen)) total += LevelWeight(WorkerLevel(citizens[i].m_Citizen));
+            }
+            if (total == 0)
+            {
+                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)] += amount;
+                return;
+            }
+            for (int i = 0; i < citizens.Length; i++)
+            {
+                Entity citizen = citizens[i].m_Citizen;
+                if (!m_Workers.HasComponent(citizen)) continue;
+                int level = WorkerLevel(citizen);
+                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, level)] += DistrictTaxEstimate.Share(amount, LevelWeight(level), total);
+            }
+        }
+
+        private int WorkerLevel(Entity citizen) => math.clamp((int)m_Workers[citizen].m_Level, 0, TaxRateModel.JobLevels - 1);
+
+        private long LevelWeight(int level)
+        {
+            int wage = m_WageByLevel.IsCreated && level < m_WageByLevel.Length ? m_WageByLevel[level] : 0;
+            return wage > 0 ? wage : 1;
+        }
 
         /// <summary>Whether an industrial payer's output weighs nothing, so vanilla books its tax as Office.</summary>
         public bool IsWeightless(Entity payer) => TryOutput(payer, out _, out bool weightless) && weightless;

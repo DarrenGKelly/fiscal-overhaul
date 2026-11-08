@@ -1,0 +1,10 @@
+// The reset target's tick on a slider track (slider-marker.tsx): a thin light line over the track, under the thumb's
+// clicks (pointer-events: none).
+
+.marker {
+  position: absolute;
+  width: 3rem;
+  background-color: rgba(255, 255, 255, 0.75);
+  border-radius: 1rem;
+  pointer-events: none;
+}

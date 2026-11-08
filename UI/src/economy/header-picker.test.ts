@@ -65,15 +65,15 @@ describe("headerPicker visibility per tab", () => {
 });
 
 describe("headerPicker choices per tab", () => {
-  it("offers Outside Districts on Budget and Services, not on Taxation", () => {
-    expect(headerPicker(TAB.Budget, ALL_ON, DISTRICTS, CITY_KEY)!.options.map((o) => o.key)).toContain(OUTSIDE_KEY);
-    expect(headerPicker(TAB.Services, ALL_ON, DISTRICTS, CITY_KEY)!.options.map((o) => o.key)).toContain(OUTSIDE_KEY);
-    expect(headerPicker(TAB.Taxation, ALL_ON, DISTRICTS, CITY_KEY)!.options.map((o) => o.key)).not.toContain(OUTSIDE_KEY);
+  it("offers Outside Districts on Budget, Services and Taxation", () => {
+    for (const t of [TAB.Budget, TAB.Services, TAB.Taxation])
+      expect(headerPicker(t, ALL_ON, DISTRICTS, CITY_KEY)!.options.map((o) => o.key)).toContain(OUTSIDE_KEY);
   });
 
-  it("shows Outside as the city on Taxation, and as Outside on Budget", () => {
-    expect(headerPicker(TAB.Taxation, ALL_ON, DISTRICTS, OUTSIDE_KEY)!.selected).toBe(CITY_KEY);
+  it("shows Outside as Outside on every district tab, but not on Taxation with the engine off", () => {
+    expect(headerPicker(TAB.Taxation, ALL_ON, DISTRICTS, OUTSIDE_KEY)!.selected).toBe(OUTSIDE_KEY);
     expect(headerPicker(TAB.Budget, ALL_ON, DISTRICTS, OUTSIDE_KEY)!.selected).toBe(OUTSIDE_KEY);
+    expect(headerPicker(TAB.Taxation, { ...ALL_ON, taxEngineOn: false }, DISTRICTS, OUTSIDE_KEY)).toBeNull();
   });
 
   it("shows a district on every district tab", () => {

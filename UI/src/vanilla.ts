@@ -86,3 +86,6 @@ export const useLegacyInterfaceActive: () => boolean = getModule("game-ui/common
 export const Portal: any = getModule("game-ui/common/portal/portal.tsx", "Portal");
 /** The portal container Portal draws into (document.body unless a provider sets one). */
 export const usePortalContainer: (() => HTMLElement | null) | undefined = getModule("game-ui/common/portal/portal.tsx", "usePortalContainer");
+
+/** A glyph tinted by CSS (mask-image, background var(--iconColor)): props { src, className?, style? }. */
+export const TintedIcon: any = getModule("game-ui/common/image/tinted-icon.tsx", "TintedIcon");

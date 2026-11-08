@@ -1,18 +1,5 @@
 // The district view of the Taxation tab (district-tax-view.tsx, density-totals.tsx).
 
-// "Use city rates", under the district selector.
-.reset-bar {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  padding: 4rem 0 8rem 0;
-}
-
-.reset-button {
-  padding: 6rem 20rem;
-  font-size: var(--fontSizeS);
-}
-
 // A slider whose district value differs from the city's: a bar in the accent colour down its left edge. A left border
 // and a faint tint (the inset box-shadow this was first drew nothing in Gameface); the slider moves 4rem right.
 .overridden {
@@ -20,15 +7,4 @@
   border-left-width: 4rem;
   border-left-color: rgba(255, 196, 0, 0.9);
   background-color: rgba(255, 196, 0, 0.08);
-}
-
-// Vanilla TaxSlider: [slider column][estimate column]. A district view has no revenue estimate, so the estimate column
-// (the last child) is hidden, keeping its place so the slider lines up with the city view's.
-.no-estimate > div:last-child {
-  visibility: hidden;
-}
-
-// ESTIMATED TOTAL in a district view: hidden (the totals are the city's).
-.hidden-total {
-  visibility: hidden;
 }

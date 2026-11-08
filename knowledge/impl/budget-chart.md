@@ -137,7 +137,7 @@ One picker for the Budget, Taxation and Services tabs, in the **Economy panel's 
 tabs follow it: [Budget | Taxation | Services], a divider line, [Production | Loans] (`withTabGroupDivider`, by tab id).
 It shows on the selected tab only by that tab's own rule (`headerPicker`: Budget while recording is on, Services while
 district service budgets are on, Taxation while the tax engine charges and the city has a district) and its choices
-(Taxation has no Outside Districts: a shared choice of Outside shows the city there and stays for the other tabs). On
+(every one offers Outside Districts; a deleted district shows the city and the choice stays for the other tabs). On
 Production and Loans, or a tab whose feature is off, its slot stays empty so the tabs never move; with every district
 feature off there is no slot (`reservesPickerSlot`). The city option is the **city's name** (vanilla
 `toolbarBottom.cityName`; `cityLabel` falls back to "Entire City" while it is blank).

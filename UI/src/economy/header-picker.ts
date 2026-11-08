@@ -36,9 +36,9 @@ export interface DistrictFeatures {
 
 /**
  * The header picker for the selected tab: its choices and the choice it shows, or null where it is hidden (Production,
- * Loans, or a tab whose district feature is off). Each tab keeps its own rules and choices: Budget and Services offer
- * Outside Districts, Taxation doesn't (it shows only with a district). A shared choice the tab can't use (Outside on
- * Taxation, a deleted district) shows as the city, and is kept for the other tabs.
+ * Loans, or a tab whose district feature is off). Each tab keeps its own rules: every one offers the city, the
+ * districts and Outside Districts; Taxation shows only with a district and while the tax engine charges. A shared
+ * choice the tab can't use (a deleted district) shows as the city, and is kept for the other tabs.
  */
 export function headerPicker(
   tab: number,
