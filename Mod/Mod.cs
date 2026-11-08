@@ -1,6 +1,7 @@
 ﻿using Colossal.IO.AssetDatabase;
 using Colossal.Logging;
 using Game;
+using Game.Buildings;
 using Game.Modding;
 using Game.SceneFlow;
 using Game.Simulation;
@@ -42,6 +43,17 @@ namespace FiscalOverhaul
             updateSystem.UpdateAfter<DistrictBudgetSystem, DensityTaxRestoreSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.World.GetOrCreateSystemManaged<DistrictBudgetSystem>().SetSettings(m_Setting);
 
+            // The city's Service Upkeep split per service: a weight sample per vanilla statistics sample, kept in the save.
+            updateSystem.UpdateAt<ServiceUpkeepSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.World.GetOrCreateSystemManaged<ServiceUpkeepSystem>().SetSettings(m_Setting);
+
+            // Per-district service budgets (BETA): the efficiency pass right after vanilla writes the city %, and the
+            // upkeep correction right after vanilla computes the expense array. Every frame, as both vanilla systems.
+            updateSystem.UpdateAfter<DistrictServiceBudgetSystem, CityServiceEfficiencySystem>(SystemUpdatePhase.ModificationEnd);
+            updateSystem.UpdateAfter<DistrictServiceUpkeepSystem, CityServiceBudgetSystem>(SystemUpdatePhase.ModificationEnd);
+            updateSystem.World.GetOrCreateSystemManaged<DistrictServiceBudgetSystem>().SetSettings(m_Setting);
+            updateSystem.UpdateAt<DistrictServiceBudgetUISystem>(SystemUpdatePhase.UIUpdate);
+
             // UI bindings for the Economy panel. UIUpdate runs every rendered frame, paused or not; the systems gate
             // their own work on the panel being open (FeatureGates).
             updateSystem.UpdateAt<BudgetHistoryUISystem>(SystemUpdatePhase.UIUpdate);
@@ -51,12 +63,13 @@ namespace FiscalOverhaul
         }
 
         /// <summary>
-        /// Pushes the density tax switch to the simulation. (The budget chart switch is read by
+        /// Pushes the density tax switch (gated by the master "Simulation changes" switch) to the simulation.
+        /// DistrictServiceBudgetSystem reads its switches each frame. (The budget chart switch is read by
         /// <see cref="BudgetHistoryUISystem"/> each frame, as it only matters while the UI runs.)
         /// </summary>
         private static void ApplyFeatureSwitches(Game.Settings.Setting setting)
         {
-            if (setting is Setting s) DensityTaxState.SetEnabled(s.EnableDensityTaxes);
+            if (setting is Setting s) DensityTaxState.SetEnabled(Logic.FeatureGates.AppliesDensityTaxes(s.EnableSimulationChanges, s.EnableDensityTaxes));
         }
 
         public void OnDispose()
