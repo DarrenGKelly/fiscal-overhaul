@@ -57,3 +57,21 @@ export function markerLeft(track: Box | null, fraction: number | null, markerWid
   if (!track || fraction === null || track.width <= 0) return null;
   return track.left + fraction * track.width - markerWidth / 2;
 }
+
+/** Frames a measurement must hold unchanged before the frame stops re-measuring (slider-reset-frame.tsx). */
+export const SETTLE_FRAMES = 3;
+
+/** The most frames the frame re-measures after a render, settled or not. */
+export const MAX_MEASURE_FRAMES = 120;
+
+/**
+ * Whether the frame measures again next frame. Gameface lays a panel out over several frames (the Economy panel
+ * opens animated), so the first measurements can find no track or no button slot, and a paused game may not render
+ * the row again: the button and marker then never showed until a slider was touched. So the frame keeps measuring
+ * each frame until it has found both and they have held for {@link SETTLE_FRAMES} frames, at most
+ * {@link MAX_MEASURE_FRAMES} frames after each render.
+ */
+export function keepMeasuring(frame: number, stableFrames: number, found: boolean): boolean {
+  if (frame >= MAX_MEASURE_FRAMES) return false;
+  return !found || stableFrames < SETTLE_FRAMES;
+}

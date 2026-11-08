@@ -42,7 +42,7 @@ import {
   estimateTotal,
   FEE_SLIDER_MAX,
   feeDefault,
-  feeEstimate,
+  feeRowEstimate,
   feeFromSlider,
   FeeLike,
   feeReset,
@@ -264,7 +264,7 @@ const FeeRow = ({ fee, service, district, defaultFee, fees, locked, legacy, tran
           gradient: legacy ? FEE_GRADIENT_LEGACY : FEE_GRADIENT,
           onChange: (v: number) => serviceBindings.setServiceFee(fee.resource, feeFromSlider(v, fee.min, fee.max)),
         }}
-        estimate={feeEstimate(fee, service, district, fees)}
+        estimate={feeRowEstimate()}
         disabled={locked || readOnly}
         reset={reset}
         onReset={() => defaultFee !== null && serviceBindings.setServiceFee(fee.resource, defaultFee)}
@@ -287,7 +287,8 @@ interface ServiceSliderProps {
   primary?: boolean;
   /** Null: no slider (a service whose budget isn't adjustable), only its estimate. */
   slider: SliderSpec | null;
-  estimate: number;
+  /** Null: a blank estimate column (a fee row: its income is in the service's NET). */
+  estimate: number | null;
   disabled: boolean;
   reset: SliderReset;
   onReset: () => void;
@@ -350,7 +351,7 @@ const ServiceSlider = ({ className, primary, slider: spec, estimate, disabled, r
         )}
       </div>
       <div className={slider.estimateColumn}>
-        <NumberField value={estimate} importance={primary ? "secondary" : undefined} className={slider.estimateValue} />
+        {estimate !== null && <NumberField value={estimate} importance={primary ? "secondary" : undefined} className={slider.estimateValue} />}
       </div>
     </div>
   );
