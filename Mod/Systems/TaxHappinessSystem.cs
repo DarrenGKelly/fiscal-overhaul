@@ -38,7 +38,7 @@ namespace FiscalOverhaul
     /// Simulation changes switch and the game-version guard cover it; anything else turns vanilla's update back on, live.
     /// Registered right before vanilla with the same interval (16), so it inherits its update offset.
     ///
-    /// Copied from Game.Simulation.CitizenHappinessSystem, game version 1.6.0f1: CitizenHappinessJob (:74-750),
+    /// Copied from Game.Simulation.CitizenHappinessSystem, game version 1.6.3f1: CitizenHappinessJob (:74-750),
     /// HappinessFactorJob (:758-798), GetFactorIndex (:997-1000), the static GetHappinessFactor (:1008-1021),
     /// GetTriggerTypeForHappinessFactor (:1939-1999), OnCreate (:1023-1066) and OnUpdate (:1843-1937). Changes are marked
     /// CHANGED or ADDED; the debug distribution (vanilla's DebugWatchDistribution) is left out.
@@ -55,7 +55,7 @@ namespace FiscalOverhaul
             public uint m_UpdateFrame;
         }
 
-        // Copied from CitizenHappinessSystem.CitizenHappinessJob (:74-750), game version 1.6.0f1. Changes (marked):
+        // Copied from CitizenHappinessSystem.CitizenHappinessJob (:74-750), game version 1.6.3f1. Changes (marked):
         // the tax bonus at the home's charged rate; the home's adjustments and HomeRate (ADDED); no debug queue.
         [BurstCompile]
         private struct CitizenHappinessJob : IJobChunk
@@ -757,7 +757,7 @@ namespace FiscalOverhaul
             }
             }
 
-        // Copied from CitizenHappinessSystem.HappinessFactorJob (:758-798), game version 1.6.0f1. Unchanged; the
+        // Copied from CitizenHappinessSystem.HappinessFactorJob (:758-798), game version 1.6.3f1. Unchanged; the
         // factor array it writes is vanilla's.
         [BurstCompile]
         private struct HappinessFactorJob : IJob
@@ -801,7 +801,7 @@ namespace FiscalOverhaul
             }
         }
 
-        // Copied from CitizenHappinessSystem (:997-1000, :1008-1021, :1939-1999), game version 1.6.0f1: private there.
+        // Copied from CitizenHappinessSystem (:997-1000, :1008-1021, :1939-1999), game version 1.6.3f1: private there.
         private static int GetFactorIndex(HappinessFactor factor, uint updateFrame)
         {
             return (int)factor + (int)(26 * updateFrame);
@@ -930,7 +930,7 @@ namespace FiscalOverhaul
         }
 
         // Copied from Game.Simulation.CitizenHappinessSystem.OnCreate (:1023-1066) and __AssignQueries (:2050-2063),
-        // game version 1.6.0f1. Changes: the factor array is vanilla's (read by reflection), not a new one; no debug data;
+        // game version 1.6.3f1. Changes: the factor array is vanilla's (read by reflection), not a new one; no debug data;
         // the guard's structure check (ADDED).
         [Preserve]
         protected override void OnCreate()
@@ -1041,7 +1041,7 @@ namespace FiscalOverhaul
             Running = running;
         }
 
-        // Copied from Game.Simulation.CitizenHappinessSystem.OnUpdate (:1843-1937), game version 1.6.0f1. Changes: the
+        // Copied from Game.Simulation.CitizenHappinessSystem.OnUpdate (:1843-1937), game version 1.6.3f1. Changes: the
         // mode check first; type handles and lookups from SystemBase instead of the generated TypeHandle; no debug
         // queue; the home adjustments, rate limits and key lookups passed to the job; vanilla's m_LastDeps set to this
         // update's handle (so its GetHappinessFactor waits for this job).

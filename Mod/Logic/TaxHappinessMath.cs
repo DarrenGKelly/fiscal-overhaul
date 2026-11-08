@@ -4,7 +4,7 @@ namespace FiscalOverhaul.Logic
 {
     /// <summary>
     /// The tax happiness factor for one citizen, at a given residential rate: a port of vanilla
-    /// <c>CitizenHappinessSystem.GetTaxBonuses</c> (CitizenHappinessSystem.cs:1370-1396, game version 1.6.0f1) with the
+    /// <c>CitizenHappinessSystem.GetTaxBonuses</c> (CitizenHappinessSystem.cs:1370-1396, game version 1.6.3f1) with the
     /// rate and the city's TaxHappiness modifier passed in, so TaxHappinessSystem can apply
     /// it to the rate the citizen's home is actually charged (<see cref="ResidentRate"/>). Pure float/int maths,
     /// Burst-safe: the happiness job calls it per citizen.
