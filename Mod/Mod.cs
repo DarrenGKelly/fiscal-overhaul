@@ -24,8 +24,11 @@ namespace FiscalOverhaul
             // Every l10n/<locale>.json: the Options page's text and the UI's (which falls back to English on its own).
             LocaleRegistry.Register(m_Setting);
             AssetDatabase.global.LoadSettings(nameof(FiscalOverhaul), m_Setting, new Setting(this));
-            // The offsets are global mod settings, not per save, so they're loaded once here, before any city loads.
-            DensityTaxState.Load(m_Setting.DensityTaxOffsets);
+            // Tax rates are per save: TaxRatesSystem loads them with each city (seeding a city that has none from the
+            // DensityTaxOffsets template) and points DensityTaxState at them.
+            // Registered so it gets the load hooks; its OnUpdate does nothing.
+            updateSystem.UpdateAt<TaxRatesSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.World.GetOrCreateSystemManaged<TaxRatesSystem>().SetSettings(m_Setting);
             ApplyFeatureSwitches(m_Setting);
             // The options page calls ApplyAndSave on every change, so the switches take effect live.
             m_Setting.onSettingsApplied += ApplyFeatureSwitches;

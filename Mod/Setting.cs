@@ -37,7 +37,11 @@ namespace FiscalOverhaul
         [SettingsUISection(kSection, kFeaturesGroup)]
         public bool EnableDistrictBudget { get; set; } = FeatureGates.DistrictBudgetDefault;
 
-        /// <summary>Serialized <see cref="DensityTaxTable"/>; edited through the Taxation tab, not shown directly.</summary>
+        /// <summary>
+        /// Serialized <see cref="DensityTaxTable"/>: the template a city without stored tax rates is seeded from once
+        /// (a new city, or a save from before rates were kept per save; <see cref="TaxRatesSystem"/>). The Taxation tab
+        /// edits the loaded city's own rates, not this. Not shown directly.
+        /// </summary>
         [SettingsUIHidden]
         public string DensityTaxOffsets { get; set; }
 
@@ -48,8 +52,9 @@ namespace FiscalOverhaul
         {
             set
             {
+                // Clears the template and the loaded city's offsets.
                 DensityTaxOffsets = string.Empty;
-                DensityTaxState.Load(DensityTaxOffsets);
+                DensityTaxState.ClearAll();
                 ApplyAndSave();
             }
         }

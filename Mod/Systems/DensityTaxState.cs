@@ -4,7 +4,8 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// The live density tax offsets, shared by the UI system and the Options page (write) and the simulation systems
-    /// (read). Main thread only: every caller (binding triggers, the Options page, system OnUpdate) runs there.
+    /// (read). They are the loaded city's: <see cref="TaxRatesSystem"/> keeps them in the save and points this state at
+    /// that save's <see cref="TaxRateTable"/> (<see cref="Use"/>) on every load. Main thread only: every caller (binding triggers, the Options page, system OnUpdate) runs there.
     ///
     /// Jobs never see this state directly. <see cref="DensityTaxApplySystem"/> takes a <see cref="Snapshot"/> each
     /// update and hands its job a TempJob copy of it, so a change made here while an apply job is still running can't
@@ -34,9 +35,17 @@ namespace FiscalOverhaul
         /// </summary>
         public static int[] Snapshot() => s_Table.EffectiveOffsets(s_Enabled);
 
-        public static void Load(string serialized)
+        /// <summary>Reads and writes <paramref name="rates"/>' density entries from now on (the loaded city's table).</summary>
+        public static void Use(TaxRateTable rates)
         {
-            s_Table = DensityTaxTable.Parse(serialized);
+            s_Table = new DensityTaxTable(rates);
+            Version++;
+        }
+
+        /// <summary>Clears the loaded city's density offsets (Options > reset).</summary>
+        public static void ClearAll()
+        {
+            s_Table.Rates.Clear(TaxType.Density);
             Version++;
         }
 
