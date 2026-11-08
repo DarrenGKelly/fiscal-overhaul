@@ -90,8 +90,9 @@ apply. The overwrite reads this frame's collected costs where vanilla's entry us
 `"fiscalOverhaul"`. `serviceKey` is the service prefab's name (or its entity as `index:version`); `districtKey` is
 `"outside"` or a `DistrictKey`; `budget` 0 clears. Stored whatever the switches say.
 
-Options > Features: **District service budgets (BETA)** (`Setting.EnableDistrictServiceBudget`, default off,
-`FeatureGates.DistrictServiceBudgetDefault`) and **Reset district service budgets** (clears the loaded city's table).
+Options > Simulation changes: **District service budgets (BETA)** (`Setting.EnableDistrictServiceBudget`, default off,
+`FeatureGates.DistrictServiceBudgetDefault`, greyed out while the master is off); Options > Reset: **Reset district
+service budgets** (clears the loaded city's table).
 `FeatureGates.AppliesDistrictServiceBudgets(master, feature, hasAny)` gates both systems.
 
 `DistrictServiceBudgetSystem.LogPasses` (on while BETA) writes a Mod.log line per override change and per triggered
@@ -102,10 +103,20 @@ Service Upkeep row charged against the row at the city %.
 
 **Simulation changes** (`Setting.EnableSimulationChanges`, default **on**, `FeatureGates.SimulationChangesDefault`):
 off, every feature that changes how vanilla simulates (demand, happiness, service efficiency and upkeep, taxes charged)
-runs vanilla whatever its own switch says; stored values are kept. Today that is density taxes
-(`FeatureGates.AppliesDensityTaxes`) and district service budgets. **Any new simulation-changing feature, including the
-coming tax engine, must take this switch first in its `FeatureGates` gate.** The charts and recorded histories are not
-simulation changes and ignore it.
+runs vanilla whatever its own switch says; stored values are kept. Today that is the tax engine (density taxes,
+`FeatureGates.AppliesDensityTaxes`; district tax rates, tax happiness, home choice and the demand view, all following
+`TaxEngineGuardLogic.Decide`'s mode; Run on untested game version) and district service budgets. **Any new
+simulation-changing feature must take this switch first in its `FeatureGates` gate**, and `FeatureGatesTests` has a
+master-on/master-off pair for each one. The charts and recorded histories are not simulation changes and ignore it.
+
+**The Options layout** (`Mod/Setting.cs`, pinned by `SettingOrderTests`): three groups in order. *Features* is the core,
+only what changes the UI or reads the game (Budget chart, Record district budgets; the Services table and the Taxation
+UI have no switch). *Simulation changes* has the master first, then every switch under it (Density taxes, District
+service budgets, Run on untested game version), each with
+`[SettingsUIDisableByCondition(typeof(Setting), nameof(SimulationSwitchesDisabled))]` so it greys out while the master
+is off (`FeatureGates.DisablesSimulationSwitches`; the condition is a method so the game doesn't list it). *Reset* has
+the two reset buttons, never greyed out: clearing stored values is safe with the master off. A new
+simulation-changing switch goes in the second group with that attribute; the property names are the saved keys.
 
 ## The Budget tab follows the %
 
