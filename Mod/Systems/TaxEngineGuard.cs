@@ -66,6 +66,38 @@ namespace FiscalOverhaul
             }
         }
 
+        /// <summary>
+        /// The vanilla demand systems whose private <c>m_TaxSystem</c> field <see cref="DemandTaxViewSystem"/> points at
+        /// its view. Each reads only GetTaxRates() and AddReader() through it (game version 1.6.3f1:
+        /// ResidentialDemandSystem.cs:487/502, CommercialDemandSystem.cs:610/630, IndustrialDemandSystem.cs:1173/1204).
+        /// </summary>
+        public static readonly Type[] DemandSystemTypes =
+        {
+            typeof(ResidentialDemandSystem), typeof(CommercialDemandSystem), typeof(IndustrialDemandSystem),
+        };
+
+        /// <summary>
+        /// Whether the demand view's swap still fits the game: each <see cref="DemandSystemTypes"/> has a private
+        /// <c>m_TaxSystem</c> field of type TaxSystem, and TaxSystem keeps its rates in <c>m_TaxRates</c>
+        /// (<c>NativeArray&lt;int&gt;</c>), the field the view sets. <paramref name="problem"/> names the first mismatch.
+        /// </summary>
+        public static bool DemandStructureOk(out string problem)
+        {
+            problem = null;
+            try
+            {
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+                if (!HasField(typeof(TaxSystem), "m_TaxRates", typeof(NativeArray<int>), flags, ref problem)) return false;
+                // Each type's own field (each declares its own private m_TaxSystem), the resolver the swap uses.
+                return DemandSwapLogic.ResolveFields(DemandSystemTypes, "m_TaxSystem", typeof(TaxSystem), out problem) != null;
+            }
+            catch (Exception e)
+            {
+                problem = $"demand structure check threw: {e.Message}";
+                return false;
+            }
+        }
+
         /// <summary>The length of CitizenHappinessSystem.m_HappinessFactors the copy was taken against (26 factors × 16 frames).</summary>
         public const int kHappinessFactorCount = 416;
 

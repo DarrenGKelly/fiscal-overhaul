@@ -21,6 +21,16 @@ namespace FiscalOverhaul.Tests
             Assert.DoesNotContain("nowTotal", BudgetHistoryPayload.Properties(true));
         }
 
+        [Fact]
+        public void EveryViewCarriesTheServiceRows_NeverNull()
+        {
+            Assert.Contains("services", BudgetHistoryPayload.Properties(false));
+            Assert.Contains("services", BudgetHistoryPayload.Properties(true));
+            Assert.False(BudgetHistoryPayload.IsNull("services", false));
+            Assert.False(BudgetHistoryPayload.IsNull("services", true));
+            Assert.Equal(new[] { "name", "start", "values" }, BudgetHistoryPayload.ServiceProperties);
+        }
+
         [Theory]
         [InlineData("nowIncome", false, true)]
         [InlineData("nowExpense", false, true)]
