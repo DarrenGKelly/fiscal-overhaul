@@ -25,16 +25,6 @@ export function densityLabel(density: number, translate: Translate | null): stri
 }
 
 /**
- * The Density tax section's header summary. Entire City: how many density rates are not 0 ("2 rates set"); a district
- * view: how many of its values differ from the city's ("1 override"). Nothing when the count is 0.
- */
-export function rateSummary(count: number, translate: Translate | null, district = false): string {
-  if (count <= 0) return "";
-  if (district) return localize(translate, count === 1 ? "OneOverride" : "Overrides", { COUNT: count });
-  return localize(translate, count === 1 ? "OneRateSet" : "RatesSet", { COUNT: count });
-}
-
-/**
  * The expand/collapse arrow, as the vanilla foldout draws it: a Media/Glyphs icon (the game's font, Overpass, has no
  * arrow glyphs and shows a tofu box).
  */

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CITY_KEY, OUTSIDE_KEY } from "../district/district-select";
 import {
-  densityOverrideCount,
   districtItemRate,
   districtOverride,
   hasDistrictOverrides,
@@ -111,20 +110,5 @@ describe("resetting a district", () => {
     const reset = ROWS.filter((r) => r.area !== "12:1");
     expect(rowRate({ type: TYPE_RESOURCE_RATE, zone: 0, key: 4 }, "12:1", reset, 12, 10, 0, 30)).toEqual({ rate: 12, overridden: false });
     expect(hasDistrictOverrides(reset, "12:1")).toBe(false);
-  });
-});
-
-describe("densityOverrideCount", () => {
-  const cells = [
-    { zone: 0, density: 0, offset: 0 },
-    { zone: 0, density: 1, offset: 0 },
-    { zone: 0, density: 2, offset: 2 },
-  ];
-
-  it("counts the cells whose district rate differs from the city's", () => {
-    expect(densityOverrideCount(ROWS, "12:1", cells)).toBe(1);
-    expect(densityOverrideCount(ROWS, "40:2", cells)).toBe(0);
-    // An override equal to the city's rate is not a difference.
-    expect(densityOverrideCount([{ area: "40:2", type: TYPE_DENSITY, zone: 0, key: 2, value: 2 }], "40:2", cells)).toBe(0);
   });
 });

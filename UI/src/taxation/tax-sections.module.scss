@@ -30,11 +30,6 @@
   flex: 1 1 auto;
 }
 
-.summary {
-  font-size: 15rem;
-  color: rgba(255, 255, 255, 0.65);
-}
-
 /* Vanilla TaxationGroup's own expander while the sections replace it (tax-sections.ts groupClasses). */
 .invisible {
   visibility: hidden;

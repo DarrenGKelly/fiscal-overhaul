@@ -168,8 +168,7 @@ the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells
 
 **Taxation tab layout.** With density taxes on, the wrapper around each vanilla `TaxationGroup`
 (`UI/src/taxation/tax-sections-view.tsx`) draws collapsible sections under the zone's main slider, each a header row
-with an arrow (and an optional summary) over its rows: **Density tax** first (summary: "2 rates set", nothing when
-every rate is 0; `rateSummary` in `density.ts`), one row per density the zone has (`density-rows.tsx`). **Density
+with an arrow and its title over its rows (no count summary, removed by request): **Density tax** first, one row per density the zone has (`density-rows.tsx`). **Density
 rows are vanilla rows**: each is built exactly as vanilla `TaxationItem` builds an education/resource row (the same
 `ActiveFocusDiv`, the live `taxation-item.module.scss` class names `taxationItemClasses`, vanilla `TaxSlider`), so icon,
 title, % column, slider and estimate line up (`density-rows.module.scss` holds copies of those rules for a moved
@@ -215,8 +214,7 @@ On the tab (`district-tax.ts` pure, `district-tax-view.tsx`), a TaxationPage wra
 and the city has a district (`showsTaxDistrictSelector`): Entire City, then each district, no Outside Districts
 (`taxDistrictOptions`), and under it, in a district view, a vanilla `Button` **Use city rates** (disabled with no
 override). It provides the view (`taxViewKey`) through `TaxDistrictView`. A **district view is the Entire City layout**
-with the district's values: the zone header slider, Density tax (while density taxes are on; summary "N overrides",
-the cells differing from the city's) and Education/Resources. Each slider says which rate it is through
+with the district's values: the zone header slider, Density tax (while density taxes are on) and Education/Resources. Each slider says which rate it is through
 `TaxRowTarget` (the TaxationGroup wrapper: the zone rate, for the `primary` header; each re-hosted `TaxationItem`: its
 level or resource), and the extended `TaxSlider` swaps in the district's value and setter (`useDistrictSlider`,
 `rowRate`: district value else city; a level/resource is the district zone rate + the district's offset else the

@@ -8,7 +8,7 @@ import { localize } from "l10n";
 import { SOUNDS } from "sounds";
 import { TaxationItem, taxationGroupClasses } from "vanilla";
 import { arrowFor, zoneForAreaIndex } from "./density";
-import { DensityRows, DensitySummary, useDensityCells } from "./density-rows";
+import { DensityRows, useDensityCells } from "./density-rows";
 import { useZoneDensityExtra, ZoneDensityExtra } from "./density-totals";
 import { TaxDistrictView, TaxRowTarget } from "./district-tax-view";
 import { TYPE_RESOURCE_RATE, TYPE_ZONE_RATE } from "./district-tax";
@@ -40,9 +40,9 @@ const VanillaRows = ({ areaType }: { areaType: AreaType }) => {
   );
 };
 
-/** What each section draws: its rows, and an optional summary at the right of its header. */
-const TAX_SECTION_ROWS: Record<TaxSectionId, { Rows: FC<{ areaType: AreaType }>; Summary?: FC<{ areaType: AreaType }> }> = {
-  density: { Rows: DensityRows, Summary: DensitySummary },
+/** What each section draws under its header (the header itself is the arrow and the title, no summary). */
+const TAX_SECTION_ROWS: Record<TaxSectionId, { Rows: FC<{ areaType: AreaType }> }> = {
+  density: { Rows: DensityRows },
   vanilla: { Rows: VanillaRows },
 
 };
@@ -100,17 +100,12 @@ const Section = ({ areaType, section }: { areaType: AreaType; section: TaxSectio
     playSound(SOUNDS.expandRows);
     setOpen(sectionExpandState.toggle(areaType.id, section.id, section.startsOpen));
   }, [areaType.id, section.id, section.startsOpen]);
-  const { Rows, Summary } = TAX_SECTION_ROWS[section.id];
+  const { Rows } = TAX_SECTION_ROWS[section.id];
   return (
     <div className={styles.section}>
       <div className={styles.header} onClick={toggle}>
         <img className={styles.arrow} src={arrowFor(open)} />
         <div className={styles.title}>{localize(translate, section.title)}</div>
-        {Summary && (
-          <div className={styles.summary}>
-            <Summary areaType={areaType} />
-          </div>
-        )}
       </div>
       {open && <Rows areaType={areaType} />}
     </div>

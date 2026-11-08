@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import EN_US from "../../../l10n/en-US.json";
 import { Translate } from "../l10n";
+import * as density from "./density";
 import {
   arrowFor,
   cellsForArea,
@@ -7,7 +9,6 @@ import {
   densityExtraTotal,
   densityLabel,
   estimatedTotalValue,
-  rateSummary,
   zoneForAreaIndex,
   zoneTotalIncome,
 } from "./density";
@@ -16,7 +17,6 @@ const french: Translate = (id, fallback) =>
   ({
     "FiscalOverhaul.UI.DensityLow": "Faible densité",
     "FiscalOverhaul.UI.DensityOther": "Densité {NUMBER}",
-    "FiscalOverhaul.UI.RatesSet": "{COUNT} taux",
   })[id] ??
   fallback ??
   null;
@@ -51,23 +51,16 @@ describe("densityLabel", () => {
   });
 });
 
-describe("rateSummary", () => {
-  it("counts the city's density rates, nothing when none is set", () => {
-    expect(rateSummary(0, null)).toBe("");
-    expect(rateSummary(1, null)).toBe("1 rate set");
-    expect(rateSummary(3, null)).toBe("3 rates set");
-    expect(rateSummary(3, null)).not.toContain("offset");
+describe("the Density tax header", () => {
+  it("has no count summary: no helper and no summary text (removed by request)", () => {
+    expect("rateSummary" in density).toBe(false);
+    expect("offsetSummary" in density).toBe(false);
+    for (const key of ["NoOffsets", "OneOffsetSet", "OffsetsSet", "OneRateSet", "RatesSet", "OneOverride", "Overrides"])
+      expect(Object.keys(EN_US)).not.toContain(`FiscalOverhaul.UI.${key}`);
   });
 
-  it("counts a district's overrides in a district view", () => {
-    expect(rateSummary(1, null, true)).toBe("1 override");
-    expect(rateSummary(2, null, true)).toBe("2 overrides");
-    expect(rateSummary(0, null, true)).toBe("");
-  });
-
-  it("fills the count into the translation", () => {
-    expect(rateSummary(3, french)).toBe("3 taux");
-    expect(rateSummary(1, french)).toBe("1 rate set");
+  it("still has its title", () => {
+    expect(EN_US["FiscalOverhaul.UI.SectionDensity"]).toBe("Density tax");
   });
 });
 describe("cellsForArea", () => {
