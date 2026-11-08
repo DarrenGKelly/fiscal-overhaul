@@ -87,7 +87,8 @@ Recomputed every ~2 s while the panel is open and density taxes are on.
 
 **Options > Enable density taxes (BETA)** (`Setting.EnableDensityTaxes`, default **off**: density taxes are a BETA feature, `FeatureGates.DensityTaxesDefault`) switches the feature off live. The options
 page calls `ApplyAndSave` on every change; `Mod` listens on `onSettingsApplied` and calls
-`DensityTaxState.SetEnabled`. Off, the offsets the apply job reads are all 0
+`DensityTaxState.SetEnabled` with `FeatureGates.AppliesDensityTaxes(EnableSimulationChanges, EnableDensityTaxes)`:
+the master **Simulation changes** switch off counts as density taxes off ([district-service-budgets.md](district-service-budgets.md#the-master-switch)). Off, the offsets the apply job reads are all 0
 (`DensityTaxTable.EffectiveOffsets(false)`) and the apply system returns before scheduling anything
 (`IsCharged(false)`), so buildings pay exactly the vanilla rates; the stored table and the template are left as
 they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and

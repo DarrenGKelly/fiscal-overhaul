@@ -43,8 +43,10 @@ screenshots), `LICENSE` (MIT), `CHANGELOG.md` (Keep a Changelog; one entry per r
 | Folder | What |
 |---|---|
 | `budget/` | The replacement Budget tab page |
+| `district/` | The district selector and the one shared selected district, used by the Budget (and later Services, Taxation) tabs |
 | `chart/` | The line chart component and its pure maths (`chart-math.ts`, tested by vitest) |
 | `taxation/` | The density rows on the Taxation tab and their pure logic (`density.ts`, tested) |
+| `economy/` | Economy panel tab order (`tab-order.ts`, tested) |
 | `l10n.ts` | `localize()`: a UI string by key through the game's translate, English fallback (tested) |
 
 ## Tests/

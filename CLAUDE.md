@@ -55,12 +55,18 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
   (`budgetChartEnabled`, `history`, `setSpan`, `districtBudgetEnabled`, `districts`, `setDistrict`, `densityTaxesEnabled`, `densityTaxes`,
-  `setDensityTax`) and compute
+  `setDensityTax`, `setDistrictServiceBudget`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
 - **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
-  `EnableDensityTaxes`, `EnableDistrictBudget`): off is vanilla behaviour and vanilla UI; the stored offsets and district
-  histories are kept. The chart and district recording default on, density taxes (BETA) default off (`FeatureGates`).
+  `EnableDensityTaxes`, `EnableDistrictBudget`, `EnableDistrictServiceBudget`): off is vanilla behaviour and vanilla UI;
+  the stored offsets, overrides and district histories are kept. The chart and district recording default on, density
+  taxes and district service budgets (BETA) default off (`FeatureGates`). The master **Simulation changes** switch
+  (`EnableSimulationChanges`, default on) turns every feature that changes the vanilla simulation (demand, happiness,
+  service efficiency/upkeep, taxes) off at once; every such feature, the coming tax engine included, gates on it first.
+- **District service budgets (BETA):** an absolute % per (service, district) in the save; `DistrictServiceBudgetSystem`
+  rewrites service efficiency after vanilla's pass and `DistrictServiceUpkeepSystem` overwrites the Service Upkeep
+  expense. [impl/district-service-budgets.md](knowledge/impl/district-service-budgets.md)
 - **Budget tab:** `BudgetHistoryUISystem` turns the game's saved per-source income/expense statistics into per-month
   series (per district too: `DistrictBudgetSystem` records them, and a selector above the tab picks one);
   `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
