@@ -100,8 +100,10 @@ the wages), then in a job, `Dispose(handle)` after:
   view's education slots use it ([tax-engine-effects.md](tax-engine-effects.md)), so a district's Highly Educated
   override moves only highly educated residents.
 
-The district of a building is `CurrentDistrict` up the `Owner` chain (`TaxKeyResolver`). Payers in no district,
-Outside, or with no property (homeless) pay the city's values. The managed twins `TaxRateModel.ResidentRates` and
+The district of a building is `CurrentDistrict` up the `Owner` chain (`TaxKeyResolver`). A building in no district
+pays **Outside Districts'** overrides (a user decision: Outside sets its own rates like a district; the
+resolver's `m_OutsideBlock`, picked by `TaxRateModel.AreaBlock` in `Locate`), else the city's values; payers with no
+property (homeless) pay the city's. The managed twins `TaxRateModel.ResidentRates` and
 `HouseholdChargedRate` compose the same pieces for the tests: a level override moves only that level, density stacks,
 and every value at the city's is bit-identical to vanilla.
 
@@ -140,21 +142,24 @@ so commercial companies in mixed-housing zones and commuters are not affected.
 ## Storage
 
 Rates are **per save**. Each city keeps a `TaxRateTable` (`Mod/Logic/TaxRateTable.cs`): sparse entries keyed by
-(`TaxType`, zone, key, **area**) to percentage points, the area being the city (0:0) or a district entity (index and
+(`TaxType`, zone, key, **area**) to percentage points, the area being the city (0:0), a district entity (index and
 version: ints in the logic, an `Entity` in the save so the game remaps it; **district keys change on every load**, so
-the UI takes them from the `districts` binding only and never caches one). Types: `Density` (key = density; the city's
-rate and district overrides, −5..+10, `TaxRateTable.DensityMin/Max`), `ZoneRate` (a district's full zone rate) and
+the UI takes them from the `districts` binding only and never caches one) or Outside Districts
+(`TaxRateTable.OutsideArea`, -1:0, an index no entity has; the UI's key "outside", `TaxRateRows.AreaKey`/`TryArea`).
+Types: `Density` (key = density; the city's rate and district overrides, −5..+10, `TaxRateTable.DensityMin/Max`), `ZoneRate` (a district's full zone rate) and
 `ResourceRate` (a district's education-level or resource rate, stored like vanilla as an offset from the zone rate);
 `District` (1) is the retired ±adjustment, never stored. A city value of 0 is the default and not stored; a district
 entry is an override and is stored even at 0. New types (wealth, land value, building level) take the next enum
 numbers and work the same way. The city's zone and resource rates are vanilla's own array, not the table's.
 `DensityTaxTable` is a view of the city's density entries.
 
-`TaxRatesSystem` is `IDefaultSerializable`: the save block is `FormatVersion` (2), a count, then per entry type, zone,
-key, area (`Entity`, `Entity.Null` = the city) and value. A version-1 block (the unshipped ±adjustment model) keeps
-its density entries as the city's density rates and drops its district adjustments; any other version loads empty. On
-load it drops district entries whose entity is gone (`Entity.Null` on read; `PruneDistricts` on
-`OnGameLoadingComplete`) and points `DensityTaxState` at the city's table (`DensityTaxState.Use`); sliders write it in
+`TaxRatesSystem` is `IDefaultSerializable`: the save block is `FormatVersion` (3), a count, then per entry type, zone,
+key, the area's kind (`TaxRateTable.AreaKind`: city, district, Outside), its entity (a district's; `Entity.Null`
+otherwise) and value; `TaxRateTable.LoadSavedEntry` reads each. A version-2 block (no kind: `Entity.Null` was the
+city) loads as before; a version-1 block (the unshipped ±adjustment model) keeps its density entries as the city's
+density rates and drops its district adjustments; any other version loads empty. On load it drops district entries
+whose entity is gone (`Entity.Null` on read; `PruneDistricts` on `OnGameLoadingComplete`, which keeps the city's and
+Outside's) and points `DensityTaxState` at the city's table (`DensityTaxState.Use`); sliders write it in
 place, and it is saved with the city.
 
 **Migration and the template.** `Setting.DensityTaxOffsets` (12 comma-separated ints) is now only the template for a
