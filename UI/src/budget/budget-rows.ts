@@ -1,7 +1,7 @@
 // Pure logic for the Budget tab's subcategory rows: each category (vanilla budget item) expands into one child row
 // per source (vanilla BudgetItem.sources), each with its own chart line. No game imports, so vitest runs it in Node.
 import { BudgetHistory, BudgetItemLike, Rgba, rgbaToCss, SeriesDef, sumSources } from "../chart/chart-math";
-import { BudgetKind, DISTRICT_EXPENSE_SOURCES, DISTRICT_INCOME_SOURCES, isDistrictView, rowValue } from "./district-select";
+import { BudgetKind, DISTRICT_EXPENSE_SOURCES, DISTRICT_INCOME_SOURCES, isDistrictView, rowValue } from "./budget-district";
 
 /**
  * Provisional: whether a category with a single (visible) source gets an expander. Off: its one child row would only
@@ -26,7 +26,7 @@ export function subItemLocaleId(sourceId: string): string {
 
 /**
  * The item's sources that get a child row: all of them for Entire City; in a district view only the sources a district
- * records (district-select DISTRICT_*_SOURCES), the same rule that hides city-only items.
+ * records (budget-district DISTRICT_*_SOURCES), the same rule that hides city-only items.
  */
 export function visibleSources(item: BudgetItemLike, kind: BudgetKind, inDistrict: boolean): { id: string; index: number }[] {
   if (!inDistrict) return item.sources;
