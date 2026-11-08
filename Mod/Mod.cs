@@ -13,6 +13,7 @@ namespace FiscalOverhaul
         public static ILog log = LogManager.GetLogger($"{nameof(FiscalOverhaul)}.{nameof(Mod)}").SetShowsErrorsInUI(false);
         private Setting m_Setting;
         private static TaxEngineSystem s_TaxEngine;
+        private static TaxHappinessSystem s_TaxHappiness;
 
         public void OnLoad(UpdateSystem updateSystem)
         {
@@ -47,6 +48,12 @@ namespace FiscalOverhaul
             // the payers' mean adjustment per slot) while the engine charges; back at vanilla TaxSystem otherwise.
             // Every frame (it writes the view only when it changes), after the engine so it sees this frame's mode.
             updateSystem.UpdateAfter<DemandTaxViewSystem, TaxEngineSystem>(SystemUpdatePhase.GameSimulation);
+
+            // Tax happiness: citizen happiness with the tax factor at each citizen's home rate, in place of vanilla
+            // CitizenHappinessSystem's update (off while it runs). Runs exactly while the tax engine does. Right before
+            // CitizenHappinessSystem with the same interval, so it inherits its update offset.
+            updateSystem.UpdateBefore<TaxHappinessSystem, CitizenHappinessSystem>(SystemUpdatePhase.GameSimulation);
+            s_TaxHappiness = updateSystem.World.GetOrCreateSystemManaged<TaxHappinessSystem>();
 
             // District budget recording: a sample per 1/32 month, panel open or not, kept in the save. After TaxSystem
             // (and so after the engine); its own interval, so this orders only.
@@ -85,6 +92,7 @@ namespace FiscalOverhaul
         {
             if (setting is Setting s) DensityTaxState.SetEnabled(Logic.FeatureGates.AppliesDensityTaxes(s.EnableSimulationChanges, s.EnableDensityTaxes));
             s_TaxEngine?.ApplyMode();
+            s_TaxHappiness?.ApplyMode();
         }
 
         public void OnDispose()
@@ -94,6 +102,7 @@ namespace FiscalOverhaul
             {
                 m_Setting.onSettingsApplied -= ApplyFeatureSwitches;
                 s_TaxEngine = null;
+                s_TaxHappiness = null;
                 m_Setting.UnregisterInOptionsUI();
                 LocaleRegistry.Unregister();
                 m_Setting = null;
