@@ -1,11 +1,13 @@
-import { useValue } from "cs2/api";
+import { useMapValue, useValue } from "cs2/api";
+import { taxation } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
 import { useCallback } from "react";
 import { densityTaxes$, DensityTaxCell, setDensityTax } from "bindings";
 import { localize, Translate } from "l10n";
-import { TaxSlider } from "vanilla";
+import { ActiveFocusDiv, TaxSlider, taxationItemClasses } from "vanilla";
 import { densityIcon } from "./density-icons";
 import { cellsForArea, densityLabel, offsetSummary } from "./density";
+import { densitySliderValues, offsetFromSlider } from "./density-slider";
 import styles from "./density-rows.module.scss";
 
 interface AreaTypeLike {
@@ -28,30 +30,53 @@ export const DensitySummary = ({ areaType }: { areaType: AreaTypeLike }) => {
 
 /**
  * The Density section's rows: one slider per density the zone has, setting an offset in percentage points on top of
- * whatever rate the building already pays.
+ * whatever rate the building already pays. Each row is drawn exactly as vanilla TaxationItem draws an education or
+ * resource row (its focus wrapper, its class names, its TaxSlider), so the icon, title, % column, slider and estimate
+ * line up with those rows; only the values are ours (density-slider.ts).
  */
 export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
   const { translate } = useLocalization();
   const { cells, max } = useDensityCells(areaType);
+  const zoneRate = useMapValue(taxation.areaTaxRates$, areaType.index);
   return (
     <>
       {cells.map((cell) => (
-        <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={max} translate={translate} />
+        <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={max} zoneRate={zoneRate} translate={translate} />
       ))}
       <div className={styles.note}>{localize(translate, "DensityNote")}</div>
     </>
   );
 };
 
-const DensityRow = ({ cell, max, translate }: { cell: DensityTaxCell; max: number; translate: Translate }) => {
-  // The C# trigger takes an int (and clamps it to ±maxOffset), so round whatever the slider reports.
-  const onChange = useCallback((v: number) => setDensityTax(cell.zone, cell.density, Math.round(v)), [cell.zone, cell.density]);
+// Vanilla's taxation-item classes, or this module's copies of them should a game patch move the module.
+const itemClasses = {
+  row: taxationItemClasses?.taxationItem ?? styles.row,
+  icon: taxationItemClasses?.icon ?? styles.icon,
+  title: taxationItemClasses?.title ?? styles.title,
+  slider: taxationItemClasses?.slider ?? styles.slider,
+};
+
+const RowBox = ActiveFocusDiv ?? "div";
+
+interface DensityRowProps {
+  cell: DensityTaxCell;
+  max: number;
+  zoneRate: number | undefined;
+  translate: Translate;
+}
+
+const DensityRow = ({ cell, max, zoneRate, translate }: DensityRowProps) => {
+  const onChange = useCallback(
+    (v: number) => setDensityTax(cell.zone, cell.density, offsetFromSlider(v, max, zoneRate)),
+    [cell.zone, cell.density, max, zoneRate],
+  );
   const icon = densityIcon(cell.zone, cell.density);
+  const slider = densitySliderValues(cell.offset, max, zoneRate);
   return (
-    <div className={styles.row}>
-      {icon ? <img className={styles.icon} src={icon} /> : <div className={styles.icon} />}
-      <div className={styles.rowTitle}>{densityLabel(cell.density, translate)}</div>
-      <TaxSlider min={-max} max={max} rate={cell.offset} income={cell.estimate} className={styles.slider} onValueChanged={onChange} />
-    </div>
+    <RowBox className={itemClasses.row}>
+      {icon ? <img className={itemClasses.icon} src={icon} /> : <div className={itemClasses.icon} />}
+      <div className={itemClasses.title}>{densityLabel(cell.density, translate)}</div>
+      <TaxSlider min={slider.min} max={slider.max} rate={slider.rate} income={cell.estimate} className={itemClasses.slider} onValueChanged={onChange} />
+    </RowBox>
   );
 };

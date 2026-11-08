@@ -78,10 +78,8 @@ the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells
 
 **Taxation tab layout.** With density taxes on, the wrapper around each vanilla `TaxationGroup`
 (`UI/src/taxation/tax-sections-view.tsx`) draws collapsible sections under the zone's main slider, each a header row
-with an arrow (and an optional summary) over its rows: **Density** first (one vanilla `TaxSlider` per density the zone
-has, `density-rows.tsx`, with a note that offsets change revenue only; each row leads with the zoning toolbar's icon
-as a 32rem `<img>` like vanilla's education rows, `Media/Game/Icons/Zone*.svg` via `densityIcon` in
-`density-icons.ts`, an empty box where the game has none, e.g. Commercial/Office medium), then vanilla's own sub-rows, re-hosted as
+with an arrow (and an optional summary) over its rows: **Density** first (one row per density the zone has,
+`density-rows.tsx`, with a note that offsets change revenue only), then vanilla's own sub-rows, re-hosted as
 vanilla `TaxationItem`s from `taxation.areaResources$` (**Education** for Residential, **Resources** for the other
 zones). All start collapsed; the open ones are kept for the UI session (`sectionExpandState`, not reset when the panel
 closes). The section list is data (`TAX_SECTIONS` in `tax-sections.ts`: id, title per zone; `sectionsForArea` keeps the
@@ -91,6 +89,19 @@ content) is hidden by adding classes to the live `taxation-group.module.scss` cl
 on every render (`groupClasses`): the toggle is `visibility: hidden` so the header slider keeps its place. Off, the
 names are vanilla's again and no sections are drawn, so the tab is vanilla. Rows show no payer count (removed by
 request, 2026-11-07).
+
+**Density rows are vanilla rows.** Each density row is built exactly as vanilla `TaxationItem` builds an
+education/resource row (`TaxationItem` itself reads its values from per-resource bindings, so it can't take ours): the
+same `ActiveFocusDiv` wrapper (`game-ui/common/focus/focus-div.tsx`), the live `taxation-item.module.scss` class names
+(`taxationItemClasses`: row, icon, title, and `slider`, which fixes the TaxSlider at vanilla's 580rem) and vanilla
+`TaxSlider`, so the icon, title, % column, slider and estimate pill sit in the same columns as the rows below
+(`density-rows.module.scss` holds copies of those rules, used only if a patch moves the module). The icon is the
+zoning toolbar's (`Media/Game/Icons/Zone*.svg` via `densityIcon` in `density-icons.ts`; an empty box where the game
+has none, e.g. Commercial/Office medium). Like the education rows the row shows an **absolute rate**: the zone rate
+(`taxation.areaTaxRates$`) plus the offset, on a slider spanning zone rate ± `maxOffset`; the slider still sets the
+offset (`densitySliderValues`/`offsetFromSlider` in `density-slider.ts`, switch `DENSITY_ROW_ABSOLUTE_RATE`; off
+draws the bare offset on −max..+max). The estimate is the offset's extra revenue, so it is a neutral ¢0 (no "+" pill,
+vanilla `NumberField`'s own rule for 0) until an offset is set.
 
 **Totals include the offsets** (a user decision). Each zone group's total (its header slider's income) and
 ESTIMATED TOTAL add the sum of the zone's (all zones') row `estimate`s; negative offsets lower them. Vanilla computes
