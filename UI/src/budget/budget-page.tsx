@@ -24,6 +24,7 @@ import { ChartLine, LineChart } from "chart/line-chart";
 import { localizeVanilla, Translate } from "l10n";
 import { BudgetItemDetail, NumberField, Scrollable } from "vanilla";
 import { buildSourceSeries, childRows, expandArrow, hasExpander, itemKey, subItemLocaleId, toggled, visibleSources } from "./budget-rows";
+import { groupState, toggledGroup } from "./group-toggle";
 import { buildServiceSeries, hasServiceRows, serviceLocaleId, serviceRows } from "./service-rows";
 import styles from "./budget-page.module.scss";
 import { BudgetKind, isCityOnlyItem, isDistrictView, rowValue } from "./budget-district";
@@ -98,9 +99,11 @@ export const BudgetPage = () => {
   const shownTotalIncome = inDistrict ? shownIncome.reduce((t, i) => t + incomeOf(i), 0) : totalIncome;
   const shownTotalExpenses = inDistrict ? shownExpense.reduce((t, i) => t + expenseOf(i), 0) : totalExpenses;
 
-  const toggle = useCallback((key: string) => {
+  // A row with children (a category's sources or services) is a group: its box turns it and every child on, or all
+  // off (group-toggle.ts). A child row, or a row without children, toggles its own line.
+  const toggle = useCallback((key: string, childKeys: string[]) => {
     setEnabled((prev) => {
-      const next = toggled(prev, key);
+      const next = toggledGroup(prev, key, childKeys);
       rememberedEnabled = next;
       return next;
     });
@@ -170,40 +173,54 @@ export const BudgetPage = () => {
 
   // A category row with subcategories has an arrow that expands it (a click on the arrow doesn't toggle the line);
   // the others keep the arrow's space so the titles line up. Headers (totals, balance) have neither.
-  const row = (key: string, title: string, color: string, value: number, header = false, expander?: boolean, child = false) => (
-    <div
-      key={key}
-      className={`${styles.row} ${header ? styles.headerRow : ""} ${child ? styles.childRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
-      onMouseEnter={() => setRowHover(key)}
-      onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
-      onClick={() => {
-        playSound(SOUNDS.toggleLine);
-        toggle(key);
-      }}
-    >
-      {expander !== undefined &&
-        (expander ? (
-          <img
-            className={styles.expander}
-            src={expandArrow(expanded.has(key))}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleExpanded(key);
-            }}
-          />
-        ) : (
-          <div className={styles.expander} />
-        ))}
+  const row = (
+    key: string,
+    title: string,
+    color: string,
+    value: number,
+    header = false,
+    expander?: boolean,
+    child = false,
+    childKeys: string[] = []
+  ) => {
+    const state = groupState(enabled, key, childKeys);
+    return (
       <div
-        className={`${styles.check} ${enabled.has(key) ? styles.checked : ""}`}
-        style={{ borderColor: color, backgroundColor: enabled.has(key) ? color : "transparent" }}
-      />
-      <div className={styles.rowTitle}>{title}</div>
-      <div className={styles.rowValue}>
-        <NumberField value={value} importance={header ? "secondary" : undefined} />
+        key={key}
+        className={`${styles.row} ${header ? styles.headerRow : ""} ${child ? styles.childRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
+        onMouseEnter={() => setRowHover(key)}
+        onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
+        onClick={() => {
+          playSound(SOUNDS.toggleLine);
+          toggle(key, childKeys);
+        }}
+      >
+        {expander !== undefined &&
+          (expander ? (
+            <img
+              className={styles.expander}
+              src={expandArrow(expanded.has(key))}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpanded(key);
+              }}
+            />
+          ) : (
+            <div className={styles.expander} />
+          ))}
+        <div
+          className={`${styles.check} ${state === "on" ? styles.checked : ""}`}
+          style={{ borderColor: color, backgroundColor: state === "on" ? color : "transparent" }}
+        >
+          {state === "partial" && <div className={styles.partialMark} style={{ backgroundColor: color }} />}
+        </div>
+        <div className={styles.rowTitle}>{title}</div>
+        <div className={styles.rowValue}>
+          <NumberField value={value} importance={header ? "secondary" : undefined} />
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // A category's row and, while it is expanded, one indented row per subcategory (source), then for Service Upkeep
   // one per service (service-rows.ts).
@@ -212,14 +229,16 @@ export const BudgetPage = () => {
     const sourceRows = hasExpander(item, kind, inDistrict);
     const services = hasServiceRows(item, kind, history);
     const open = (sourceRows || services) && expanded.has(key);
+    const sources = sourceRows ? childRows(item, kind, values, history) : [];
+    const serviceChildren = services ? serviceRows(item, kind, history, sourceChildCount(item, kind, inDistrict)) : [];
+    const childKeys = [...sources.map((c) => c.key), ...serviceChildren.map((c) => c.key)];
     return (
       <Fragment key={key}>
-        {row(key, label("", item.id), rgbaToCss(item.color), value, false, sourceRows || services)}
+        {row(key, label("", item.id), rgbaToCss(item.color), value, false, sourceRows || services, false, childKeys)}
         {open &&
-          sourceRows &&
-          childRows(item, kind, values, history).map((c) => row(c.key, label(c.key, item.id, c.source.id), c.color, c.value, false, false, true))}
+          sources.map((c) => row(c.key, label(c.key, item.id, c.source.id), c.color, c.value, false, false, true))}
         {open &&
-          serviceRows(item, kind, history, sourceChildCount(item, kind, inDistrict)).map((c) =>
+          serviceChildren.map((c) =>
             row(c.key, label(c.key, item.id, undefined, c.name), c.color, c.value, false, false, true)
           )}
       </Fragment>
