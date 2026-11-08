@@ -47,12 +47,74 @@ namespace FiscalOverhaul.Tests
         }
 
         [Theory]
+        [InlineData(true, true)]   // chart on: the city's per-service upkeep split records
+        [InlineData(false, false)] // chart off: nothing beyond vanilla is recorded
+        public void RecordsServiceUpkeep_OnlyWithTheChartOn(bool budgetChart, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.RecordsServiceUpkeep(budgetChart));
+        }
+
+        [Theory]
         [InlineData(false, true)]  // switched off in Options: the tab is vanilla
         [InlineData(true, false)]  // panel closed
         [InlineData(false, false)]
         public void BuildsNothing_WhenDisabledOrThePanelIsClosed(bool featureEnabled, bool economyPanelOpen)
         {
             Assert.False(FeatureGates.BuildsPanelData(featureEnabled, economyPanelOpen));
+        }
+
+        [Fact]
+        public void SimulationChanges_IsOnByDefault_DistrictServiceBudgets_OffAsBeta()
+        {
+            Assert.True(FeatureGates.SimulationChangesDefault);
+            Assert.False(FeatureGates.DistrictServiceBudgetDefault);
+        }
+
+        [Theory]
+        [InlineData(true, true, true, true)]
+        [InlineData(false, true, true, false)]  // master "Simulation changes" off: vanilla
+        [InlineData(true, false, true, false)]  // feature off
+        [InlineData(true, true, false, false)]  // no override stored: nothing to do
+        [InlineData(false, false, false, false)]
+        public void AppliesDistrictServiceBudgets_OnlyWithMasterFeatureAndAnOverride(bool master, bool feature, bool hasAny, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.AppliesDistrictServiceBudgets(master, feature, hasAny));
+        }
+
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(false, true, false)]  // master off: density taxes run vanilla too
+        [InlineData(true, false, false)]
+        public void AppliesDensityTaxes_NeedsTheMasterSwitch(bool master, bool feature, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.AppliesDensityTaxes(master, feature));
+        }
+
+        [Fact]
+        public void MasterOff_NothingApplies()
+        {
+            Assert.False(FeatureGates.AppliesDistrictServiceBudgets(simulationChanges: false, featureEnabled: true, hasAnyOverride: true));
+            Assert.False(FeatureGates.AppliesDensityTaxes(simulationChanges: false, densityTaxesEnabled: true));
+        }
+
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(false, true, false)]  // master "Simulation changes" off: vanilla Services tab
+        [InlineData(true, false, false)]  // feature off: vanilla Services tab
+        [InlineData(false, false, false)]
+        public void ShowsDistrictServiceBudgets_NeedsMasterAndFeature(bool master, bool feature, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.ShowsDistrictServiceBudgets(master, feature));
+        }
+
+        [Theory]
+        [InlineData(true, false, true)]   // Budget tab's district view only (the list used to be gated on this alone)
+        [InlineData(false, true, true)]   // Services tab only: recording off, the list is still published
+        [InlineData(true, true, true)]
+        [InlineData(false, false, false)] // no tab shows a selector: nothing to publish
+        public void PublishesDistrictList_WhenAnyDistrictFeatureIsOn(bool recording, bool services, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.PublishesDistrictList(recording, services));
         }
     }
 }

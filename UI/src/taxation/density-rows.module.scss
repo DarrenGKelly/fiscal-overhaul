@@ -1,23 +1,34 @@
+// The density rows wear vanilla's taxation-item classes (vanilla.ts taxationItemClasses) so they line up with the
+// education/resource rows. These are copies of those rules (the game's index.css: .taxation-item_*, .icon_*,
+// .title_*, .slider_*), used only if a game patch moves that module.
 .row {
+  min-height: 48rem;
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 4rem 20rem 4rem 72rem;
+  border-top-style: solid;
+  border-top-width: var(--stroke2);
+  border-top-color: var(--dividerColor);
 }
 
-.row-title {
-  width: 260rem;
-  flex: 0 0 auto;
-  font-size: 18rem;
-  color: rgba(255, 255, 255, 0.9);
+.icon {
+  width: 32rem;
+  height: 32rem;
+  margin: 4rem 12rem 4rem 32rem;
+}
+
+.title {
+  flex: 1;
+  margin: 4rem 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  white-space: nowrap;
+  font-size: var(--fontSizeM);
+  color: var(--textColor);
 }
 
 .slider {
-  flex: 1 1 auto;
-}
-
-.note {
-  padding: 4rem 20rem 8rem 72rem;
-  font-size: 15rem;
-  color: rgba(255, 255, 255, 0.65);
+  width: 580rem;
+  align-self: stretch;
 }
