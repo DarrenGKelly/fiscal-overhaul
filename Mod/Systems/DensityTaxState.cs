@@ -7,10 +7,10 @@ namespace FiscalOverhaul
     /// (read). They are the loaded city's: <see cref="TaxRatesSystem"/> keeps them in the save and points this state at
     /// that save's <see cref="TaxRateTable"/> (<see cref="Use"/>) on every load. Main thread only: every caller (binding triggers, the Options page, system OnUpdate) runs there.
     ///
-    /// Jobs never see this state directly. <see cref="DensityTaxApplySystem"/> takes a <see cref="Snapshot"/> each
-    /// update and hands its job a TempJob copy of it, so a change made here while an apply job is still running can't
-    /// tear what that job reads. (A shared persistent NativeArray would need every writer here to first complete the
-    /// apply job, and freeing it on mod unload could pull it out from under a running job.)
+    /// Jobs never see this state directly. <see cref="TaxEngineSystem"/> takes a <see cref="Snapshot"/> each update and
+    /// hands its jobs a TempJob copy of it, so a change made here while a charge job is still running can't tear what
+    /// that job reads. (A shared persistent NativeArray would need every writer here to first complete the job, and
+    /// freeing it on mod unload could pull it out from under a running job.)
     /// </summary>
     public static class DensityTaxState
     {
