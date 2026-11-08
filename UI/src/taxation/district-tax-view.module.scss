@@ -29,22 +29,3 @@
 .hidden-total {
   visibility: hidden;
 }
-
-// The information-only district demand line under a zone's header in a district view.
-.demand-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding: 4rem 20rem 4rem 76rem;
-}
-
-.demand-text {
-  font-size: 18rem;
-  color: rgba(255, 255, 255, 0.9);
-  margin-right: 16rem;
-}
-
-.demand-note {
-  font-size: 14rem;
-  color: rgba(255, 255, 255, 0.55);
-}

@@ -81,3 +81,8 @@ export const Button: any = getModule("game-ui/common/input/button/button.tsx", "
 
 /** Whether the legacy interface style is on: vanilla BudgetSliderItem picks its slider gradient by it. */
 export const useLegacyInterfaceActive: () => boolean = getModule("game-ui/common/hooks/use-legacy-interface.tsx", "useLegacyInterfaceActive");
+
+/** Vanilla's portal (`game-ui/common/portal/portal.tsx`): draws children in the screen-wide portal container, above every panel; tooltips use it. */
+export const Portal: any = getModule("game-ui/common/portal/portal.tsx", "Portal");
+/** The portal container Portal draws into (document.body unless a provider sets one). */
+export const usePortalContainer: (() => HTMLElement | null) | undefined = getModule("game-ui/common/portal/portal.tsx", "usePortalContainer");

@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: Taxation tab
-description: The Taxation tab's side of the tax engine — the densityTaxes binding and its revenue estimate at each payer's resolved rate, the Enable density taxes switch, the engine warning line, the collapsible Density tax / Education / Resources sections, density rows as vanilla rows, totals including density tax, and per-district rates (taxRates, setTaxRate, the district picker, the district view) and the info-only district demand estimate.
+description: The Taxation tab's side of the tax engine — the densityTaxes binding and its revenue estimate at each payer's resolved rate, the Enable density taxes switch, the engine warning line, the collapsible Density tax / Education / Resources sections, density rows as vanilla rows, totals including density tax, and per-district rates (taxRates, setTaxRate, the district picker, the district view).
 resource:
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/TaxRatesUISystem.cs
@@ -122,15 +122,3 @@ city's, as in C#), adds `overridden` (an accent bar down the slider's left edge)
 and hides the estimate column. Density rows do the same themselves. **Estimates are hidden in a district view**
 (row incomes, zone totals and ESTIMATED TOTAL, which are the city's; a provisional choice: a per-district estimate
 would need a per-district paid-tax sum). Entire City is unchanged.
-
-## District demand (info only)
-
-The game simulates one city-wide demand per zone, so a district has none. A district view shows an estimate under each
-zone's header, "Demand (info): X% vs city Y%" with the note "Estimate only", never feeding the simulation
-(`UI/src/taxation/district-demand.ts`, `DemandInfo` in `district-tax-view.tsx`). The city demand is vanilla's
-`cityInfo` bindings (`residentialLow/Medium/HighDemand` averaged, `commercialDemand`, `industrialDemand`,
-`officeDemand`; 0..1). `taxRates.taxEffect` carries `DemandParameterData.m_TaxEffect` (x residential, y commercial, z
-industrial and office). The shift is the district's own zone rate minus the city's (`districtRateDelta`; education and
-resource overrides are not counted): the district figure is the city demand minus that x weight x a per-point scale,
-clamped to 0..1. The scales (`RESIDENTIAL_DEMAND_PER_POINT` 0.01, `OTHER_DEMAND_PER_POINT` 0.05) are provisional, read
-off vanilla's formulas (residential `x * (10 - rate)` on a 0..100 demand; others `-0.05 * (rate - 10) * weight`).

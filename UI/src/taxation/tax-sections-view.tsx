@@ -10,7 +10,7 @@ import { TaxationItem, taxationGroupClasses } from "vanilla";
 import { arrowFor, zoneForAreaIndex } from "./density";
 import { DensityRows, useDensityCells } from "./density-rows";
 import { useZoneDensityExtra, ZoneDensityExtra } from "./density-totals";
-import { DemandInfo, TaxDistrictView, TaxRowTarget } from "./district-tax-view";
+import { TaxDistrictView, TaxRowTarget } from "./district-tax-view";
 import { TYPE_RESOURCE_RATE, TYPE_ZONE_RATE } from "./district-tax";
 import { groupClasses, sectionExpandState, sectionsForArea, TaxSection, TaxSectionId } from "./tax-sections";
 import styles from "./tax-sections.module.scss";
@@ -73,7 +73,6 @@ export const withTaxSections = (TaxationGroup: any) => (props: any) => {
           <TaxationGroup {...props} />
         </TaxRowTarget.Provider>
       </ZoneDensityExtra.Provider>
-      {district && zone >= 0 && !props.areaType?.locked && <DemandInfo zone={zone} />}
       {sectionsOn && <TaxSections areaType={props.areaType} />}
     </>
   );

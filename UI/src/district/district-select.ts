@@ -85,3 +85,22 @@ export function cycle(options: { key: string }[], currentKey: string, dir: 1 | -
 export function effectiveKey(options: { key: string }[], key: string): string {
   return options.some((o) => o.key === key) ? key : CITY_KEY;
 }
+
+/** A box on screen: what getBoundingClientRect gives. */
+export interface BoxLike {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where the picker's list goes inside the portal container (vanilla Portal): its top centre under the anchor (the
+ * picker's name), in the container's coordinates. The list draws in the portal, not in the panel header, because the
+ * header's stacking context sits under the panel content, which would cover the list.
+ */
+export function listAnchor(anchor: BoxLike, container: BoxLike | null): { left: number; top: number } {
+  const ox = container?.left ?? 0;
+  const oy = container?.top ?? 0;
+  return { left: anchor.left + anchor.width / 2 - ox, top: anchor.top + anchor.height - oy };
+}

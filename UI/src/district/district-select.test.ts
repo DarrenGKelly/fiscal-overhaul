@@ -7,6 +7,7 @@ import {
   districtOptions,
   dividerBefore,
   effectiveKey,
+  listAnchor,
   OUTSIDE_KEY,
   showsDistrictSelector,
 } from "./district-select";
@@ -140,5 +141,16 @@ describe("districtLabel", () => {
     expect(districtLabel("Assets.DISTRICT_NAME[4]", 1, translate)).toBe("Riverside");
     expect(districtLabel("Assets.DISTRICT_NAME[9]", 5, translate)).toBe("District 5");
     expect(districtLabel("Assets.DISTRICT_NAME[9]", 5, null)).toBe("District 5");
+  });
+});
+
+describe("listAnchor", () => {
+  it("puts the list's top centre under the name, in the container's coordinates", () => {
+    const name = { left: 300, top: 140, width: 200, height: 40 };
+    expect(listAnchor(name, { left: 100, top: 20, width: 2000, height: 1000 })).toEqual({ left: 300, top: 160 });
+  });
+
+  it("uses screen coordinates without a container", () => {
+    expect(listAnchor({ left: 300, top: 140, width: 200, height: 40 }, null)).toEqual({ left: 400, top: 180 });
   });
 });

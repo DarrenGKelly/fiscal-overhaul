@@ -86,19 +86,7 @@ export interface TaxRates {
   engineOn: boolean;
   /** Every stored district override. */
   districts: DistrictTaxRate[];
-  /** DemandParameterData.m_TaxEffect, the weights of vanilla's demand tax factor (x residential, y commercial, z industrial/office). */
-  taxEffect: { x: number; y: number; z: number };
 }
-
-/** Vanilla's city-wide zone demands, 0..1 (Game.UI.InGame.CityInfoUISystem, group "cityInfo"). */
-export const cityDemand$ = {
-  resLow: bindValue<number>("cityInfo", "residentialLowDemand", 0),
-  resMed: bindValue<number>("cityInfo", "residentialMediumDemand", 0),
-  resHigh: bindValue<number>("cityInfo", "residentialHighDemand", 0),
-  commercial: bindValue<number>("cityInfo", "commercialDemand", 0),
-  industrial: bindValue<number>("cityInfo", "industrialDemand", 0),
-  office: bindValue<number>("cityInfo", "officeDemand", 0),
-};
 
 export const taxRates$ = bindValue<TaxRates | null>(GROUP, "taxRates", null);
 

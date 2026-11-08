@@ -40,8 +40,6 @@
   "FiscalOverhaul.UI.SectionEducation": "Education",
   "FiscalOverhaul.UI.SectionResources": "Resources",
   "FiscalOverhaul.UI.UseCityRates": "Use city rates",
-  "FiscalOverhaul.UI.DistrictDemand": "Demand (info): {DISTRICT} vs city {CITY}",
-  "FiscalOverhaul.UI.DistrictDemandNote": "Estimate only — the game simulates one city-wide demand",
   "FiscalOverhaul.UI.TaxEngineUntestedVersion": "Fiscal Overhaul hasn't been tested with this game version, so taxes are the game's own and tax adjustments are not charged. Options > Fiscal Overhaul > Run on untested game version turns them on anyway.",
   "FiscalOverhaul.UI.TaxEngineUntestedVersionForced": "Fiscal Overhaul is charging taxes on a game version it hasn't been tested with (Options > Run on untested game version).",
   "FiscalOverhaul.UI.TaxEngineIncompatible": "Fiscal Overhaul can't charge taxes on this game version (or another mod already does), so taxes are the game's own and tax adjustments are not charged.",

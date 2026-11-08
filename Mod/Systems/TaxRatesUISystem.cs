@@ -2,7 +2,6 @@ using Colossal.UI.Binding;
 using FiscalOverhaul.Logic;
 using Game.Areas;
 using Game.Common;
-using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
 using Game.UI;
@@ -13,8 +12,7 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// Taxation tab bindings for the per-district rates (group "fiscalOverhaul"):
-    ///   taxRates     raw      { engineOn, taxEffect, districts: [{ area, type, zone, key, value }] }: taxEffect =
-    ///                         vanilla DemandParameterData.m_TaxEffect {x,y,z}, for the info-only district demand; every stored district
+    ///   taxRates     raw      { engineOn, districts: [{ area, type, zone, key, value }] }: every stored district
     ///                         override (a missing one follows the city), keyed by <see cref="DistrictKey"/>, value as
     ///                         stored (<see cref="TaxType"/>: a full zone rate, a level/resource offset from the zone
     ///                         rate, a density tax rate); engineOn = the tax engine charges (<see cref="TaxEngineMode.Engine"/>)
@@ -35,8 +33,6 @@ namespace FiscalOverhaul
         private TaxSystem m_TaxSystem;
         private int m_LastVersion = -1;
         private bool m_LastEngineOn;
-        private EntityQuery m_DemandQuery;
-        private Unity.Mathematics.float3 m_TaxEffect = new Unity.Mathematics.float3(1f, 1f, 1f);
 
         [Preserve]
         protected override void OnCreate()
@@ -44,7 +40,6 @@ namespace FiscalOverhaul
             base.OnCreate();
             m_TaxEngine = World.GetOrCreateSystemManaged<TaxEngineSystem>();
             m_TaxSystem = World.GetOrCreateSystemManaged<TaxSystem>();
-            m_DemandQuery = GetEntityQuery(ComponentType.ReadOnly<DemandParameterData>());
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "taxRates", Write));
             AddBinding(new TriggerBinding<int, int, string, int>(BudgetHistoryUISystem.kGroup, "setTaxRate", SetTaxRate));
             AddBinding(new TriggerBinding<string>(BudgetHistoryUISystem.kGroup, "resetDistrictTaxRates", ResetDistrict));
@@ -54,13 +49,7 @@ namespace FiscalOverhaul
         protected override void OnUpdate()
         {
             bool engineOn = EngineOn();
-            bool effectChanged = false;
-            if (!m_DemandQuery.IsEmptyIgnoreFilter)
-            {
-                Unity.Mathematics.float3 effect = m_DemandQuery.GetSingleton<DemandParameterData>().m_TaxEffect;
-                if (!effect.Equals(m_TaxEffect)) { m_TaxEffect = effect; effectChanged = true; }
-            }
-            if (DensityTaxState.Version == m_LastVersion && engineOn == m_LastEngineOn && !effectChanged) return;
+            if (DensityTaxState.Version == m_LastVersion && engineOn == m_LastEngineOn) return;
             m_LastVersion = DensityTaxState.Version;
             m_LastEngineOn = engineOn;
             m_Binding.Update();
@@ -104,15 +93,6 @@ namespace FiscalOverhaul
             writer.TypeBegin("FiscalOverhaul.TaxRates");
             writer.PropertyName("engineOn");
             writer.Write(EngineOn());
-            writer.PropertyName("taxEffect");
-            writer.TypeBegin("FiscalOverhaul.TaxEffect");
-            writer.PropertyName("x");
-            writer.Write(m_TaxEffect.x);
-            writer.PropertyName("y");
-            writer.Write(m_TaxEffect.y);
-            writer.PropertyName("z");
-            writer.Write(m_TaxEffect.z);
-            writer.TypeEnd();
             writer.PropertyName("districts");
             writer.ArrayBegin(rows.Count);
             foreach (DistrictRateRow row in rows)

@@ -3,11 +3,10 @@ import { taxation } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
 import { Button } from "cs2/ui";
 import { createContext, useContext, useMemo } from "react";
-import { cityDemand$, districts$, resetDistrictTaxRates, setTaxRate, taxRates$ } from "bindings";
+import { districts$, resetDistrictTaxRates, setTaxRate, taxRates$ } from "bindings";
 import { CITY_KEY } from "district/district-select";
 import { useSelectedDistrict } from "district/selection";
 import { localize } from "l10n";
-import { cityDemandFor, demandPercent, districtDemand, districtRateDelta } from "./district-demand";
 import { hasDistrictOverrides, RowTarget, rowRate, ShownRate, taxDistrictOptions, taxViewKey } from "./district-tax";
 import styles from "./district-tax-view.module.scss";
 
@@ -91,34 +90,3 @@ export function useDistrictSlider(target: RowTarget | null, cityRate: number, mi
   const shown = rowRate(target, area, rates?.districts, cityRate, cityZoneRate, min, max);
   return { ...shown, onChange: (v: number) => setTaxRate(target.type, target.zone, target.key, area, Math.round(v)) };
 }
-
-
-/**
- * "Demand (info): 31% vs city 36%" under a zone's header in a district view: the city demand shifted by how far the
- * district's own zone rate is from the city's (district-demand.ts). An estimate only: the game simulates one city-wide
- * demand per zone.
- */
-export const DemandInfo = ({ zone }: { zone: number }) => {
-  const { translate } = useLocalization();
-  const area = useContext(TaxDistrictView);
-  const rates = useValue(taxRates$);
-  const cityZoneRate = useMapValue(taxation.areaTaxRates$, zone + 1) ?? 0;
-  const resLow = useValue(cityDemand$.resLow);
-  const resMed = useValue(cityDemand$.resMed);
-  const resHigh = useValue(cityDemand$.resHigh);
-  const commercial = useValue(cityDemand$.commercial);
-  const industrial = useValue(cityDemand$.industrial);
-  const office = useValue(cityDemand$.office);
-  if (area === CITY_KEY || zone < 0) return null;
-  const city = cityDemandFor(zone, { resLow, resMed, resHigh, commercial, industrial, office });
-  const district = districtDemand(city, zone, districtRateDelta(rates?.districts, area, zone, cityZoneRate), rates?.taxEffect);
-  const note = localize(translate, "DistrictDemandNote");
-  return (
-    <div className={styles.demandRow} title={note}>
-      <div className={styles.demandText}>
-        {localize(translate, "DistrictDemand", { DISTRICT: demandPercent(district), CITY: demandPercent(city) })}
-      </div>
-      <div className={styles.demandNote}>{note}</div>
-    </div>
-  );
-};
