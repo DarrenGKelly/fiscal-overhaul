@@ -1,26 +1,56 @@
 // The Economy panel's tab bar with the district picker (economy-tab-bar.tsx).
+//
+// Vanilla's tab bar is a centred flex row of buttons, each `flex: 0 1` (basis 0) with a min-width. A sibling in that
+// row with a non-zero basis (our first version: a 380rem picker slot and a 2rem divider, `flex: 0 0 auto`) blew the
+// selected tab up to ~2.4e8 px in Gameface ("An elements' size ... exceeds the maximum" in UI.log): one wide blue bar,
+// no labels, no clicks. So nothing we add takes part in the row's flex sizing: the picker sits absolutely at the left,
+// in room the tab bar's padding keeps for it, and the divider is a zero-basis, zero-width marker whose line is drawn
+// absolutely, the gap being the next tab's margin.
 
-// Vanilla centres the tabs (.tab-bar: justify-content: center); with the picker's slot they start at the left, after it.
+// The picker's room: the tab bar's left padding (vanilla's own 10rem plus the picker's width and a gap), kept while
+// the picker hides (Production, Loans) so the tabs never move.
+$picker-width: 380rem;
+$picker-left: 10rem;
+
 .with-picker {
-  justify-content: flex-start;
+  position: relative;
+  padding-left: $picker-left + $picker-width + 16rem;
 }
 
-// The picker's place at the left of the tabs: a fixed width, kept empty where the picker hides (Production, Loans), so
-// the tabs never move when switching tabs. Wide enough for the compact picker (district-selector.module.scss .compact).
+// The picker, out of the flex flow: top left of the tab bar, vertically centred, above the panel content (its list
+// opens downwards over the page).
 .picker-slot {
-  flex: 0 0 auto;
-  width: 380rem;
-  margin-right: 16rem;
+  position: absolute;
+  left: $picker-left;
+  top: 0;
+  bottom: 0;
+  width: $picker-width;
   display: flex;
   flex-direction: row;
   align-items: center;
+  z-index: 20;
 }
 
-// The gap between [Budget | Taxation | Services] and [Production | Loans]: a thin upright line with space each side.
+// The gap between [Budget | Taxation | Services] and [Production | Loans]: a zero-size marker in the row (basis 0, like
+// vanilla's buttons), its line drawn absolutely in the middle of the gap after it, which the next tab's margin makes.
+$divider-gap: 52rem;
+
 .tab-divider {
-  flex: 0 0 auto;
+  flex: 0 0 0;
+  width: 0;
+  height: 32rem;
+  position: relative;
+}
+
+.tab-divider-line {
+  position: absolute;
+  left: $divider-gap * 0.5 - 1rem;
+  top: 0;
   width: 2rem;
   height: 32rem;
-  margin: 0 24rem;
   background-color: rgba(255, 255, 255, 0.3);
+}
+
+.tab-divider + button {
+  margin-left: $divider-gap;
 }

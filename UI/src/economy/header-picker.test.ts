@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CITY_KEY, OUTSIDE_KEY } from "../district/district-select";
 import { orderEconomyTabs } from "./tab-order";
-import { DistrictFeatures, headerPicker, isDistrictTab, reservesPickerSlot, TAB, withTabGroupDivider } from "./header-picker";
+import { DistrictFeatures, economyTabBarChildren, headerPicker, isDistrictTab, reservesPickerSlot, TAB, withTabGroupDivider } from "./header-picker";
 
 const FEATURES = ["City Budget", "Loan", "Taxation", "Service Budgets", "Production Panel"];
 const tab = (id: number) => ({ props: { tab: id, feature: FEATURES[id] } });
@@ -94,5 +94,25 @@ describe("reservesPickerSlot", () => {
 
   it("reserves nothing with every feature off", () => {
     expect(reservesPickerSlot(ALL_OFF)).toBe(false);
+  });
+});
+
+describe("economyTabBarChildren", () => {
+  const PICKER = { props: { picker: true } };
+  const vanilla = [0, 1, 2, 3, 4].map(tab);
+
+  it("puts the picker first, then every vanilla tab element once, unchanged, in our order with the divider", () => {
+    const out = economyTabBarChildren(vanilla, PICKER, DIVIDER);
+    expect(out[0]).toBe(PICKER);
+    expect(ids(out.slice(1))).toEqual([0, 2, 3, "|", 4, 1]);
+    // The same element objects vanilla passed, none dropped, copied or duplicated.
+    for (const t of vanilla) expect(out.filter((x) => x === t)).toHaveLength(1);
+    expect(out).toHaveLength(vanilla.length + 2);
+  });
+
+  it("has no picker element when the slot isn't reserved", () => {
+    const out = economyTabBarChildren(vanilla, null, DIVIDER);
+    expect(out).not.toContain(PICKER);
+    expect(ids(out)).toEqual([0, 2, 3, "|", 4, 1]);
   });
 });

@@ -3,6 +3,7 @@
 import { districtOptions, DistrictLike, DistrictOption, effectiveKey, showsDistrictSelector } from "../district/district-select";
 import { Translate } from "../l10n";
 import { showsTaxDistrictSelector, taxDistrictOptions, taxViewKey } from "../taxation/district-tax";
+import { orderEconomyTabs } from "./tab-order";
 
 /** Vanilla's economy tab enum (Dv in the game bundle). */
 export const TAB = { Budget: 0, Loan: 1, Taxation: 2, Services: 3, Production: 4 } as const;
@@ -64,4 +65,14 @@ export function headerPicker(
  */
 export function reservesPickerSlot(features: DistrictFeatures): boolean {
   return features.budgetOn || features.servicesOn || features.taxEngineOn;
+}
+
+/**
+ * The Economy tab bar's children: the picker (when given) first, then vanilla's tab elements, every one of them once and
+ * unchanged, in our order, with the divider between the groups. The picker and the divider are styled so they take no
+ * part in the row's flex sizing (economy-tab-bar.module.scss); the tabs stay vanilla's own elements.
+ */
+export function economyTabBarChildren<T extends { props?: any }>(tabs: T[], picker: T | null, divider: T): T[] {
+  const ordered = withTabGroupDivider(orderEconomyTabs(tabs), divider);
+  return picker ? [picker, ...ordered] : ordered;
 }

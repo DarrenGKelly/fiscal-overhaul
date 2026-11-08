@@ -7,15 +7,15 @@ import { useLocalization } from "cs2/l10n";
 import { districtBudgetEnabled$, districts$, districtServiceBudgetEnabled$, taxRates$ } from "bindings";
 import { DistrictSelector } from "district/district-selector";
 import { useSelectedDistrict } from "district/selection";
-import { headerPicker, reservesPickerSlot, withTabGroupDivider } from "./header-picker";
-import { orderEconomyTabs } from "./tab-order";
+import { economyTabBarChildren, headerPicker, reservesPickerSlot } from "./header-picker";
 import styles from "./economy-tab-bar.module.scss";
 
 export { isEconomyTabSet } from "./tab-order";
 
 /**
- * Vanilla TabBar with the Economy panel's tabs: the picker's slot first (kept, empty, on Production and Loans and on a
- * tab whose district feature is off, so the tabs don't move), then the tabs in our order with the group divider.
+ * Vanilla TabBar with the Economy panel's tabs: the picker at the top left (its room kept, empty, on Production and
+ * Loans and on a tab whose district feature is off, so the tabs don't move), then the tabs in our order with the group
+ * divider.
  */
 export const EconomyTabBar = ({ TabBar, props }: { TabBar: any; props: any }) => {
   const children: any[] = props.children;
@@ -33,11 +33,19 @@ export const EconomyTabBar = ({ TabBar, props }: { TabBar: any; props: any }) =>
     [selectedTab, budgetOn, servicesOn, features.taxEngineOn, districts, selected, translate, cityName]
   );
 
-  const tabs = withTabGroupDivider(orderEconomyTabs(children), <div key="fo-tab-divider" className={styles.tabDivider} />);
-  const slot = reservesPickerSlot(features) ? (
+  // The picker and the divider stay out of the row's flex sizing (economy-tab-bar.module.scss): a sibling with a real
+  // flex basis blew vanilla's `flex: 0 1` tabs up in Gameface. The tab elements are vanilla's, untouched.
+  const divider = (
+    <div key="fo-tab-divider" className={styles.tabDivider}>
+      <div className={styles.tabDividerLine} />
+    </div>
+  );
+  const reserved = reservesPickerSlot(features);
+  const slot = reserved ? (
     <div key="fo-district-picker" className={styles.pickerSlot}>
       {picker && <DistrictSelector options={picker.options} selected={picker.selected} onSelect={setSelected} compact />}
     </div>
   ) : null;
-  return <TabBar {...props} className={`${props.className ?? ""} ${slot ? styles.withPicker : ""}`} children={slot ? [slot, ...tabs] : tabs} />;
+  const className = [props.className, reserved ? styles.withPicker : null].filter(Boolean).join(" ");
+  return <TabBar {...props} className={className} children={economyTabBarChildren(children, slot, divider)} />;
 };
