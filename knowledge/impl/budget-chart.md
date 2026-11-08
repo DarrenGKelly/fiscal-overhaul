@@ -195,6 +195,11 @@ the list; `districtLabel`). The pure logic is `district/district-select.ts` and 
   any source rows. Its line (`buildServiceSeries`) starts at the service's `start`: `SeriesDef`/`ChartLine` `start`,
   which the chart skips when drawing, scaling (`shownValues`, `valueRange`), hit-testing (`nearestSeries`) and the span
   stats.
+- **Group checkboxes** (`UI/src/budget/group-toggle.ts`): a category with child rows (sources or services, expanded
+  or not) is a group, and its box reads from its own key and every child's (`groupState`): filled while all are on,
+  empty while none are, a small filled square inside while only some are. A click on the group (`toggledGroup`) turns
+  it and all its children off when all are on, else all on; a child row, a total, the balance and a category without
+  children toggle only their own line, so turning a child off makes its group partial.
 - **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All, opening on 3M (`DEFAULT_SPAN_MONTHS` / `BudgetHistoryMath.DefaultSpanMonths`). Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
@@ -225,7 +230,9 @@ the list; `districtLabel`). The pure logic is `district/district-select.ts` and 
 `Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting; `UI/src/district/district-select.test.ts` and `UI/src/economy/header-picker.test.ts` the selector's
 options, when it shows, cycling, names, city-only rows and row values; `UI/src/budget/budget-rows.test.ts` the
-subcategory rows (keys, which categories expand, district filtering, colours, values and series);
+subcategory rows (keys, which categories expand, district filtering, colours, values and series),
+`UI/src/budget/group-toggle.test.ts` the group checkboxes (off to all on, all on to all off, partial to all on, a child
+making its group partial);
 `Tests/ServiceUpkeepSplitTests.cs` the per-service split (exact sums, rounding, zero / one / negative inputs, gaps,
 alignment, the save codec and a format 1 load) and `UI/src/budget/service-rows.test.ts` the service rows and lines
 with a `start`.
