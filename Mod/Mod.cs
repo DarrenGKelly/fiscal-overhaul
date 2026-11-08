@@ -43,6 +43,10 @@ namespace FiscalOverhaul
             updateSystem.UpdateAfter<DistrictBudgetSystem, DensityTaxRestoreSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.World.GetOrCreateSystemManaged<DistrictBudgetSystem>().SetSettings(m_Setting);
 
+            // The city's Service Upkeep split per service: a weight sample per vanilla statistics sample, kept in the save.
+            updateSystem.UpdateAt<ServiceUpkeepSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.World.GetOrCreateSystemManaged<ServiceUpkeepSystem>().SetSettings(m_Setting);
+
             // Per-district service budgets (BETA): the efficiency pass right after vanilla writes the city %, and the
             // upkeep correction right after vanilla computes the expense array. Every frame, as both vanilla systems.
             updateSystem.UpdateAfter<DistrictServiceBudgetSystem, CityServiceEfficiencySystem>(SystemUpdatePhase.ModificationEnd);
