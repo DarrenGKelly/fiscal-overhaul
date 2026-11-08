@@ -1,29 +1,33 @@
 // The Economy panel's tab bar with the district picker (economy-tab-bar.tsx).
 //
-// Vanilla's tab bar is a centred flex row of buttons, each `flex: 0 1` (basis 0) with a min-width. A sibling in that
-// row with a non-zero basis (our first version: a 380rem picker slot and a 2rem divider, `flex: 0 0 auto`) blew the
-// selected tab up to ~2.4e8 px in Gameface ("An elements' size ... exceeds the maximum" in UI.log): one wide blue bar,
-// no labels, no clicks. So nothing we add takes part in the row's flex sizing: the picker sits absolutely at the left,
-// in room the tab bar's padding keeps for it, and the divider is a zero-basis, zero-width marker whose line is drawn
-// absolutely, the gap being the next tab's margin.
+// Gameface trap: vanilla's tab bar (.tab-bar: a centred flex row of `flex: 0 1` buttons with a 200rem min-width) must
+// keep its own styles. Any style of ours on the bar itself (justify-content: flex-start; or padding-left with
+// position: relative) made every tab ~2.5e8 px wide ("An elements' size ... exceeds the maximum" in UI.log): one blue
+// bar, no labels, no clicks. So nothing here styles the bar. The picker and the divider are zero-width markers in the
+// row (basis 0, like the divider measured in game), each drawing its content absolutely, and the room after each is
+// the next tab's margin (`marker + button`, as vanilla's own `button + button` gap).
 
-// The picker's room: the tab bar's left padding (vanilla's own 10rem plus the picker's width and a gap), kept while
-// the picker hides (Production, Loans) so the tabs never move.
-$picker-width: 380rem;
-$picker-left: 10rem;
+// The picker's room before the tabs. The whole row [picker | Budget Taxation Services | Production Loans] stays
+// centred by vanilla and must fit the bar (about 1416rem inside at 16:9): 5 tabs x 200rem + gaps + the divider's gap
+// (~1056rem) leave ~360rem, so the compact picker (district-selector.module.scss .compact) is kept to $picker-width.
+$picker-width: 310rem;
+$picker-gap: 20rem;
 
-.with-picker {
+.picker-room {
+  flex: 0 0 0;
+  width: 0;
+  height: 0;
   position: relative;
-  padding-left: $picker-left + $picker-width + 16rem;
 }
 
-// The picker, out of the flex flow: top left of the tab bar, vertically centred, above the panel content (its list
-// opens downwards over the page).
+// The picker, out of the flex flow: at the row's left, centred on the row's middle (the marker sits there, height 0),
+// above the panel content so its list opens over the page. Kept (empty) while the picker hides on Production and
+// Loans, so the tabs never move.
 .picker-slot {
   position: absolute;
-  left: $picker-left;
+  left: 0;
   top: 0;
-  bottom: 0;
+  transform: translateY(-50%);
   width: $picker-width;
   display: flex;
   flex-direction: row;
@@ -31,9 +35,13 @@ $picker-left: 10rem;
   z-index: 20;
 }
 
-// The gap between [Budget | Taxation | Services] and [Production | Loans]: a zero-size marker in the row (basis 0, like
-// vanilla's buttons), its line drawn absolutely in the middle of the gap after it, which the next tab's margin makes.
-$divider-gap: 52rem;
+.picker-room + button {
+  margin-left: $picker-width + $picker-gap;
+}
+
+// The gap between [Budget | Taxation | Services] and [Production | Loans]: a zero-size marker, its line drawn
+// absolutely in the middle of the gap after it, which the next tab's margin makes.
+$divider-gap: 40rem;
 
 .tab-divider {
   flex: 0 0 0;

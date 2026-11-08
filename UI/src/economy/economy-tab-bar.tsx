@@ -33,8 +33,9 @@ export const EconomyTabBar = ({ TabBar, props }: { TabBar: any; props: any }) =>
     [selectedTab, budgetOn, servicesOn, features.taxEngineOn, districts, selected, translate, cityName]
   );
 
-  // The picker and the divider stay out of the row's flex sizing (economy-tab-bar.module.scss): a sibling with a real
-  // flex basis blew vanilla's `flex: 0 1` tabs up in Gameface. The tab elements are vanilla's, untouched.
+  // The tab bar itself keeps vanilla's props and styles: any style of ours on it (justify-content, padding, position)
+  // blew every tab up to ~2.5e8 px in Gameface. The picker and the divider are zero-width markers in the row, their
+  // room made by the next tab's margin (economy-tab-bar.module.scss). The tab elements are vanilla's, untouched.
   const divider = (
     <div key="fo-tab-divider" className={styles.tabDivider}>
       <div className={styles.tabDividerLine} />
@@ -42,10 +43,11 @@ export const EconomyTabBar = ({ TabBar, props }: { TabBar: any; props: any }) =>
   );
   const reserved = reservesPickerSlot(features);
   const slot = reserved ? (
-    <div key="fo-district-picker" className={styles.pickerSlot}>
-      {picker && <DistrictSelector options={picker.options} selected={picker.selected} onSelect={setSelected} compact />}
+    <div key="fo-district-picker" className={styles.pickerRoom}>
+      <div className={styles.pickerSlot}>
+        {picker && <DistrictSelector options={picker.options} selected={picker.selected} onSelect={setSelected} compact />}
+      </div>
     </div>
   ) : null;
-  const className = [props.className, reserved ? styles.withPicker : null].filter(Boolean).join(" ");
-  return <TabBar {...props} className={className} children={economyTabBarChildren(children, slot, divider)} />;
+  return <TabBar {...props} children={economyTabBarChildren(children, slot, divider)} />;
 };

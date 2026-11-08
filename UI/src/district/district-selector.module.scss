@@ -72,8 +72,9 @@ $value-field-radius: 8rem;
 }
 
 .compact .district-selector .district-name {
-  min-width: 240rem;
-  max-width: 260rem;
+  // With the arrows about 300rem in all: the header row is tight (economy-tab-bar.module.scss $picker-width).
+  min-width: 180rem;
+  max-width: 190rem;
   font-size: 18rem;
   overflow: hidden;
   text-overflow: ellipsis;
