@@ -1,7 +1,7 @@
 import { useValue } from "cs2/api";
 import { economyBudget } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { districtBudgetEnabled$, districts$, history$, playSound, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
 import { SOUNDS, soundForPick } from "sounds";
 import {
@@ -21,9 +21,11 @@ import {
 } from "chart/chart-math";
 import { ChartLine, LineChart } from "chart/line-chart";
 import { localizeVanilla, Translate } from "l10n";
-import { BudgetItemDetail, NumberField } from "vanilla";
+import { BudgetItemDetail, NumberField, Scrollable } from "vanilla";
+import { buildSourceSeries, childRows, expandArrow, hasExpander, itemKey, subItemLocaleId, toggled } from "./budget-rows";
 import styles from "./budget-page.module.scss";
 import {
+  BudgetKind,
   CITY_KEY,
   districtOptions,
   effectiveKey,
@@ -44,6 +46,8 @@ const POPOUT_INSET_REM = 360 + 6 - 10 + 12;
 let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
 let rememberedSpan = DEFAULT_SPAN_MONTHS;
 let rememberedDistrict = CITY_KEY;
+// The categories expanded into their subcategory rows (itemKey), kept like rememberedEnabled.
+let rememberedExpanded = new Set<string>();
 
 /**
  * Replacement for the vanilla Budget tab: the rows on the left pick which lines the chart plots; the chart takes the
@@ -65,6 +69,7 @@ export const BudgetPage = () => {
   const [enabled, setEnabled] = useState(rememberedEnabled);
   const [span, setSpanState] = useState(rememberedSpan);
   const [district, setDistrictState] = useState(rememberedDistrict);
+  const [expanded, setExpanded] = useState(rememberedExpanded);
   const [rowHover, setRowHover] = useState<string | null>(null);
   const [lineHover, setLineHover] = useState<string | null>(null);
   const hoverKey = lineHover ?? rowHover;
@@ -103,26 +108,42 @@ export const BudgetPage = () => {
 
   const toggle = useCallback((key: string) => {
     setEnabled((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      const next = toggled(prev, key);
       rememberedEnabled = next;
       return next;
     });
   }, []);
 
+  const toggleExpanded = useCallback((key: string) => {
+    playSound(SOUNDS.expandRows);
+    setExpanded((prev) => {
+      const next = toggled(prev, key);
+      rememberedExpanded = next;
+      return next;
+    });
+  }, []);
+
   const label = useCallback(
-    (key: string, itemId?: string) => {
+    (key: string, itemId?: string, sourceId?: string) => {
       if (key === INCOME_TOTAL) return localizeVanilla(translate, "revenues");
       if (key === EXPENSE_TOTAL) return localizeVanilla(translate, "expenses");
       if (key === BALANCE) return localizeVanilla(translate, "monthlyBalance");
+      if (sourceId) return translate(subItemLocaleId(sourceId), sourceId) ?? sourceId;
       return translate(`EconomyPanel.BUDGET_ITEM[${itemId}]`, itemId ?? key) ?? itemId ?? key;
     },
     [translate]
   );
 
+  // The categories' lines, then a line per subcategory (drawn only while ticked).
   const allSeries: SeriesDef[] = useMemo(
-    () => (history ? buildSeries(history, shownIncome, shownExpense) : []),
+    () =>
+      history
+        ? [
+            ...buildSeries(history, shownIncome, shownExpense),
+            ...buildSourceSeries(history, shownIncome, "income"),
+            ...buildSourceSeries(history, shownExpense, "expense"),
+          ]
+        : [],
     [history, shownIncome, shownExpense]
   );
 
@@ -132,7 +153,7 @@ export const BudgetPage = () => {
         .filter((s) => enabled.has(s.key))
         .map((s) => ({
           key: s.key,
-          label: label(s.key, s.itemId),
+          label: label(s.key, s.itemId, s.sourceId),
           color: s.color,
           values: s.values,
           negateInTooltip: s.kind === "expense" || s.kind === "expense-total",
@@ -152,10 +173,12 @@ export const BudgetPage = () => {
 
   const hoveredSeries = hoverKey ? allSeries.find((s) => s.key === hoverKey) : undefined;
 
-  const row = (key: string, title: string, color: string, value: number, header = false) => (
+  // A category row with subcategories has an arrow that expands it (a click on the arrow doesn't toggle the line);
+  // the others keep the arrow's space so the titles line up. Headers (totals, balance) have neither.
+  const row = (key: string, title: string, color: string, value: number, header = false, expander?: boolean, child = false) => (
     <div
       key={key}
-      className={`${styles.row} ${header ? styles.headerRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
+      className={`${styles.row} ${header ? styles.headerRow : ""} ${child ? styles.childRow : ""} ${hoverKey === key ? styles.hovered : ""}`}
       onMouseEnter={() => setRowHover(key)}
       onMouseLeave={() => setRowHover((k) => (k === key ? null : k))}
       onClick={() => {
@@ -163,6 +186,19 @@ export const BudgetPage = () => {
         toggle(key);
       }}
     >
+      {expander !== undefined &&
+        (expander ? (
+          <img
+            className={styles.expander}
+            src={expandArrow(expanded.has(key))}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExpanded(key);
+            }}
+          />
+        ) : (
+          <div className={styles.expander} />
+        ))}
       <div
         className={`${styles.check} ${enabled.has(key) ? styles.checked : ""}`}
         style={{ borderColor: color, backgroundColor: enabled.has(key) ? color : "transparent" }}
@@ -173,6 +209,20 @@ export const BudgetPage = () => {
       </div>
     </div>
   );
+
+  // A category's row and, while it is expanded, one indented row per subcategory (source).
+  const categoryRows = (item: BudgetItemLike, kind: BudgetKind, values: number[], value: number) => {
+    const key = itemKey(kind, item.id);
+    const expander = hasExpander(item, kind, inDistrict);
+    return (
+      <Fragment key={key}>
+        {row(key, label("", item.id), rgbaToCss(item.color), value, false, expander)}
+        {expander &&
+          expanded.has(key) &&
+          childRows(item, kind, values, history).map((c) => row(c.key, label(c.key, item.id, c.source.id), c.color, c.value, false, false, true))}
+      </Fragment>
+    );
+  };
 
   return (
     <div className={styles.budgetPage}>
@@ -188,15 +238,17 @@ export const BudgetPage = () => {
       )}
       <div className={styles.budgetBody}>
         <div className={styles.listColumn}>
-          <div className={styles.section}>
-            {row(INCOME_TOTAL, label(INCOME_TOTAL), TOTAL_COLORS[INCOME_TOTAL], shownTotalIncome, true)}
-            {shownIncome.map((i) => row(`income:${i.id}`, label("", i.id), rgbaToCss(i.color), incomeOf(i)))}
-          </div>
-          <div className={styles.section}>
-            {row(EXPENSE_TOTAL, label(EXPENSE_TOTAL), TOTAL_COLORS[EXPENSE_TOTAL], shownTotalExpenses, true)}
-            {shownExpense.map((i) => row(`expense:${i.id}`, label("", i.id), rgbaToCss(i.color), expenseOf(i)))}
-          </div>
-          <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], shownTotalIncome + shownTotalExpenses, true)}</div>
+          <Scrollable className={styles.listScroll} trackVisibility="scrollable">
+            <div className={styles.section}>
+              {row(INCOME_TOTAL, label(INCOME_TOTAL), TOTAL_COLORS[INCOME_TOTAL], shownTotalIncome, true)}
+              {shownIncome.map((i) => categoryRows(i, "income", incomeValues, incomeOf(i)))}
+            </div>
+            <div className={styles.section}>
+              {row(EXPENSE_TOTAL, label(EXPENSE_TOTAL), TOTAL_COLORS[EXPENSE_TOTAL], shownTotalExpenses, true)}
+              {shownExpense.map((i) => categoryRows(i, "expense", expenseValues, expenseOf(i)))}
+            </div>
+            <div className={styles.section}>{row(BALANCE, label(BALANCE), TOTAL_COLORS[BALANCE], shownTotalIncome + shownTotalExpenses, true)}</div>
+          </Scrollable>
         </div>
 
         <div className={styles.chartColumn}>
