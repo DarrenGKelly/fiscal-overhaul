@@ -22,6 +22,14 @@ using UnityEngine.Scripting;
 
 namespace FiscalOverhaul
 {
+    /// <summary>One charge's parts beyond vanilla (<see cref="DensityTaxBooking.Parts"/>), per charge, on its zone's line.</summary>
+    public struct TaxBookingEvent
+    {
+        public byte m_Zone;
+        public int m_District;
+        public int m_Density;
+    }
+
     /// <summary>
     /// The tax engine: charges every tax payer in place of vanilla TaxSystem's update, at the payer's vanilla rate plus
     /// its density tax and its district's own rates (<see cref="TaxRateResolver"/>), kept inside the vanilla limits
@@ -62,6 +70,15 @@ namespace FiscalOverhaul
         private bool m_ForeignDisabled;
         private bool m_Logged;
 
+        // The city's side of the charge (TaxBookingSystem books it): each tick's jobs queue every charge that differs
+        // from vanilla's; the next update drains the queue into the ledger under that tick's update frame.
+        private NativeQueue<TaxBookingEvent> m_BookingQueue;
+        private JobHandle m_BookingDeps;
+        private int m_BookingFrame = -1;
+
+        /// <summary>The engine's charges beyond vanilla over the last month, per zone (<see cref="TaxBookingSystem"/>).</summary>
+        public TaxBookingLedger Ledger { get; } = new TaxBookingLedger();
+
         /// <summary>What charges tax right now.</summary>
         public TaxEngineMode Mode { get; private set; } = TaxEngineMode.Vanilla;
 
@@ -92,6 +109,7 @@ namespace FiscalOverhaul
             m_GameModeSettingQuery = GetEntityQuery(ComponentType.ReadOnly<ModeSettingData>());
             m_EconomyParameterQuery = GetEntityQuery(ComponentType.ReadOnly<EconomyParameterData>());
             m_TaxPaidMultiplier = new float3(1f, 1f, 1f);
+            m_BookingQueue = new NativeQueue<TaxBookingEvent>(Allocator.Persistent);
             RequireForUpdate(m_TaxParameterGroup);
 
             m_GameVersion = TaxEngineGuard.GameVersion();
@@ -106,6 +124,8 @@ namespace FiscalOverhaul
             // Leave vanilla charging tax.
             if (m_WeDisabledVanilla && m_TaxSystem != null) m_TaxSystem.Enabled = true;
             m_WeDisabledVanilla = false;
+            m_BookingDeps.Complete();
+            if (m_BookingQueue.IsCreated) m_BookingQueue.Dispose();
             base.OnDestroy();
         }
 
@@ -113,6 +133,7 @@ namespace FiscalOverhaul
         protected override void OnGameLoaded(Context serializationContext)
         {
             base.OnGameLoaded(serializationContext);
+            ResetBooking();
             if (m_GameModeSettingQuery.IsEmptyIgnoreFilter)
             {
                 m_TaxPaidMultiplier = new float3(1f, 1f, 1f);
@@ -180,7 +201,13 @@ namespace FiscalOverhaul
         protected override void OnUpdate()
         {
             ApplyMode();
-            if (Mode != TaxEngineMode.Engine) return;
+            DrainBooking();
+            if (Mode != TaxEngineMode.Engine)
+            {
+                // Vanilla charges: nothing beyond vanilla to book.
+                if (!Ledger.IsEmpty) ResetBooking();
+                return;
+            }
 
             // Runs vanilla's EnsureTaxParameterData (its rate setters clamp with the same data).
             TaxParameterData parameters = m_TaxSystem.GetTaxParameterData();
@@ -199,6 +226,34 @@ namespace FiscalOverhaul
             Dependency = JobHandle.CombineDependencies(residential, commercial, industrial);
             rates.Dispose(Dependency);
             wages.Dispose(Dependency);
+            m_BookingDeps = Dependency;
+            m_BookingFrame = (int)updateFrame;
+        }
+
+        /// <summary>
+        /// Moves the last tick's queued charges into <see cref="Ledger"/> under its update frame (replacing what that frame
+        /// booked a month ago). The last tick's jobs finished long since (512 frames), so the wait costs nothing.
+        /// </summary>
+        private void DrainBooking()
+        {
+            m_BookingDeps.Complete();
+            if (m_BookingFrame < 0)
+            {
+                m_BookingQueue.Clear();
+                return;
+            }
+            Ledger.BeginFrame(m_BookingFrame);
+            while (m_BookingQueue.TryDequeue(out TaxBookingEvent e))
+                Ledger.Add(m_BookingFrame, (TaxZone)e.m_Zone, e.m_District, e.m_Density);
+            m_BookingFrame = -1;
+        }
+
+        private void ResetBooking()
+        {
+            m_BookingDeps.Complete();
+            if (m_BookingQueue.IsCreated) m_BookingQueue.Clear();
+            Ledger.Clear();
+            m_BookingFrame = -1;
         }
 
         private JobHandle Schedule(EntityQuery query, IncomeSource type, float paidMultiplier, int2 rateLimits, uint updateFrame, ResourcePrefabs prefabs, TaxRateResolver rates)
@@ -222,9 +277,12 @@ namespace FiscalOverhaul
                 m_RateLimits = rateLimits,
                 m_Rates = rates,
                 m_StatisticsEventQueue = m_CityStatisticsSystem.GetStatisticsEventQueue(out JobHandle deps).AsParallelWriter(),
+                m_BookingQueue = m_BookingQueue.AsParallelWriter(),
             };
-            JobHandle handle = job.ScheduleParallel(query, JobHandle.CombineDependencies(Dependency, deps));
+            // After the previous group's job: they share the booking queue (DrainBooking has completed last tick's).
+            JobHandle handle = job.ScheduleParallel(query, JobHandle.CombineDependencies(Dependency, deps, m_BookingDeps));
             m_CityStatisticsSystem.AddWriter(handle);
+            m_BookingDeps = handle;
             return handle;
         }
         /// <summary>
@@ -232,6 +290,8 @@ namespace FiscalOverhaul
         /// tax is charged at <see cref="TaxRateResolver.ChargedRate"/> (the payer's vanilla rate plus its density tax
         /// and its district's income-tax difference) instead of the payer's stored rate, which is left as it is; everything else
         /// (paid multiplier, statistics, office detection, zeroing the untaxed income, the average paid) is vanilla's.
+        /// Added: each charge that differs from vanilla's queues its district and density parts for the city's side
+        /// (<see cref="TaxBookingSystem"/>).
         /// </summary>
         [BurstCompile]
         private struct PayTaxJob : IJobChunk
@@ -255,21 +315,37 @@ namespace FiscalOverhaul
             /// <summary>The shared effective-rate computation: city values and district overrides.</summary>
             public TaxRateResolver m_Rates;
             public NativeQueue<StatisticsEvent>.ParallelWriter m_StatisticsEventQueue;
+            /// <summary>Every charge that differs from vanilla's, for the city's side (<see cref="TaxBookingSystem"/>).</summary>
+            public NativeQueue<TaxBookingEvent>.ParallelWriter m_BookingQueue;
 
-            /// <summary>The rate this payer is charged (<see cref="TaxRateResolver.ChargedRate"/>); the vanilla rate with no property.</summary>
-            private int ChargedRate(TaxPayer taxPayer, Entity entity, bool hasProperty, Entity property)
+            /// <summary>
+            /// The rate this payer is charged (as <see cref="TaxRateResolver.ChargedRate"/>: the same Adjustments and clamp)
+            /// and its rate without density tax; both the vanilla rate with no property.
+            /// </summary>
+            private int ChargedRate(TaxPayer taxPayer, Entity entity, bool hasProperty, Entity property, out int withoutDensity)
             {
+                withoutDensity = taxPayer.m_AverageTaxRate;
                 if (!hasProperty) return taxPayer.m_AverageTaxRate;
                 TaxPayerKind kind = m_Type == IncomeSource.TaxResidential ? TaxPayerKind.Household
                     : m_Type == IncomeSource.TaxCommercial ? TaxPayerKind.Commercial : TaxPayerKind.Industrial;
-                return m_Rates.ChargedRate(taxPayer, entity, property, kind, m_RateLimits);
+                m_Rates.Adjustments(entity, property, kind, out int incomeDelta, out int densityTax);
+                withoutDensity = EffectiveTaxRate.Compute(taxPayer.m_AverageTaxRate, 0, incomeDelta, m_RateLimits.x, m_RateLimits.y, taxPayer.m_UntaxedIncome);
+                return EffectiveTaxRate.Compute(taxPayer.m_AverageTaxRate, densityTax, incomeDelta, m_RateLimits.x, m_RateLimits.y, taxPayer.m_UntaxedIncome);
             }
-            private void PayTax(ref TaxPayer taxPayer, Entity entity, int chargedRate, DynamicBuffer<Resources> resources, IncomeSource taxType, NativeQueue<StatisticsEvent>.ParallelWriter statisticsEventQueue)
+            private void PayTax(ref TaxPayer taxPayer, Entity entity, int chargedRate, int withoutDensityRate, DynamicBuffer<Resources> resources, IncomeSource taxType, NativeQueue<StatisticsEvent>.ParallelWriter statisticsEventQueue)
             {
                 // Vanilla: int tax = GetTax(taxPayer); here at the charged rate. The stored rate is not changed.
                 TaxPayer charged = taxPayer;
                 charged.m_AverageTaxRate = chargedRate;
                 int tax = TaxSystem.GetTax(charged);
+                // The city's side: what this charge adds beyond vanilla's estimate (which pays the city at the stored rate).
+                int district = 0, density = 0;
+                if (chargedRate != taxPayer.m_AverageTaxRate || withoutDensityRate != taxPayer.m_AverageTaxRate)
+                {
+                    TaxPayer noDensity = taxPayer;
+                    noDensity.m_AverageTaxRate = withoutDensityRate;
+                    DensityTaxBooking.Parts(TaxSystem.GetTax(taxPayer), TaxSystem.GetTax(noDensity), tax, out district, out density);
+                }
                 int num = (int)math.round(m_PaidMultiplier * (float)tax);
                 EconomyUtils.AddResources(Resource.Money, -num, resources);
                 if (taxType == IncomeSource.TaxResidential)
@@ -320,6 +396,13 @@ namespace FiscalOverhaul
                         m_Parameter = parameter2
                     });
                 }
+                if (district != 0 || density != 0)
+                {
+                    TaxZone zone = taxType == IncomeSource.TaxResidential ? TaxZone.Residential
+                        : taxType == IncomeSource.TaxCommercial ? TaxZone.Commercial
+                        : taxType == IncomeSource.TaxOffice ? TaxZone.Office : TaxZone.Industrial;
+                    m_BookingQueue.Enqueue(new TaxBookingEvent { m_Zone = (byte)zone, m_District = district, m_Density = density });
+                }
                 taxPayer.m_UntaxedIncome = 0;
                 taxPayer.m_AverageTaxPaid = tax * TaxSystem.kUpdatesPerDay;
             }
@@ -342,8 +425,8 @@ namespace FiscalOverhaul
                     if (taxPayer.m_UntaxedIncome != 0)
                     {
                         Entity property = hasRenter ? renters[i].m_Property : Entity.Null;
-                        int rate = ChargedRate(taxPayer, nativeArray[i], hasRenter && property != Entity.Null, property);
-                        PayTax(ref taxPayer, nativeArray[i], rate, resources, m_Type, m_StatisticsEventQueue);
+                        int rate = ChargedRate(taxPayer, nativeArray[i], hasRenter && property != Entity.Null, property, out int withoutDensity);
+                        PayTax(ref taxPayer, nativeArray[i], rate, withoutDensity, resources, m_Type, m_StatisticsEventQueue);
                         nativeArray2[i] = taxPayer;
                     }
                 }

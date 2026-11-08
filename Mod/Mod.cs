@@ -45,6 +45,11 @@ namespace FiscalOverhaul
             s_TaxEngine = updateSystem.World.GetOrCreateSystemManaged<TaxEngineSystem>();
             s_TaxEngine.SetSettings(m_Setting);
 
+            // The city receives what the engine charges: its charges beyond vanilla added to the tax income and subsidy
+            // entries right after vanilla computes the budget arrays (BudgetApplySystem pays them; the Budget tab shows them).
+            // Every frame, as CityServiceBudgetSystem.
+            updateSystem.UpdateAfter<TaxBookingSystem, CityServiceBudgetSystem>(SystemUpdatePhase.ModificationEnd);
+
             // Demand reacts to the adjustments: points vanilla's three demand systems at a view of the rates (vanilla +
             // the payers' mean adjustment per slot) while the engine charges; back at vanilla TaxSystem otherwise.
             // Every frame (it writes the view only when it changes), after the engine so it sees this frame's mode.

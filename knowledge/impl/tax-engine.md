@@ -1,9 +1,12 @@
 ---
 type: Implementation
 title: Tax engine
-description: The mod's own tax charge — a copy of vanilla TaxSystem's charge at each payer's income tax plus density tax with its district's own rates (the rate model), TaxRateResolver as the one effective-rate computation, the game-version guard and the Simulation changes switch, how buildings are classified, and how rates are stored per save.
+description: The mod's own tax charge — a copy of vanilla TaxSystem's charge at each payer's income tax plus density tax with its district's own rates (the rate model), TaxRateResolver as the one effective-rate computation, the city's side (TaxBookingSystem books what the engine charges beyond vanilla as tax income or subsidy), the game-version guard and the Simulation changes switch, how buildings are classified, and how rates are stored per save.
 resource:
   - Mod/Systems/TaxEngineSystem.cs
+  - Mod/Systems/TaxBookingSystem.cs
+  - Mod/Logic/DensityTaxBooking.cs
+  - Mod/Logic/TaxBookingLedger.cs
   - Mod/Systems/TaxEngineGuard.cs
   - Mod/Systems/TaxKeyResolver.cs
   - Mod/Systems/TaxRateResolver.cs
@@ -42,15 +45,12 @@ jobs we can't patch.
 
 **The charge does not pay the city.** `PayTaxJob` only takes the money from the payer and enqueues its taxable income
 (`ResidentialTaxableIncome`, `Commercial…`, `Industrial…`, `Office…`, per level or resource). The city's tax money is
-`CityServiceBudgetSystem`'s **estimate**: per tax item (an education level or a resource), the city's rate for it ×
-that item's taxable-income statistic (`TaxSystem.GetEstimatedTaxAmount`); an item above 0 adds to `TaxResidential` /
-`TaxCommercial` / `TaxIndustrial` / `TaxOffice` income, an item below 0 to `SubsidyResidential` / `Commercial` /
-`Industrial` / `Office` expense (never netted), and `BudgetApplySystem` pays that into `PlayerMoney` 1024 times a
-month. So whatever rate the engine charges, the city is paid at its own vanilla rates: density tax and district
-differences reach the payers but not the city's balance or the Budget tab's tax and subsidy rows (1.6.3f1).
-`DensityTaxBooking` (`Mod/Logic/`, tested) holds the maths for booking density tax as its own item, a positive part as
-tax income and a negative part as that zone's subsidy, with income − subsidy always the whole charge; nothing books
-with it yet (the city's side is an open decision).
+`CityServiceBudgetSystem`'s **estimate**, recomputed every frame: per tax item (an education level or a resource), the
+city's rate for it × that item's taxable-income statistic (`TaxSystem.GetEstimatedTaxAmount`); an item above 0 adds to
+`TaxResidential` / `TaxCommercial` / `TaxIndustrial` / `TaxOffice` income, an item below 0 to `SubsidyResidential` /
+`Commercial` / `Industrial` / `Office` expense (never netted), and `BudgetApplySystem` pays those arrays into
+`PlayerMoney` 1024 times a month (1.6.3f1). Vanilla's Budget panel shows the subsidies as expense rows. So the engine
+books its own side ([The city's side](#the-citys-side)).
 
 ## The engine
 
@@ -78,6 +78,33 @@ UI, and its setters (which clamp with `TaxParameterData`). Only its **update** i
   switch and the reset buttons at any time. Each update the engine builds a `TaxRateResolver` whose `TempJob` arrays
   are computed from it, plus the wage per education level (`TaxRateResolver.Wages`), all disposed with the jobs'
   handle.
+
+## The city's side
+
+The city receives exactly what payers are charged: vanilla's estimate pays it at the stored rates, and the engine's
+charges beyond that are booked on top.
+
+- **Per charge** (`PayTaxJob`): the tax at the stored rate, at the rate without density tax
+  (`EffectiveTaxRate.Compute(base, 0, districtDelta, …)`) and at the charged rate split into the **district part**
+  (without density − stored) and the **density part** (charged − without density), `DensityTaxBooking.Parts`
+  (`Mod/Logic/`, tested). A charge with both parts 0 queues nothing; any other queues a `TaxBookingEvent` on its zone
+  (office detection as vanilla's).
+- **Accumulation**: the next engine update drains the queue into `TaxEngineSystem.Ledger` (`TaxBookingLedger`,
+  `Mod/Logic/`, tested) under that tick's update frame, replacing what the frame booked a month earlier. Each charge is
+  kept × 32 (`DensityTaxBooking.Monthly`, vanilla's `kUpdatesPerDay`; the scale of `m_AverageTaxPaid` and of the
+  taxable-income statistic), and every payer is charged once per 16 frames, so the sum over the 16 frames is the monthly
+  amount. Density parts of each sign are summed apart. The ledger clears on load and while the engine isn't charging,
+  and fills over the first 1/32 month after a load.
+- **Booking**: `TaxBookingSystem` (`Mod/Systems/`), `UpdateAfter<…, CityServiceBudgetSystem>` in ModificationEnd (as
+  `DistrictServiceUpkeepSystem`), adds the ledger to the arrays vanilla just computed (`GetIncomeArray` /
+  `GetExpenseArray`, then `AddArrayReader`), per zone by `DensityTaxBooking.BookZone`: the district part on the zone's
+  tax income (should it go below 0, the rest is subsidy), a positive density part on tax income, a negative one on the
+  zone's subsidy expense. It adds once per vanilla update (`CityServiceBudgetSystem.LastSystemVersion`) and writes
+  nothing while the ledger is empty, so **no density tax and no override is vanilla's numbers, bit for bit**.
+- **What it shows**: the Budget tab reads vanilla's arrays and the Income/Expense statistics `BudgetApplySystem`
+  records from them, so the zone's tax income row and chart line include the density and district parts and a negative
+  density tax appears under Subsidies (Residential subsidies, …). `CityServiceBudgetSystem.GetTotalTaxIncome` (a
+  private total taken inside vanilla's job, used by the event journal) stays vanilla's.
 
 ## The rate model
 
@@ -177,8 +204,7 @@ every district's).
 
 ## Follow-ups
 
-- Check in game that no density tax and no override match vanilla's monthly tax income within 1%. A density tax or a
-  district override does **not** change the zone's tax revenue yet (see "The charge does not pay the city"): the
-  city's side needs a system right after `CityServiceBudgetSystem` that rewrites the tax income and subsidy entries,
-  as `DistrictServiceUpkeepSystem` does for upkeep.
+- Check in game that no density tax and no override match vanilla's monthly tax income exactly, that density +10
+  raises the zone's tax income by about the Taxation tab's estimate, and that a negative density tax shows a subsidies
+  row.
 - Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.3f1` (the known-list format).
