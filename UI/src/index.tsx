@@ -2,12 +2,12 @@ import { useValue } from "cs2/api";
 import { ModRegistrar } from "cs2/modding";
 import { budgetChartEnabled$ } from "bindings";
 import { BudgetPage } from "budget/budget-page";
-import { withServiceDetailDistricts } from "services/service-page";
+import { withServiceTable } from "services/service-table-view";
 import { withEstimatedTotalDensityExtra, withTotalDensityExtra, withZoneDensityExtra } from "taxation/density-totals";
 import { withTaxDistrictSelector } from "taxation/district-tax-view";
 import { withTaxSections } from "taxation/tax-sections-view";
 import { EconomyTabBar, isEconomyTabSet } from "economy/economy-tab-bar";
-import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, SERVICE_DETAIL_PATH, TAB_BAR_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
+import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, SERVICE_PAGE_PATH, TAB_BAR_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
 
 const register: ModRegistrar = (moduleRegistry) => {
   // Economy panel header: the one district picker at the left, then the tabs Budget, Taxation, Services | Production,
@@ -36,8 +36,10 @@ const register: ModRegistrar = (moduleRegistry) => {
   moduleRegistry.extend(TAX_SLIDER_PATH, "TaxSlider", withZoneDensityExtra);
   moduleRegistry.extend(MONEY_FIELD_PATH, "NumberField", withEstimatedTotalDensityExtra);
 
-  // Services tab, per-district budgets (BETA): in a district view (the header's picker) the district's own detail (slider, "Use city budget", upkeep) in place of vanilla's. Off: both are vanilla.
-  moduleRegistry.extend(SERVICE_DETAIL_PATH, "ServiceDetail", withServiceDetailDistricts);
+  // Services tab (with District service budgets on): a table like the Taxation tab's, one row per service with its
+  // budget slider and NET, fee sub-rows and an estimated total; the header's picker shows a district's budgets and
+  // estimates (services/service-table-view.tsx). Off: vanilla's page.
+  moduleRegistry.extend(SERVICE_PAGE_PATH, "ServicePage", withServiceTable);
 };
 
 export default register;

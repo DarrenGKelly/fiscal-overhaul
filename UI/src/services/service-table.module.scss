@@ -1,0 +1,45 @@
+// The Services table (service-table-view.tsx). It wears vanilla's Taxation page, group, item and TaxSlider classes;
+// the rules below are only copies of those, used should a game patch move a module, plus our own few.
+
+// Ours: the slider column's right padding (vanilla 22rem) widened to hold the 28rem reset button before the
+// estimate column's divider, as on the Taxation tab.
+.slider > div:first-child {
+  padding-right: 40rem;
+}
+
+// Ours: the total's NumberField. Not the Taxation page's totalValue class, which the extended NumberField adds the
+// density total to (taxation/density-totals.tsx).
+.totalValue {
+  flex: 1;
+}
+
+// Copies of vanilla's rules (taxation-page, taxation-group, taxation-item, tax-slider .module.scss).
+.page { width: 100%; height: 100%; display: flex; flex-direction: row; align-items: stretch; }
+.main { flex: 1; display: flex; flex-direction: column; align-items: stretch; }
+.tableSection { flex: 1; --contentPadding: 0rem; }
+.tableHeader { display: flex; flex-direction: row; align-items: center; }
+.headerCell { padding: 8rem 16rem; text-align: center; white-space: nowrap; }
+.scrollable { flex: 0 1; }
+.tableLines { flex: 1 0 0; display: flex; flex-direction: row; align-items: stretch; pointer-events: none; overflow: hidden; }
+.name { flex: 1; }
+.rate { width: 414rem; border-left: var(--stroke2) solid var(--dividerColor); }
+.estimate { width: 166rem; border-left: var(--stroke2) solid var(--dividerColor); }
+.totalSection { margin-top: 6rem; --contentPadding: 0rem; }
+.totalContent { display: flex; flex-direction: row; align-items: center; font-weight: bold; }
+.totalLabel { flex: 1; padding: 16rem; text-transform: uppercase; font-size: var(--fontSizeL); }
+.totalColumn { width: 140rem; margin: 12rem; }
+.group + .group { border-top: var(--stroke2) solid var(--dividerColor); }
+.header { display: flex; flex-direction: row; align-items: center; }
+.groupIcon { width: 48rem; height: 48rem; margin: 4rem 12rem 4rem 16rem; }
+.iconDisabled { filter: saturate(0%); }
+.groupTitle { flex: 1; overflow: hidden; text-align: left; font-size: var(--fontSizeL); color: var(--textColor); }
+.item { min-height: 48rem; display: flex; flex-direction: row; align-items: center; border-top: var(--stroke2) solid var(--dividerColor); }
+.itemIcon { width: 32rem; height: 32rem; margin: 4rem 12rem 4rem 32rem; }
+.itemTitle { flex: 1; margin: 4rem 0; white-space: nowrap; font-size: var(--fontSizeM); color: var(--textColor); }
+.rowSlider { width: 580rem; align-self: stretch; }
+.taxSlider { display: flex; flex-direction: row; align-items: stretch; }
+.sliderColumn { flex: 1; padding: 4rem 22rem 4rem 4rem; display: flex; flex-direction: row; align-items: center; border-left: var(--stroke2) solid var(--dividerColor); }
+.rateText { text-align: right; width: 56rem; margin-right: 8rem; white-space: nowrap; }
+.track { flex: 1; }
+.estimateColumn { width: 166rem; padding: 6rem 12rem; display: flex; flex-direction: row; align-items: center; border-left: var(--stroke2) solid var(--dividerColor); }
+.estimateValue { flex: 1; }
