@@ -66,6 +66,53 @@ namespace FiscalOverhaul
             }
         }
 
+        /// <summary>The length of CitizenHappinessSystem.m_HappinessFactors the copy was taken against (26 factors × 16 frames).</summary>
+        public const int kHappinessFactorCount = 416;
+
+        /// <summary>
+        /// Whether vanilla CitizenHappinessSystem has the private factor array and job handle <see cref="TaxHappinessSystem"/>
+        /// writes, and the factor count its copy assumes. On success <paramref name="factors"/> is vanilla's array (the
+        /// same buffer) and <paramref name="lastDeps"/> the field of its last job handle; <paramref name="problem"/>
+        /// names the first mismatch.
+        /// </summary>
+        public static bool HappinessStructureOk(CitizenHappinessSystem system, out NativeArray<int4> factors, out FieldInfo lastDeps, out string problem)
+        {
+            factors = default;
+            lastDeps = null;
+            problem = null;
+            try
+            {
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                Type type = typeof(CitizenHappinessSystem);
+                FieldInfo factorsField = type.GetField("m_HappinessFactors", flags);
+                if (factorsField == null || factorsField.FieldType != typeof(NativeArray<int4>))
+                {
+                    problem = "CitizenHappinessSystem.m_HappinessFactors is missing or not NativeArray<int4>";
+                    return false;
+                }
+                FieldInfo depsField = type.GetField("m_LastDeps", flags);
+                if (depsField == null || depsField.FieldType != typeof(Unity.Jobs.JobHandle))
+                {
+                    problem = "CitizenHappinessSystem.m_LastDeps is missing or not JobHandle";
+                    return false;
+                }
+                var array = (NativeArray<int4>)factorsField.GetValue(system);
+                if (!array.IsCreated || array.Length != kHappinessFactorCount)
+                {
+                    problem = $"CitizenHappinessSystem.m_HappinessFactors has length {(array.IsCreated ? array.Length : -1)}, expected {kHappinessFactorCount}";
+                    return false;
+                }
+                factors = array;
+                lastDeps = depsField;
+                return true;
+            }
+            catch (Exception e)
+            {
+                problem = $"happiness structure check threw: {e.Message}";
+                return false;
+            }
+        }
+
         private static bool HasField(Type type, string name, Type expected, BindingFlags flags, ref string problem)
         {
             FieldInfo field = type.GetField(name, flags);
