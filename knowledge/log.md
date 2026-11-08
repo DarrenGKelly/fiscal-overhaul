@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-07
+
+* **District taxes: each district sets its own rates** (user decision, replacing the ±10 adjustment on the city's): a district may override any zone, education-level, resource or density rate; the engine charges the payer's vanilla rate plus the district-minus-city difference for what it earns from, plus its density tax, which is now its own tax at −5..+10. The table is keyed by area (city or district entity), save format 2 drops the old district adjustments. One shared effective-rate computation, `TaxRateResolver`, for the demand, happiness and home-choice slices ([impl/tax-engine.md](impl/tax-engine.md#the-rate-model)).
+
 ## 2026-11-06
 
 * **Scripted game runs**: `tools/in-game-check.ps1` runs the in-game check end to end (claim, deploy, Steam launch, paused check, Budget/tooltip/Taxation shots, `-Steps`, a manifest, always quit) and `tools/store-screenshots.ps1` takes and installs the Paradox Mods set, both on `tools/game-run-common.ps1`. Two new screenshot rules: every Budget-tab shot has all lines on, and each set gets new, version-suffixed names, which `publish.ps1` now enforces (a changed picture under a released name is refused) ([releasing.md § Screenshots](releasing.md#screenshots)).

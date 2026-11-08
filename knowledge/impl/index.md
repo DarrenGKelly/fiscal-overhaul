@@ -3,4 +3,4 @@
 # Implementation
 
 * [Budget tab line chart](budget-chart.md) - The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
-* [Tax engine](tax-engine.md) - The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, how buildings are classified, what it does not affect (demand, happiness), storage and the Taxation tab rows.
+* [Tax engine](tax-engine.md) - The mod's own tax charge — a copy of vanilla TaxSystem's charge at each payer's income tax plus density tax with its district's own rates (the rate model), the game-version guard and the Simulation changes switch, how buildings are classified, what it does not affect (demand, happiness), storage and the Taxation tab rows.
