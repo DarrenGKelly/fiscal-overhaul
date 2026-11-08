@@ -183,6 +183,17 @@ through `TaxDistrictView`. Entire City is the layout above. A district view show
 summary. Density and vanilla's rows are city-wide, so a district view leaves them out (`view: "city"`), and each zone's
 header slider shows the city rate read-only (`headerSliderDisabled` in the extended `TaxSlider`).
 
+## District demand (info only)
+
+The game simulates one city-wide demand per zone, so a district has none. A district view's District section shows an
+estimate under the slider, "Demand (info): X% vs city Y%" with the note "Estimate only", never feeding the simulation
+(`UI/src/taxation/district-demand.ts`, `DemandInfo` in `district-tax-view.tsx`). The city demand is vanilla's
+`cityInfo` bindings (`residentialLow/Medium/HighDemand` averaged, `commercialDemand`, `industrialDemand`,
+`officeDemand`; 0..1). `taxRates.taxEffect` carries `DemandParameterData.m_TaxEffect` (x residential, y commercial, z
+industrial and office). The district figure is the city demand minus adjustment x weight x a per-point scale, clamped
+to 0..1. The scales (`RESIDENTIAL_DEMAND_PER_POINT` 0.01, `OTHER_DEMAND_PER_POINT` 0.05) are provisional, read off
+vanilla's formulas (residential `x * (10 - rate)` on a 0..100 demand; others `-0.05 * (rate - 10) * weight`).
+
 ## Follow-ups
 
 - Check in game that all-zero adjustments match vanilla's monthly tax income within 1%, and that a non-zero density

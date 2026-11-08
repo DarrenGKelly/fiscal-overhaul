@@ -36,6 +36,8 @@
   "FiscalOverhaul.UI.SectionResources": "Resources",
   "FiscalOverhaul.UI.SectionDistrict": "District",
   "FiscalOverhaul.UI.DistrictVsCity": "{VALUE}% vs city",
+  "FiscalOverhaul.UI.DistrictDemand": "Demand (info): {DISTRICT} vs city {CITY}",
+  "FiscalOverhaul.UI.DistrictDemandNote": "Estimate only — the game simulates one city-wide demand",
   "FiscalOverhaul.UI.DistrictAdjustment": "District adjustment",
   "FiscalOverhaul.UI.NoOffsets": "no offsets",
   "FiscalOverhaul.UI.OneOffsetSet": "{COUNT} offset set",

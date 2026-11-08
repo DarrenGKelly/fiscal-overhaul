@@ -22,3 +22,15 @@
 .slider > div:last-child {
   visibility: hidden;
 }
+
+// The information-only district demand line under the slider.
+.demand-text {
+  font-size: 18rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-right: 16rem;
+}
+
+.demand-note {
+  font-size: 14rem;
+  color: rgba(255, 255, 255, 0.55);
+}
