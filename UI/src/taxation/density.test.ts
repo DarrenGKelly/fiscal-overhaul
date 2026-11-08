@@ -205,3 +205,30 @@ describe("estimatedTotalValue", () => {
     expect(estimatedTotalValue(4000, undefined, undefined, 17520)).toBe(4000);
   });
 });
+
+describe("the district part in the totals", () => {
+  // Commercial (area 2 = zone 1): a district's income-tax override adds 600 a month to what vanilla estimates.
+  const parts = [0, 600, 0, 0];
+
+  it("a zone total with a district override is vanilla plus the district part", () => {
+    expect(density.zoneTotalIncome(5000, true, density.zoneExtra([], parts, 2, false, true))).toBe(5600);
+    expect(density.zoneTotalIncome(5000, true, density.zoneExtra([], parts, 2, false, true))).not.toBe(5000);
+    // With density taxes off too: the district part is charged whatever the density switch.
+    expect(density.zoneExtra(totalsCells, parts, 2, false, false)).toBe(600);
+  });
+
+  it("adds it on top of the density extra, and only to its own zone", () => {
+    expect(density.zoneExtra(totalsCells, parts, 2, false, true)).toBe(800 + 600);
+    expect(density.zoneExtra(totalsCells, parts, 1, false, true)).toBe(21720 - 5000);
+    expect(density.districtPartForArea(parts, 2, true)).toBe(0); // locked
+    expect(density.districtPartForArea(parts, 0, false)).toBe(0); // the city-wide area
+    expect(density.districtPartForArea(undefined, 2, false)).toBe(0);
+  });
+
+  it("ESTIMATED TOTAL adds every unlocked zone's part, matching the zone totals", () => {
+    const withOffice = [0, 600, 0, 300];
+    // Office (area 4) is locked in `areas`: its part isn't added, as its zone total isn't drawn.
+    expect(density.totalExtra(totalsCells, withOffice, areas, true)).toBe(21720 - 5000 + 800 + 600);
+    expect(density.totalExtra([], withOffice, areas, true)).not.toBe(900);
+  });
+});

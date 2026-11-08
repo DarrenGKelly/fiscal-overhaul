@@ -48,6 +48,11 @@ export interface DensityTaxes {
   minRate: number;
   maxRate: number;
   cells: DensityTaxCell[];
+  /**
+   * Per zone (0 Residential .. 3 Office): what district and Outside income-tax overrides add to vanilla's tax a month,
+   * as the city books it. The zone totals and ESTIMATED TOTAL add it (vanilla's estimate leaves it out).
+   */
+  districtParts?: number[];
 }
 
 /** Options > Enable density taxes. Off: the Taxation tab has no density rows. */

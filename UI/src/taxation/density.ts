@@ -66,6 +66,40 @@ export function densityExtraTotal(cells: EstimateCell[] | null | undefined, area
   return sum;
 }
 
+/**
+ * What district and Outside income-tax overrides add to a tax area's vanilla total (the densityTaxes binding's
+ * districtParts, per zone): booked by the city as tax income whatever the density switch. 0 for the city-wide area, a
+ * locked zone, or no data.
+ */
+export function districtPartForArea(parts: number[] | null | undefined, areaIndex: number, locked: boolean): number {
+  const zone = zoneForAreaIndex(areaIndex);
+  if (locked || zone < 0) return 0;
+  return parts?.[zone] ?? 0;
+}
+
+/** A zone's whole extra on top of vanilla's total: its density tax plus its district part. */
+export function zoneExtra(
+  cells: EstimateCell[] | null | undefined,
+  districtParts: number[] | null | undefined,
+  areaIndex: number,
+  locked: boolean,
+  enabled: boolean,
+): number {
+  return densityExtraForArea(cells, areaIndex, locked, enabled) + districtPartForArea(districtParts, areaIndex, locked);
+}
+
+/** ESTIMATED TOTAL's extra: every area's {@link zoneExtra}, so it matches the zone totals. */
+export function totalExtra(
+  cells: EstimateCell[] | null | undefined,
+  districtParts: number[] | null | undefined,
+  areas: AreaLike[] | null | undefined,
+  enabled: boolean,
+): number {
+  let sum = 0;
+  for (const a of areas ?? []) sum += zoneExtra(cells, districtParts, a.index, a.locked, enabled);
+  return sum;
+}
+
 /** A zone group's total: the header (primary) slider's income plus the zone's extra. Item sliders are left alone. */
 export function zoneTotalIncome(income: number, primary: boolean | undefined, extra: number | null | undefined): number {
   return primary && extra ? income + extra : income;

@@ -110,16 +110,20 @@ tax's revenue, so it is a neutral ¢0 (no "+" pill, vanilla `NumberField`'s own 
 
 ## Totals
 
-**Totals include the density tax** (a user decision). Each zone group's total (its header slider's income) and
-ESTIMATED TOTAL add the sum of the zone's (all zones') row `estimate`s; negative rates lower them. Vanilla computes
-both in C# (`TaxationUISystem`: `areaTaxIncomes`, and `taxIncome` = the four zones' sum, from the vanilla rates only)
-and draws them inside its own components, so the UI changes the **drawn value**, not the binding
-(`UI/src/taxation/density-totals.tsx`): the TaxationGroup wrapper provides the zone's extra and a TaxationPage wrapper
-the total's through a React context; an extended `TaxSlider` adds the zone's to the `primary` (header) slider, an
-extended `NumberField` adds the total's to the field whose className is the page's `totalValue` class. The values go
-through vanilla's own components, so sign and money format are vanilla's. Off, or no payer paying density tax: the extra is 0 and
-both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTotal`/`zoneTotalIncome`/
-`estimatedTotalValue` in `density.ts`.
+**Totals include the density tax and the district parts** (user decisions), as the city books the engine's charges.
+Each zone group's total (its header slider's income) and ESTIMATED TOTAL add the zone's (all unlocked zones') extra:
+the sum of its density row `estimate`s (a subsidy lowers it) plus its **district part**, what district and Outside
+income-tax overrides add to vanilla's tax (`PayerTaxParts.DistrictPart` = base × (rate without density − vanilla
+rate) / 100, summed per payer zone, `TaxPayerZone` as the booking; `densityTaxes.districtParts[4]`, published while
+the engine charges whatever the density switch). Vanilla computes both totals in C# (`TaxationUISystem`:
+`areaTaxIncomes`, and `taxIncome` = the four zones' sum, from the vanilla rates only) and draws them inside its own
+components, so the UI changes the **drawn value**, not the binding (`UI/src/taxation/density-totals.tsx`): the
+TaxationGroup wrapper provides the zone's extra and a TaxationPage wrapper the total's through a React context; an
+extended `TaxSlider` adds the zone's to the `primary` (header) slider, an extended `NumberField` adds the total's to
+the field whose className is the page's `totalValue` class. The values go through vanilla's own components, so sign
+and money format are vanilla's. The education/resource rows stay vanilla's. With no density tax paid and no
+override, the extra is 0 and both pass through unchanged. The maths is `densityExtraForArea`/`districtPartForArea`/
+`zoneExtra`/`totalExtra`/`zoneTotalIncome`/`estimatedTotalValue` in `density.ts`.
 
 ## Per-district rates
 

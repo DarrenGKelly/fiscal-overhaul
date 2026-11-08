@@ -10,6 +10,8 @@ namespace FiscalOverhaul.Logic
     {
         /// <summary>The payer's monthly taxable base.</summary>
         public double Base;
+        /// <summary>Its vanilla rate (<c>TaxPayer.m_AverageTaxRate</c>): what vanilla's own estimate charges it.</summary>
+        public int VanillaRate;
         /// <summary>Its rate without density tax: vanilla rate + district difference, clamped.</summary>
         public int RateWithoutDensity;
         /// <summary>The rate the engine charges it: with its density tax too, clamped.</summary>
@@ -17,6 +19,12 @@ namespace FiscalOverhaul.Logic
 
         /// <summary>The income tax part of a month: base × rate without density / 100.</summary>
         public double IncomePart => Base * RateWithoutDensity / 100.0;
+
+        /// <summary>
+        /// The district part of a month: what its district's (or Outside's) income-tax overrides add to vanilla's tax,
+        /// base × (without − vanilla) / 100; the city books it as the zone's tax income (vanilla's estimate leaves it out).
+        /// </summary>
+        public double DistrictPart => Base * (RateWithoutDensity - VanillaRate) / 100.0;
 
         /// <summary>The density tax part of a month (negative: a subsidy): base × (charged − without) / 100.</summary>
         public double DensityPart => Base * (ChargedRate - RateWithoutDensity) / 100.0;
@@ -33,6 +41,7 @@ namespace FiscalOverhaul.Logic
         {
             var p = new PayerTaxParts
             {
+                VanillaRate = vanillaRate,
                 RateWithoutDensity = EffectiveTaxRate.Compute(vanillaRate, 0, incomeDelta, min, max, 1),
                 ChargedRate = EffectiveTaxRate.Compute(vanillaRate, densityTax, incomeDelta, min, max, 1),
             };

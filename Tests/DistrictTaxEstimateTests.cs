@@ -32,6 +32,20 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void Parts_TheDistrictPart_IsWhatTheOverrideAddsToVanilla()
+        {
+            // Vanilla 10%, the district's +5: paid 150 at 15% (base 1000); vanilla's estimate says 100, the city books
+            // 50 more as the zone's tax income.
+            PayerTaxParts p = Payer(150, 10, 0, 5);
+            Assert.Equal(50, p.DistrictPart, 6);
+            Assert.Equal(150, p.IncomePart, 6);
+            Assert.Equal(p.IncomePart - p.Base * p.VanillaRate / 100.0, p.DistrictPart, 6);
+            // No override: nothing beyond vanilla, density or not.
+            Assert.Equal(0, Payer(120, 10, 2, 0).DistrictPart, 6);
+            Assert.NotEqual(0, Payer(80, 10, 0, -2).DistrictPart, 6);
+        }
+
+        [Fact]
         public void Parts_ClampTheDensityPartAsTheChargeDoes()
         {
             // At 28% a +5 density tax can only add 2 before the 30% limit: base 1000, density part 20, not 50.

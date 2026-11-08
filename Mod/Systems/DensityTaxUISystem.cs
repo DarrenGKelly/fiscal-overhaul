@@ -22,8 +22,10 @@ namespace FiscalOverhaul
     /// <summary>
     /// Taxation tab bindings for density offsets (group "fiscalOverhaul"):
     ///   densityTaxesEnabled  bool  <see cref="Setting.EnableDensityTaxes"/>; false = the UI shows no density rows
-    ///   densityTaxes         raw   { minRate, maxRate, cells: [{ zone, density, offset, estimate }] } (supported cells only;
-    ///                              offset = the city's density tax rate for the cell)
+    ///   densityTaxes         raw   { minRate, maxRate, cells: [{ zone, density, offset, estimate }], districtParts: [4] }
+    ///                              (supported cells only; offset = the city's density tax rate for the cell;
+    ///                              districtParts = per zone, what district and Outside income-tax overrides add to
+    ///                              vanilla's tax, <see cref="PayerTaxParts.DistrictPart"/>: the zone totals add it)
     ///   setDensityTax        trigger(int zone, int density, int offset)
     ///   taxEngineWarning     int   <see cref="TaxEngineWarning"/>: why the Taxation tab warns that taxes are vanilla (0 = no warning)
     /// The estimate is what the cell's density tax brings in a month as the city books it: each payer's own clamped
@@ -46,6 +48,7 @@ namespace FiscalOverhaul
         private Setting m_Setting;
 
         private double[] m_DensityPart = new double[DensityTaxTable.ZoneCount * DensityTaxTable.DensityCount];
+        private readonly double[] m_DistrictPart = new double[DensityTaxTable.ZoneCount];
         private TaxSystem m_TaxSystem;
         private ResourceSystem m_ResourceSystem;
         private EntityQuery m_EconomyParameterQuery;
@@ -80,7 +83,9 @@ namespace FiscalOverhaul
             bool enabled = DensityTaxState.Enabled;
             m_EnabledBinding.Update(enabled);
             m_EngineWarningBinding.Update((int)m_TaxEngine.Warning);
-            if (!FeatureGates.BuildsPanelData(enabled, m_PanelSystem.activePanel is EconomyPanel))
+            // District overrides charge with density taxes off too: their parts are needed whenever the engine charges.
+            bool needed = enabled || m_TaxEngine.Mode == TaxEngineMode.Engine;
+            if (!FeatureGates.BuildsPanelData(needed, m_PanelSystem.activePanel is EconomyPanel))
             {
                 m_FramesSinceRefresh = kRefreshFrames; // refresh as soon as the rows show again
                 return;
@@ -146,6 +151,10 @@ namespace FiscalOverhaul
                 }
             }
             writer.ArrayEnd();
+            writer.PropertyName("districtParts");
+            writer.ArrayBegin(DensityTaxTable.ZoneCount);
+            for (int z = 0; z < DensityTaxTable.ZoneCount; z++) writer.Write((int)DistrictTaxEstimate.Round(m_DistrictPart[z]));
+            writer.ArrayEnd();
             writer.TypeEnd();
         }
 
@@ -153,6 +162,7 @@ namespace FiscalOverhaul
         {
             int cells = m_DensityPart.Length;
             var densityPart = new NativeArray<double>(cells, Allocator.TempJob);
+            var districtPart = new NativeArray<double>(DensityTaxTable.ZoneCount, Allocator.TempJob);
             NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
             TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, m_ResourceSystem.GetPrefabs(), wages, Allocator.TempJob);
             TaxParameterData parameters = m_TaxSystem.GetTaxParameterData();
@@ -174,24 +184,28 @@ namespace FiscalOverhaul
                     m_JobLevelLimits = parameters.m_JobLevelTaxLimits,
                     m_ResourceLimits = parameters.m_ResourceTaxLimits,
                     m_Part = densityPart,
+                    m_DistrictPart = districtPart,
                 };
                 // This system's Dependency includes the tax engine's TaxPayer writes. Completed at once: one
                 // single-threaded pass every ~2 s while the panel is open, and the binding writes the result this frame.
                 job.Schedule(m_PayerQuery, Dependency).Complete();
 
                 for (int i = 0; i < cells; i++) m_DensityPart[i] = densityPart[i];
+                for (int z = 0; z < m_DistrictPart.Length; z++) m_DistrictPart[z] = districtPart[z];
             }
             finally
             {
                 densityPart.Dispose();
+                districtPart.Dispose();
                 rates.Dispose(default);
                 wages.Dispose();
             }
         }
 
         /// <summary>
-        /// Per density cell: its payers' summed monthly density parts (<see cref="PayerTaxParts"/>, clamped as the engine
-        /// charges them; none while the engine doesn't charge).
+        /// Per density cell: its payers' summed monthly density parts; per zone (the payer's: <see cref="TaxPayerZone"/>,
+        /// as the booking), their district parts (<see cref="PayerTaxParts"/>, clamped as the engine charges them; none
+        /// while the engine doesn't charge).
         /// </summary>
         [BurstCompile]
         private struct SumJob : IJobChunk
@@ -213,6 +227,7 @@ namespace FiscalOverhaul
             public int2 m_JobLevelLimits;
             public int2 m_ResourceLimits;
             public NativeArray<double> m_Part;
+            public NativeArray<double> m_DistrictPart;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -224,16 +239,22 @@ namespace FiscalOverhaul
                 int2 limits = isHousehold ? m_JobLevelLimits : m_ResourceLimits;
                 for (int i = 0; i < taxPayers.Length; i++)
                 {
-                    Entity property = renters[i].m_Property;
-                    if (!DensityClassifier.TryClassify(property, isHousehold, ref m_PrefabRefs, ref m_Spawnables, ref m_Zones, ref m_ZoneProperties, out int cell)) continue;
-                    // The engine charges no density tax while it is off.
+                    // The engine charges no district or density tax while it is off.
                     if (!m_EngineCharges) continue;
+                    Entity property = renters[i].m_Property;
+                    if (property == Entity.Null) continue;
                     TaxPayer payer = taxPayers[i];
                     // The payer's own district and density rates, as if it had income; a payer the density tax took to
                     // a 0 rate still counts (PayerTaxParts.Of: its untaxed income).
                     m_Rates.Adjustments(entities[i], property, kind, out int incomeDelta, out int densityTax);
                     PayerTaxParts parts = PayerTaxParts.Of(payer.m_AverageTaxPaid, payer.m_UntaxedIncome, payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, kChargesPerMonth);
-                    m_Part[cell] += parts.DensityPart;
+                    if (parts.Base <= 0) continue;
+                    if (DensityClassifier.TryClassify(property, isHousehold, ref m_PrefabRefs, ref m_Spawnables, ref m_Zones, ref m_ZoneProperties, out int cell))
+                        m_Part[cell] += parts.DensityPart;
+                    if (incomeDelta == 0) continue;
+                    TaxZone zone = TaxZone.Residential;
+                    if (!isHousehold && !m_Rates.TryCompanyRow(entities[i], kind, out zone, out _)) continue;
+                    m_DistrictPart[(int)zone] += parts.DistrictPart;
                 }
             }
         }

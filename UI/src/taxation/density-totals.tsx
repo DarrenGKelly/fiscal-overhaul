@@ -9,9 +9,9 @@ import { districtRowEstimate, districtTotalEstimate, RowTarget, TYPE_ZONE_RATE }
 import districtStyles from "./district-tax-view.module.scss";
 import { EngineWarningLine } from "./engine-warning-line";
 import { TaxRowSlider } from "./tax-row-slider";
-import { densityExtraForArea, densityExtraTotal, estimatedTotalValue, zoneTotalIncome } from "./density";
+import { estimatedTotalValue, totalExtra, zoneExtra, zoneTotalIncome } from "./density";
 
-// The Taxation tab's totals with the density offsets' extra revenue in them. Vanilla computes both totals in C#
+// The Taxation tab's totals with the density tax and the district (and Outside) income-tax overrides in them. Vanilla computes both totals in C#
 // (TaxationUISystem's `areaTaxIncomes` and `taxIncome`) and draws them inside its own components, so the UI adds the
 // extra to the drawn value: TaxationPage and TaxationGroup provide the extra through a context, and extended TaxSlider
 // and NumberField components add it where vanilla draws a total. Outside those contexts both are vanilla as is. In a
@@ -27,7 +27,7 @@ const TotalDensityExtra = createContext<number | null>(null);
 export function useZoneDensityExtra(areaType: { index: number; locked: boolean }): number {
   const data = useValue(densityTaxes$);
   const enabled = useValue(densityTaxesEnabled$);
-  return densityExtraForArea(data?.cells, areaType.index, areaType.locked, enabled);
+  return zoneExtra(data?.cells, data?.districtParts, areaType.index, areaType.locked, enabled);
 }
 
 /** TaxationPage, with every zone's extra provided for ESTIMATED TOTAL. */
@@ -36,7 +36,7 @@ export const withTotalDensityExtra = (TaxationPage: any) => (props: any) => {
   const enabled = useValue(densityTaxesEnabled$);
   const areas = useValue(taxation.areaTypes$);
   return (
-    <TotalDensityExtra.Provider value={densityExtraTotal(data?.cells, areas, enabled)}>
+    <TotalDensityExtra.Provider value={totalExtra(data?.cells, data?.districtParts, areas, enabled)}>
       <EngineWarningLine />
       <TaxationPage {...props} />
     </TotalDensityExtra.Provider>
