@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 import { Translate } from "../l10n";
 import {
   arrowFor,
-  formatCount,
   cellsForArea,
   densityExtraForArea,
   densityExtraTotal,
   densityLabel,
   estimatedTotalValue,
   offsetSummary,
-  payersSuffix,
   zoneForAreaIndex,
   zoneTotalIncome,
 } from "./density";
@@ -19,7 +17,6 @@ const french: Translate = (id, fallback) =>
     "FiscalOverhaul.UI.DensityLow": "Faible densité",
     "FiscalOverhaul.UI.DensityOther": "Densité {NUMBER}",
     "FiscalOverhaul.UI.OffsetsSet": "{COUNT} ajustements",
-    "FiscalOverhaul.UI.Payers": "{COUNT} contribuables",
   })[id] ??
   fallback ??
   null;
@@ -67,17 +64,6 @@ describe("offsetSummary", () => {
   });
 });
 
-describe("payersSuffix", () => {
-  it("shows the count with separators, and nothing for no payers", () => {
-    expect(payersSuffix(1234, null)).toBe(" · 1,234 payers");
-    expect(payersSuffix(0, null)).toBe("");
-  });
-
-  it("uses the translation", () => {
-    expect(payersSuffix(1234, french)).toBe(" · 1,234 contribuables");
-  });
-});
-
 describe("cellsForArea", () => {
   const cells = [
     { zone: 0, density: 0 },
@@ -109,16 +95,6 @@ describe("arrowFor", () => {
   });
   it("never returns a non-ASCII glyph", () => {
     for (const o of [true, false]) expect(/^[\x20-\x7e]+$/.test(arrowFor(o))).toBe(true);
-  });
-});
-
-describe("formatCount", () => {
-  it("groups thousands with commas", () => {
-    expect(formatCount(1234567)).toBe("1,234,567");
-    expect(formatCount(0)).toBe("0");
-  });
-  it("has no separator below 1000", () => {
-    expect(formatCount(999)).toBe("999");
   });
 });
 
