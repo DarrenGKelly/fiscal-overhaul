@@ -28,7 +28,8 @@ $GameRunPoints = [ordered]@{
     LauncherResume    = @{ X = 660;  Y = 246;  RefWidth = 1282; RefHeight = 677; Source = 'measured'; What = "the Paradox launcher's Resume (launcher client, scaled to its size)" }
     MoneyTotal        = @{ X = 1950; Y = 1406; Source = 'measured'; What = 'the money total in the bottom bar: opens the Economy panel on Budget' }
     BudgetTab         = @{ X = 736;  Y = 306;  Source = 'measured'; What = 'the Economy panel''s Budget tab' }
-    TaxationTab       = @{ X = 1280; Y = 306;  Source = 'measured'; What = 'the Economy panel''s Taxation tab' }
+    TaxationTab       = @{ X = 1008; Y = 306;  Source = 'derived';  What = 'the Economy panel''s Taxation tab (2nd slot: Budget, Taxation, Services, Production, Loans)' }
+    ServicesTab       = @{ X = 1280; Y = 306;  Source = 'derived';  What = 'the Economy panel''s Services tab (3rd slot)' }
     ChartPoint        = @{ X = 2045; Y = 651;  Source = 'derived';  What = 'a point on the Revenues line, 17 h ago in the Odiham save (02-budget-tooltip)' }
     PauseExit         = @{ X = 818;  Y = 1140; Source = 'measured'; What = 'the pause menu''s Exit' }
     ExitToDesktop     = @{ X = 1278; Y = 800;  Source = 'measured'; What = 'Exit to Desktop in the Exit dialog' }

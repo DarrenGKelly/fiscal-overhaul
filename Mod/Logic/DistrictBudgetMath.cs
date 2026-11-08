@@ -149,7 +149,8 @@ namespace FiscalOverhaul.Logic
     /// <summary>A capped per-district history of SourceCount-wide samples, with a flat encoding for the save.</summary>
     public class DistrictHistory
     {
-        public const int FormatVersion = 1;
+        /// <summary>2: with per-service upkeep weights (ServiceUpkeepSave.WriteDistricts); 1 (without) still loads.</summary>
+        public const int FormatVersion = 2;
 
         /// <summary>36 months of samples (provisional).</summary>
         public const int MaxSamples = 36 * BudgetHistoryMath.SamplesPerMonth;
