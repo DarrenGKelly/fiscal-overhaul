@@ -27,6 +27,13 @@ namespace FiscalOverhaul
     /// (<see cref="DensityTaxBooking.Parts"/>; density by sign) and of their tax at the vanilla rate (for the log's check
     /// of the scale against vanilla's estimate).
     /// </summary>
+    /// <summary>A payer the engine charged, and the untaxed income it charged (for <see cref="TaxEngineSystem.GetChargeRecords"/>).</summary>
+    public struct ChargeRecordEvent
+    {
+        public Entity m_Payer;
+        public int m_Untaxed;
+    }
+
     public struct TaxBookingEvent
     {
         public byte m_Zone;
@@ -93,6 +100,29 @@ namespace FiscalOverhaul
         /// <summary>The engine's charges beyond vanilla over the last month, per zone (<see cref="TaxBookingSystem"/>).</summary>
         public TaxBookingLedger Ledger { get; } = new TaxBookingLedger();
 
+        // Per payer, its last charge: (untaxed income charged, engine tick). The estimates read it so they count only
+        // payers the engine charges now (ChargeWindow), from the base it charged.
+        private NativeQueue<ChargeRecordEvent> m_ChargeQueue;
+        private NativeParallelHashMap<Entity, int2> m_ChargeRecords;
+        private JobHandle m_RecordDeps;
+        private JobHandle m_RecordReaders;
+        private int m_ChargeTick;
+
+        /// <summary>
+        /// Per payer the engine charged: (the untaxed income it charged, the engine tick), for the Taxation estimates
+        /// (<see cref="PayerTaxParts.FromCharge"/>, <see cref="ChargeWindow.IsCurrent"/> against
+        /// <paramref name="nowTick"/>). Read it in a job after <paramref name="deps"/>, then
+        /// <see cref="AddChargeRecordsReader"/>. Empty while the engine isn't charging.
+        /// </summary>
+        public NativeParallelHashMap<Entity, int2> GetChargeRecords(out JobHandle deps, out int nowTick)
+        {
+            deps = m_RecordDeps;
+            nowTick = m_ChargeTick;
+            return m_ChargeRecords;
+        }
+
+        public void AddChargeRecordsReader(JobHandle reader) => m_RecordReaders = JobHandle.CombineDependencies(m_RecordReaders, reader);
+
         /// <summary>What charges tax right now.</summary>
         public TaxEngineMode Mode { get; private set; } = TaxEngineMode.Vanilla;
 
@@ -124,6 +154,8 @@ namespace FiscalOverhaul
             m_EconomyParameterQuery = GetEntityQuery(ComponentType.ReadOnly<EconomyParameterData>());
             m_TaxPaidMultiplier = new float3(1f, 1f, 1f);
             m_BookingQueue = new NativeQueue<TaxBookingEvent>(Allocator.Persistent);
+            m_ChargeQueue = new NativeQueue<ChargeRecordEvent>(Allocator.Persistent);
+            m_ChargeRecords = new NativeParallelHashMap<Entity, int2>(4096, Allocator.Persistent);
             RequireForUpdate(m_TaxParameterGroup);
 
             m_GameVersion = TaxEngineGuard.GameVersion();
@@ -140,6 +172,10 @@ namespace FiscalOverhaul
             m_WeDisabledVanilla = false;
             m_BookingDeps.Complete();
             if (m_BookingQueue.IsCreated) m_BookingQueue.Dispose();
+            m_RecordDeps.Complete();
+            m_RecordReaders.Complete();
+            if (m_ChargeQueue.IsCreated) m_ChargeQueue.Dispose();
+            if (m_ChargeRecords.IsCreated) m_ChargeRecords.Dispose();
             base.OnDestroy();
         }
 
@@ -218,8 +254,8 @@ namespace FiscalOverhaul
             DrainBooking();
             if (Mode != TaxEngineMode.Engine)
             {
-                // Vanilla charges: nothing beyond vanilla to book.
-                if (!Ledger.IsEmpty) ResetBooking();
+                // Vanilla charges: nothing beyond vanilla to book, and no engine charges to estimate from.
+                if (!Ledger.IsEmpty || m_ChargeTick != 0) ResetBooking();
                 return;
             }
 
@@ -240,6 +276,13 @@ namespace FiscalOverhaul
             Dependency = JobHandle.CombineDependencies(residential, commercial, industrial);
             rates.Dispose(Dependency);
             wages.Dispose(Dependency);
+
+            // The charge records: this tick's charges in, records too old to count again out (every 16 ticks).
+            m_ChargeTick++;
+            var recordJob = new RecordChargesJob { m_Queue = m_ChargeQueue, m_Records = m_ChargeRecords, m_Tick = m_ChargeTick };
+            m_RecordDeps = recordJob.Schedule(JobHandle.CombineDependencies(Dependency, m_RecordReaders));
+            m_RecordReaders = default;
+            Dependency = JobHandle.CombineDependencies(Dependency, m_RecordDeps);
             m_BookingDeps = Dependency;
             m_BookingFrame = (int)updateFrame;
             m_BookingSignature = RateSignature.Of(DensityTaxState.Table.Rates.Entries(), m_TaxSystem.GetTaxRates().ToArray(), DensityTaxState.Enabled);
@@ -270,7 +313,12 @@ namespace FiscalOverhaul
         private void ResetBooking()
         {
             m_BookingDeps.Complete();
+            m_RecordDeps.Complete();
+            m_RecordReaders.Complete();
             if (m_BookingQueue.IsCreated) m_BookingQueue.Clear();
+            if (m_ChargeQueue.IsCreated) m_ChargeQueue.Clear();
+            if (m_ChargeRecords.IsCreated) m_ChargeRecords.Clear();
+            m_ChargeTick = 0;
             Ledger.Clear();
             m_BookingFrame = -1;
         }
@@ -297,6 +345,7 @@ namespace FiscalOverhaul
                 m_Rates = rates,
                 m_StatisticsEventQueue = m_CityStatisticsSystem.GetStatisticsEventQueue(out JobHandle deps).AsParallelWriter(),
                 m_BookingQueue = m_BookingQueue.AsParallelWriter(),
+                m_ChargeQueue = m_ChargeQueue.AsParallelWriter(),
             };
             // After the previous group's job: they share the booking queue (DrainBooking has completed last tick's).
             JobHandle handle = job.ScheduleParallel(query, JobHandle.CombineDependencies(Dependency, deps, m_BookingDeps));
@@ -304,13 +353,33 @@ namespace FiscalOverhaul
             m_BookingDeps = handle;
             return handle;
         }
+
+        /// <summary>The tick's charges into the per-payer records; every 16 ticks, the expired records out.</summary>
+        [BurstCompile]
+        private struct RecordChargesJob : IJob
+        {
+            public NativeQueue<ChargeRecordEvent> m_Queue;
+            public NativeParallelHashMap<Entity, int2> m_Records;
+            public int m_Tick;
+
+            public void Execute()
+            {
+                while (m_Queue.TryDequeue(out ChargeRecordEvent e)) m_Records[e.m_Payer] = new int2(e.m_Untaxed, m_Tick);
+                if (m_Tick % TaxBookingLedger.Frames != 0) return;
+                NativeArray<Entity> keys = m_Records.GetKeyArray(Allocator.Temp);
+                for (int i = 0; i < keys.Length; i++)
+                    if (ChargeWindow.IsExpired(m_Records[keys[i]].y, m_Tick)) m_Records.Remove(keys[i]);
+                keys.Dispose();
+            }
+        }
+
         /// <summary>
         /// Copied from Game.Simulation.TaxSystem.PayTaxJob (TaxSystem.cs:30-150), game version 1.6.3f1. Changes: the
         /// tax is charged at <see cref="TaxRateResolver.ChargedRate"/> (the payer's vanilla rate plus its density tax
         /// and its district's income-tax difference) instead of the payer's stored rate, which is left as it is; everything else
         /// (paid multiplier, statistics, office detection, zeroing the untaxed income, the average paid) is vanilla's.
         /// Added: each charge that differs from vanilla's queues its district and density parts for the city's side
-        /// (<see cref="TaxBookingSystem"/>).
+        /// (<see cref="TaxBookingSystem"/>), and every payer charged queues its untaxed income for the charge records.
         /// </summary>
         [BurstCompile]
         private struct PayTaxJob : IJobChunk
@@ -336,6 +405,8 @@ namespace FiscalOverhaul
             public NativeQueue<StatisticsEvent>.ParallelWriter m_StatisticsEventQueue;
             /// <summary>Every charge that differs from vanilla's, for the city's side (<see cref="TaxBookingSystem"/>).</summary>
             public NativeQueue<TaxBookingEvent>.ParallelWriter m_BookingQueue;
+            /// <summary>Every payer charged and its untaxed income (the charge records).</summary>
+            public NativeQueue<ChargeRecordEvent>.ParallelWriter m_ChargeQueue;
 
             /// <summary>
             /// The rate this payer is charged (as <see cref="TaxRateResolver.ChargedRate"/>: the same Adjustments and clamp)
@@ -450,6 +521,7 @@ namespace FiscalOverhaul
                     {
                         Entity property = hasRenter ? renters[i].m_Property : Entity.Null;
                         int untaxed = taxPayer.m_UntaxedIncome;
+                        m_ChargeQueue.Enqueue(new ChargeRecordEvent { m_Payer = nativeArray[i], m_Untaxed = untaxed });
                         int rate = ChargedRate(taxPayer, nativeArray[i], hasRenter && property != Entity.Null, property, out int withoutDensity);
                         PayTax(ref taxPayer, nativeArray[i], rate, withoutDensity, resources, m_Type, m_StatisticsEventQueue,
                             out TaxZone zone, out int vanillaTax, out int district, out int density);

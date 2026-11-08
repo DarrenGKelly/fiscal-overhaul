@@ -104,6 +104,10 @@ charges beyond that are booked on top.
   tax income (should it go below 0, the rest is subsidy), a positive density part on tax income, a negative one on the
   zone's subsidy expense. It adds once per vanilla update (`CityServiceBudgetSystem.LastSystemVersion`) and writes
   nothing while the ledger is empty, so **no density tax and no override is vanilla's numbers, bit for bit**.
+- **Charge records**: every charged payer's untaxed income and engine tick go into a per-payer map
+  (`ChargeRecordEvent` → `RecordChargesJob`, pruned every 16 ticks, cleared on load and while the engine isn't
+  charging); the Taxation estimates read it (`GetChargeRecords` / `AddChargeRecordsReader`,
+  [tax-engine-ui.md](tax-engine-ui.md)) so they count exactly the payers and the base the ledger books.
 - **Log**: while the engine charges, one Mod.log line per 1/32 month (`TaxBooking (monthly):`, `TaxBookingLog`), per
   zone: vanilla's income and subsidy, the engine's charges at vanilla rates with `scale` = vanilla net / that (about 1
   when the ledger's scale is vanilla's), the district and density parts booked, and the result. Compare the density
