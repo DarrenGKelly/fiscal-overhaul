@@ -97,9 +97,14 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   way ([impl/tax-engine-ui.md](impl/tax-engine-ui.md#layout)).
   It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
   the Options switch (a bool binding) is off.
-- **Economy tab order:** `extend(TAB_BAR_PATH, "TabBar", …)` reorders the Economy panel's tab children (Budget, Taxation,
-  Services, Production, Loans) with `orderEconomyTabs` (`UI/src/economy/tab-order.ts`), by their `tab` id, never by
-  position (vanilla indexes features by enum value); other tab bars pass through. The Switch Tab key/gamepad cycle keeps
+- **Economy panel header (the header hook):** EconomyPanel's `Panel` header is the title bar, then vanilla
+  `TabBar` (`game-ui/common/tabs/tabs.tsx`: `<div class=tabBar {className}>` around the children, a centred flex row)
+  with one child per tab carrying `{ tab, selectedTab, feature, uiTag, onSelect }`. `extend(TAB_BAR_PATH, "TabBar", …)`
+  recognises that set (`isEconomyTabSet`) and draws `EconomyTabBar` (`UI/src/economy/economy-tab-bar.tsx`): the district
+  picker's slot first (the tab bar left-aligned), then the tabs reordered (Budget, Taxation, Services | Production,
+  Loans) with `orderEconomyTabs` (`UI/src/economy/tab-order.ts`) and a divider element before the first city-only tab
+  (`withTabGroupDivider`), by `tab` id, never by position (vanilla indexes features by enum value). The selected tab is
+  read from a child's `selectedTab`. Other tab bars pass through. The Switch Tab key/gamepad cycle keeps
   the vanilla order: an accepted limitation.
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
   `BudgetItemDetail`, `TaxSlider`, `TaxationItem`, and for the Services tab `Section`, `SliderItem`, `BudgetItem`, `Button`,

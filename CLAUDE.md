@@ -69,7 +69,7 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   expense. The Services tab (`UI/src/services/`) adds the shared district selector and, in a district view, the area's
   own slider and upkeep. [impl/district-service-budgets.md](knowledge/impl/district-service-budgets.md)
 - **Budget tab:** `BudgetHistoryUISystem` turns the game's saved per-source income/expense statistics into per-month
-  series (per district too: `DistrictBudgetSystem` records them, and a selector above the tab picks one);
+  series (per district too: `DistrictBudgetSystem` records them, and one picker in the Economy panel header, left of the tabs, picks one for Budget, Taxation and Services);
   `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
   while the chart is off) and draws `UI/src/chart/line-chart.tsx` (canvas).
   [impl/budget-chart.md](knowledge/impl/budget-chart.md)

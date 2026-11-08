@@ -107,12 +107,13 @@ while any district feature needs it, the tax engine charging included (`FeatureG
 district budget, shows district service budgets, tax engine charges)`), so the Taxation selector works with the
 budget chart off.
 
-On the tab (`district-tax.ts` pure, `district-tax-view.tsx`), **`TaxDistrictBar`** is the district picker, one
-self-contained component (the shared `DistrictSelector` over `district/selection.ts`, the same choice as the Budget
-tab, and in a district view a vanilla `Button` **Use city rates**, disabled with no override), shown while the engine
-charges and the city has a district (`showsTaxDistrictSelector`): Entire City, then each district, no Outside
-Districts (`taxDistrictOptions`). A TaxationPage wrapper draws it above the page and provides the view (`taxViewKey`)
-through `TaxDistrictView`. A **district view is the Entire City layout** with the district's values: the zone header
+The district is picked in the **Economy panel header** (the one picker for Budget, Taxation and Services:
+[impl/budget-chart.md § District selector](budget-chart.md#district-selector)), over `district/selection.ts`. On the
+Taxation tab it shows while the engine charges and the city has a district (`showsTaxDistrictSelector`, through
+`headerPicker`): the city (by its name), then each district, no Outside Districts (`taxDistrictOptions`). On the tab
+(`district-tax.ts` pure, `district-tax-view.tsx`), a TaxationPage wrapper provides the view (`taxViewKey`) through
+`TaxDistrictView` and, in a district view, draws **`TaxResetBar`** above the page: a vanilla `Button` **Use city
+rates**, disabled with no override. A **district view is the Entire City layout** with the district's values: the zone header
 slider, Density tax (while density taxes are on) and Education/Resources. Each slider says which rate it is through
 `TaxRowTarget` (the TaxationGroup wrapper: the zone rate, for the `primary` header; each re-hosted `TaxationItem`: its
 level or resource), and the extended `TaxSlider` swaps in the district's value and setter (`useDistrictSlider`,

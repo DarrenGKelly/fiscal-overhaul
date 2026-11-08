@@ -66,7 +66,8 @@ weights:
 | Garbage | `GarbageProducer.m_Garbage` |
 | Parking | parked cars x their lane's `ParkingLane.m_ParkingFee`, by the lane's district (`BorderDistrict` side, else the owner building's `CurrentDistrict`) |
 | Public transport | household residents |
-| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |; the money part runs at the building's district % for its service when per-district service budgets apply (`ServiceUpkeepCost.EffectiveBudget`), else the city %; the per-service weights use the same %, so the children still sum to the district slot |
+| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |
+; the money part runs at the building's district % for its service when per-district service budgets apply (`ServiceUpkeepCost.EffectiveBudget`), else the city %; the per-service weights use the same %, so the children still sum to the district slot |
 
 **Taxes are not apportioned**: vanilla's tax rows are policy-blind estimates (taxable income x city rate), while
 `m_AverageTaxPaid` includes a district's Low Commercial Tax policy; scaling the paid sums keeps a discount in its
@@ -131,9 +132,19 @@ Service Upkeep row split per service at the same points, in vanilla's Services t
 
 ### District selector
 
-`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, span buttons on the rows' value-field box
+One picker for the Budget, Taxation and Services tabs, in the **Economy panel's header** at the left of the tabs
+(`economy/economy-tab-bar.tsx`, drawn by the extended vanilla `TabBar`; the logic in `economy/header-picker.ts`). The
+tabs follow it: [Budget | Taxation | Services], a divider line, [Production | Loans] (`withTabGroupDivider`, by tab id).
+It shows on the selected tab only by that tab's own rule (`headerPicker`: Budget while recording is on, Services while
+district service budgets are on, Taxation while the tax engine charges and the city has a district) and its choices
+(Taxation has no Outside Districts: a shared choice of Outside shows the city there and stays for the other tabs). On
+Production and Loans, or a tab whose feature is off, its slot stays empty so the tabs never move; with every district
+feature off there is no slot (`reservesPickerSlot`). The city option is the **city's name** (vanilla
+`toolbarBottom.cityName`; `cityLabel` falls back to "Entire City" while it is blank).
+
+`district/district-selector.tsx` (`compact` in the header: 18rem name, clipped with an ellipsis): `‹ [name] ›`, span buttons on the rows' value-field box
 (vanilla `NumberField`'s secondary background, `rgba(6,10,16,.7)` with 8rem corners: `$value-field-bg`), so the name
-and both arrows read as controls; the name is the tab's header (bold 24rem, above the rows' bold 18rem titles; scoped under `.district-selector` so the later
+and both arrows read as controls; the name is bold (scoped under `.district-selector` so the later
 `.span-button` rule doesn't shrink it). The arrows are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the
 left one (the font has no arrows). They cycle Entire City → each district (by name) → Outside Districts → Entire
 City, wrapping both ways; the name opens a list of every choice, with a divider line between the three groups (Entire
@@ -151,7 +162,7 @@ expenses negated to show as vanilla does), Revenues / Expenses / Monthly balance
 detail pop-out is off (its breakdown is city-wide), and the chart draws the district's series. A district with no
 samples yet has one point (its live Now), which the chart draws as a dot. A blank or localization-id name (an
 unnamed district from `NameSystem.GetRenderedLabelName`) is translated, else shown as "District <n>" (its place in
-the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
+the list; `districtLabel`). The pure logic is `district/district-select.ts` and `economy/header-picker.ts`.
 
 ## UI
 
@@ -212,7 +223,7 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
 ## Tests
 
 `Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
-ranges, value and time ticks, hit-testing and formatting; `UI/src/budget/district-select.test.ts` the selector's
+ranges, value and time ticks, hit-testing and formatting; `UI/src/district/district-select.test.ts` and `UI/src/economy/header-picker.test.ts` the selector's
 options, when it shows, cycling, names, city-only rows and row values; `UI/src/budget/budget-rows.test.ts` the
 subcategory rows (keys, which categories expand, district filtering, colours, values and series);
 `Tests/ServiceUpkeepSplitTests.cs` the per-service split (exact sums, rounding, zero / one / negative inputs, gaps,
