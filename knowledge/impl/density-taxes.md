@@ -7,7 +7,9 @@ resource:
   - Mod/Systems/DensityClassifier.cs
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/DensityTaxState.cs
+  - Mod/Systems/TaxRatesSystem.cs
   - Mod/Logic/DensityTaxTable.cs
+  - Mod/Logic/TaxRateTable.cs
   - Mod/Logic/FeatureGates.cs
   - Mod/Setting.cs
   - UI/src/taxation
@@ -60,8 +62,23 @@ so commercial companies in mixed-housing zones and commuters are not affected.
 
 ## Storage and UI
 
-Offsets live in the mod's settings (`Setting.DensityTaxOffsets`, 12 comma-separated ints). They're **global, not per
-save**: a known v1 limit. Options has a reset button. `DensityTaxUISystem` publishes
+Offsets are **per save**. Each city keeps a `TaxRateTable` (`Mod/Logic/TaxRateTable.cs`): sparse entries keyed by
+(`TaxType`, zone, key, key version) to percentage points, clamped to a per-type cap (`Density` ±5; `District` ±10, a
+provisional constant for the district slice; later types take the next enum numbers). Density entries are keyed by
+`Density`; district entries by the district entity's index and version (ints in the logic, an `Entity` in the save so
+the game remaps it). `DensityTaxTable` is now a view of a table's density entries (storage moved; its classification,
+`AppliedDelta` and estimate maths stay).
+
+`TaxRatesSystem` is `IDefaultSerializable`: the save block is `FormatVersion`, a count, then per entry type, zone,
+key (an `Entity` for districts, else key and key version) and value. An unknown version loads empty. On load it drops
+district entries whose entity is gone (`Entity.Null` on read; `PruneDistricts` on `OnGameLoadingComplete`) and points
+`DensityTaxState` at the city's table (`DensityTaxState.Use`); sliders write it in place, and it is saved with the city.
+
+**Migration and the template.** `Setting.DensityTaxOffsets` (12 comma-separated ints) is now only the template for a
+city with no block: a new city, or a save from before per-save rates. `SetDefaults` seeds that city's density entries
+from it once (`TaxRateTable.SeedDensityFrom`); the next save carries the block, so it is never seeded again. Sliders no
+longer write the setting. Options > reset clears both the template and the loaded city's density offsets.
+`DensityTaxUISystem` publishes
 `densityTaxes = { maxOffset, cells[{ zone, density, offset, estimate }] }` and `setDensityTax(zone, density, offset)`.
 The estimate is `EstimateExtraRevenue`: each cell's monthly tax paid (`TaxPayer.m_AverageTaxPaid`, the last payment
 × 32) scaled back to its taxable base, times the offset. That payment was charged at the stored rate **plus** the
@@ -73,7 +90,7 @@ page calls `ApplyAndSave` on every change; `Mod` listens on `onSettingsApplied` 
 `DensityTaxState.SetEnabled` with `FeatureGates.AppliesDensityTaxes(EnableSimulationChanges, EnableDensityTaxes)`:
 the master **Simulation changes** switch off counts as density taxes off ([district-service-budgets.md](district-service-budgets.md#the-master-switch)). Off, the offsets the apply job reads are all 0
 (`DensityTaxTable.EffectiveOffsets(false)`) and the apply system returns before scheduling anything
-(`IsCharged(false)`), so buildings pay exactly the vanilla rates; the stored table and `DensityTaxOffsets` are left as
+(`IsCharged(false)`), so buildings pay exactly the vanilla rates; the stored table and the template are left as
 they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and
 the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells while it is off.
 
@@ -106,5 +123,4 @@ both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTot
 
 - Check in game that a non-zero offset changes the zone's tax revenue (so far only the rows and sliders are
   seen working, 2026-11-03).
-- Per-save storage.
 - Demand/happiness reacting to density rates would mean replacing several vanilla systems with patched copies.
