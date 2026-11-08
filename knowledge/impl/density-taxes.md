@@ -62,7 +62,7 @@ so commercial companies in mixed-housing zones and commuters are not affected.
 
 Offsets live in the mod's settings (`Setting.DensityTaxOffsets`, 12 comma-separated ints). They're **global, not per
 save**: a known v1 limit. Options has a reset button. `DensityTaxUISystem` publishes
-`densityTaxes = { maxOffset, cells[{ zone, density, offset, estimate, payers }] }` and `setDensityTax(zone, density, offset)`.
+`densityTaxes = { maxOffset, cells[{ zone, density, offset, estimate }] }` and `setDensityTax(zone, density, offset)`.
 The estimate is `EstimateExtraRevenue`: each cell's monthly tax paid (`TaxPayer.m_AverageTaxPaid`, the last payment
 × 32) scaled back to its taxable base, times the offset. That payment was charged at the stored rate **plus** the
 offset, so the base is paid ÷ (rate + offset); dividing by the stored rate alone overstated it by (rate + offset) / rate.
@@ -77,8 +77,19 @@ the master **Simulation changes** switch off counts as density taxes off ([distr
 they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and
 the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells while it is off.
 
-The Taxation tab wraps each vanilla `TaxationGroup` and adds a collapsible "By density" section of vanilla
-`TaxSlider`s (`UI/src/taxation/density-rows.tsx`), with a note that offsets change revenue only.
+**Taxation tab layout.** With density taxes on, the wrapper around each vanilla `TaxationGroup`
+(`UI/src/taxation/tax-sections-view.tsx`) draws collapsible sections under the zone's main slider, each a header row
+with an arrow (and an optional summary) over its rows: **Density** first (one vanilla `TaxSlider` per density the zone
+has, `density-rows.tsx`, with a note that offsets change revenue only), then vanilla's own sub-rows, re-hosted as
+vanilla `TaxationItem`s from `taxation.areaResources$` (**Education** for Residential, **Resources** for the other
+zones). All start collapsed; the open ones are kept for the UI session (`sectionExpandState`, not reset when the panel
+closes). The section list is data (`TAX_SECTIONS` in `tax-sections.ts`: id, title per zone; `sectionsForArea` keeps the
+ones with rows, in order, none for a locked zone), and `TAX_SECTION_ROWS` in the view maps each id to its rows: a new
+tax type is one entry in each and a title in `l10n/en-US.json`. Vanilla's own expander (toggle button, gamepad hint,
+content) is hidden by adding classes to the live `taxation-group.module.scss` class object, which `TaxationGroup` reads
+on every render (`groupClasses`): the toggle is `visibility: hidden` so the header slider keeps its place. Off, the
+names are vanilla's again and no sections are drawn, so the tab is vanilla. Rows show no payer count (removed by
+request, 2026-11-07).
 
 **Totals include the offsets** (a user decision). Each zone group's total (its header slider's income) and
 ESTIMATED TOTAL add the sum of the zone's (all zones') row `estimate`s; negative offsets lower them. Vanilla computes
@@ -93,7 +104,7 @@ both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTot
 
 ## Follow-ups
 
-- Check in game that a non-zero offset changes the zone's tax revenue (so far only the rows, sliders and payer
-  counts are seen working, 2026-11-03).
+- Check in game that a non-zero offset changes the zone's tax revenue (so far only the rows and sliders are
+  seen working, 2026-11-03).
 - Per-save storage.
 - Demand/happiness reacting to density rates would mean replacing several vanilla systems with patched copies.

@@ -37,6 +37,8 @@ export interface SeriesDef {
   kind: SeriesKind;
   /** Budget item id for item series; undefined for totals and balance. */
   itemId?: string;
+  /** Budget source id for a subcategory series (budget/budget-rows.ts buildSourceSeries); undefined otherwise. */
+  sourceId?: string;
   color: string;
   values: number[];
 }
