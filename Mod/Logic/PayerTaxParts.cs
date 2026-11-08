@@ -32,33 +32,37 @@ namespace FiscalOverhaul.Logic
         /// <summary>
         /// The parts of a payer charged <paramref name="vanillaRate"/> (<c>TaxPayer.m_AverageTaxRate</c>) plus
         /// <paramref name="incomeDelta"/> and <paramref name="densityTax"/> inside [<paramref name="min"/>,
-        /// <paramref name="max"/>], whose last payment was charged at the rate it is charged now (nothing moved since).
+        /// <paramref name="max"/>], from the untaxed income the tax engine last charged it
+        /// (<see cref="ChargeWindow"/>: only a charge in the last 1/32 month counts), at the monthly scale
+        /// (× <paramref name="chargesPerMonth"/>): the base the engine books from, so the parts are what the city books,
+        /// restated at the rates now (a slider moved since the charge moves them at once). No income charged (none, a
+        /// loss, or no recent charge): base 0, nothing to book.
         /// </summary>
-        public static PayerTaxParts Of(long monthlyPaid, int untaxedIncome, int vanillaRate, int densityTax, int incomeDelta, int min, int max, int chargesPerMonth)
-            => Of(monthlyPaid, untaxedIncome, vanillaRate, densityTax, incomeDelta, min, max, chargesPerMonth,
-                EffectiveTaxRate.Compute(vanillaRate, densityTax, incomeDelta, min, max, 1));
+        public static PayerTaxParts FromCharge(int chargedUntaxedIncome, int vanillaRate, int densityTax, int incomeDelta, int min, int max, int chargesPerMonth)
+        {
+            var p = Rates(vanillaRate, densityTax, incomeDelta, min, max);
+            if (chargedUntaxedIncome > 0) p.Base = (double)chargedUntaxedIncome * chargesPerMonth;
+            return p;
+        }
 
         /// <summary>
-        /// The parts of a payer charged <paramref name="vanillaRate"/> (<c>TaxPayer.m_AverageTaxRate</c>) plus
-        /// <paramref name="incomeDelta"/> and <paramref name="densityTax"/> inside [<paramref name="min"/>,
-        /// <paramref name="max"/>]. The base is what it paid a month (<c>m_AverageTaxPaid</c>) over
-        /// <paramref name="paidRate"/>, the rate that payment was charged at (<see cref="PaymentRate"/>), so the parts
-        /// follow a rate moved since the payment: base × the rates now. A payment charged at 0 says nothing of the base:
-        /// then it is the untaxed income at the monthly scale (<paramref name="untaxedIncome"/> ×
-        /// <paramref name="chargesPerMonth"/>), so a payer the density tax took to 0 still shows its subsidy. Base 0
-        /// (nothing to book) otherwise.
+        /// The parts of a payer from what it paid a month (<c>m_AverageTaxPaid</c>) at the rate it is charged now: base =
+        /// paid / that rate (or, at a 0 rate, the untaxed income × <paramref name="chargesPerMonth"/>). The estimates
+        /// use <see cref="FromCharge"/>: a paid amount stays on a payer the engine no longer charges.
         /// </summary>
-        public static PayerTaxParts Of(long monthlyPaid, int untaxedIncome, int vanillaRate, int densityTax, int incomeDelta, int min, int max, int chargesPerMonth, int paidRate)
+        public static PayerTaxParts Of(long monthlyPaid, int untaxedIncome, int vanillaRate, int densityTax, int incomeDelta, int min, int max, int chargesPerMonth)
         {
-            var p = new PayerTaxParts
-            {
-                VanillaRate = vanillaRate,
-                RateWithoutDensity = EffectiveTaxRate.Compute(vanillaRate, 0, incomeDelta, min, max, 1),
-                ChargedRate = EffectiveTaxRate.Compute(vanillaRate, densityTax, incomeDelta, min, max, 1),
-            };
-            if (paidRate > 0) p.Base = DensityTaxTable.TaxableBase(monthlyPaid, paidRate);
+            var p = Rates(vanillaRate, densityTax, incomeDelta, min, max);
+            if (p.ChargedRate > 0) p.Base = DensityTaxTable.TaxableBase(monthlyPaid, p.ChargedRate);
             else if (untaxedIncome > 0) p.Base = (double)untaxedIncome * chargesPerMonth;
             return p;
         }
+
+        private static PayerTaxParts Rates(int vanillaRate, int densityTax, int incomeDelta, int min, int max) => new PayerTaxParts
+        {
+            VanillaRate = vanillaRate,
+            RateWithoutDensity = EffectiveTaxRate.Compute(vanillaRate, 0, incomeDelta, min, max, 1),
+            ChargedRate = EffectiveTaxRate.Compute(vanillaRate, densityTax, incomeDelta, min, max, 1),
+        };
     }
 }

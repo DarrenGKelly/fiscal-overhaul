@@ -183,6 +183,119 @@ namespace FiscalOverhaul.Tests
             Assert.NotEqual(100, DistrictBudgetMath.AtCityRate(100, 8, 10));
         }
 
+        // One sample from payers (area, paid, district rate, city rate, stored, without density, charged), weighed by
+        // PayerTaxWeights on the residential row (tax slot 0, subsidy slot 11).
+        private static float[][] TaxSample(int areas, double[] vanilla, params (int area, double paid, int dRate, int cRate, int stored, int noDensity, int charged)[] payers)
+        {
+            var weights = new double[areas * DistrictBudgetMath.SourceCount];
+            var atCity = new double[DistrictBudgetMath.TaxRowCount];
+            foreach (var p in payers)
+            {
+                DistrictBudgetMath.PayerTaxWeights(p.paid, p.dRate, p.cRate, p.stored, p.noDensity, p.charged,
+                    out double tax, out double taxAt, out double sub, out double subAt);
+                weights[p.area * DistrictBudgetMath.SourceCount + 0] += tax;
+                weights[p.area * DistrictBudgetMath.SourceCount + 11] += sub;
+                atCity[0] += taxAt;
+                atCity[4] += subAt;
+            }
+            return DistrictBudgetMath.Samples(weights, areas, vanilla, atCity);
+        }
+
+        [Fact]
+        public void PayerCounts_WhileTheEngineCharges_OnlyWithACurrentRecord()
+        {
+            // Vanilla charges: every payer weighs, as before.
+            Assert.True(DistrictBudgetMath.PayerCounts(false, false, 0, 100));
+            // Engine: a payer with paid > 0 but no record (never charged), or an old one (stopped earning), weighs 0.
+            Assert.False(DistrictBudgetMath.PayerCounts(true, false, 0, 100));
+            Assert.False(DistrictBudgetMath.PayerCounts(true, true, 80, 100));
+            Assert.True(DistrictBudgetMath.PayerCounts(true, true, 90, 100));
+        }
+
+        [Fact]
+        public void StalePayer_WeighsNothing_AndTheSharesStillSumToTheRow()
+        {
+            // District 0 has a current payer (paid 1000); district 1 only a stale one (paid 500, no current record).
+            // The city books 1000 (vanilla's row from the current payer).
+            var payers = new[] { (area: 0, paid: 1000.0, current: true), (area: 1, paid: 500.0, current: false) };
+            var weights = new double[2 * DistrictBudgetMath.SourceCount];
+            var atCity = new double[DistrictBudgetMath.TaxRowCount];
+            foreach (var p in payers)
+            {
+                if (!DistrictBudgetMath.PayerCounts(true, p.current, p.current ? 100 : 50, 100)) continue;
+                DistrictBudgetMath.PayerTaxWeights(p.paid, 10, 10, 10, 10, 10, out double tax, out double taxAt, out _, out _);
+                weights[p.area * DistrictBudgetMath.SourceCount] += tax;
+                atCity[0] += taxAt;
+            }
+            float[][] s = DistrictBudgetMath.Samples(weights, 2, Row((0, 1000)), atCity);
+            Assert.Equal(1000f, s[0][0], 1);
+            Assert.Equal(0f, s[1][0]);
+            Assert.Equal(1000.0, s[0][0] + s[1][0], 1);
+            // Fail case: weighing the stale payer gives its district a share the city never receives.
+            float[][] old = DistrictBudgetMath.Samples(Weights(Row((0, 1000)), Row((0, 500))), 2, Row((0, 1000)), new double[] { 1500, 0, 0, 0, 0, 0, 0, 0 });
+            Assert.NotEqual(0f, old[1][0]);
+        }
+
+        [Fact]
+        public void PayerTaxWeights_PositiveDensity_DistrictsSumToTheBookedRow()
+        {
+            // District 0 at density +10 (stored 10, charged 20): paid 2000. District 1 at vanilla: paid 1000. The city
+            // books vanilla's 2000 + the density part 1000 = 3000 (TaxBookingSystem).
+            float[][] s = TaxSample(2, Row((0, 3000)), (0, 2000, 10, 10, 10, 10, 20), (1, 1000, 10, 10, 10, 10, 10));
+            Assert.Equal(3000.0, s[0][0] + s[1][0], 1);
+            Assert.Equal(2000f, s[0][0], 1);
+            Assert.Equal(0f, s[0][11] + s[1][11]);
+            Assert.NotEqual(1500f, s[0][0], 1); // not split as if density were vanilla tax
+        }
+
+        [Fact]
+        public void PayerTaxWeights_NegativeDensity_GoesToTheSubsidySlot()
+        {
+            // District 0 at density -5 (stored 10, charged 5): paid 500 of a 1000 vanilla charge. The city books 2000 tax
+            // income (vanilla's, both payers) and 500 Residential subsidy.
+            float[][] s = TaxSample(2, Row((0, 2000), (11, 500)), (0, 500, 10, 10, 10, 10, 5), (1, 1000, 10, 10, 10, 10, 10));
+            Assert.Equal(1000f, s[0][0], 1);
+            Assert.Equal(1000f, s[1][0], 1);
+            Assert.Equal(500f, s[0][11], 1);
+            Assert.Equal(0f, s[1][11]);
+            Assert.Equal(500f, s[0][0] - s[0][11], 1); // the district's net is what it paid
+            // Fail case: weighing the paid amount alone puts district 0's lower tax in the tax slot and no subsidy.
+            DistrictBudgetMath.PayerTaxWeights(500, 10, 10, 10, 10, 10, out double tax, out _, out double sub, out _);
+            Assert.Equal(500, tax);
+            Assert.Equal(0, sub);
+        }
+
+        [Fact]
+        public void PayerTaxWeights_DistrictOverride_IsTaxIncome()
+        {
+            // A district rate of 14 against the city's 10 (stored 10, no density): paid 1400, all tax.
+            DistrictBudgetMath.PayerTaxWeights(1400, 10, 10, 10, 14, 14, out double tax, out double taxAt, out double sub, out _);
+            Assert.Equal(1400, tax, 6);
+            Assert.Equal(1400, taxAt, 6);
+            Assert.Equal(0, sub);
+            // A lower district rate is less tax, not a subsidy.
+            DistrictBudgetMath.PayerTaxWeights(600, 10, 10, 10, 6, 6, out tax, out _, out sub, out _);
+            Assert.Equal(600, tax, 6);
+            Assert.Equal(0, sub);
+        }
+
+        [Theory]
+        [InlineData(1000, 10, 10)]
+        [InlineData(800, 8, 10)]   // Low Commercial Tax: restated
+        [InlineData(-300, 10, 10)] // a vanilla subsidy
+        public void PayerTaxWeights_AllZero_IsTodays(double paid, int districtRate, int cityRate)
+        {
+            DistrictBudgetMath.PayerTaxWeights(paid, districtRate, cityRate, 12, 12, 12, out double tax, out double taxAt, out double sub, out double subAt);
+            double atCity = DistrictBudgetMath.AtCityRate(paid, districtRate, cityRate);
+            Assert.Equal(paid > 0 ? paid : 0, tax);
+            Assert.Equal(paid > 0 ? atCity : 0, taxAt);
+            Assert.Equal(paid < 0 ? -paid : 0, sub);
+            Assert.Equal(paid < 0 ? -atCity : 0, subAt);
+            // Fail case: with a density part the split changes.
+            DistrictBudgetMath.PayerTaxWeights(1000, 10, 10, 10, 10, 5, out tax, out _, out _, out _);
+            Assert.NotEqual(1000, tax);
+        }
+
         [Fact]
         public void Samples_Taxes_WithoutAPolicy_SumToTheVanillaRow_WithOne_FallShort()
         {

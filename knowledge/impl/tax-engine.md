@@ -1,9 +1,12 @@
 ---
 type: Implementation
 title: Tax engine
-description: The mod's own tax charge — a copy of vanilla TaxSystem's charge at each payer's income tax plus density tax with its district's own rates (the rate model), TaxRateResolver as the one effective-rate computation, the game-version guard and the Simulation changes switch, how buildings are classified, and how rates are stored per save.
+description: The mod's own tax charge — a copy of vanilla TaxSystem's charge at each payer's income tax plus density tax with its district's own rates (the rate model), TaxRateResolver as the one effective-rate computation, the city's side (TaxBookingSystem books what the engine charges beyond vanilla as tax income or subsidy), the game-version guard and the Simulation changes switch, how buildings are classified, and how rates are stored per save.
 resource:
   - Mod/Systems/TaxEngineSystem.cs
+  - Mod/Systems/TaxBookingSystem.cs
+  - Mod/Logic/DensityTaxBooking.cs
+  - Mod/Logic/TaxBookingLedger.cs
   - Mod/Systems/TaxEngineGuard.cs
   - Mod/Systems/TaxKeyResolver.cs
   - Mod/Systems/TaxRateResolver.cs
@@ -40,6 +43,15 @@ the applicable vanilla rate into `m_AverageTaxRate`. `TaxSystem` (every 512 fram
 charges `untaxed * averageRate / 100` and zeroes `m_UntaxedIncome`. Every vanilla rate lookup happens inside Burst
 jobs we can't patch.
 
+**The charge does not pay the city.** `PayTaxJob` only takes the money from the payer and enqueues its taxable income
+(`ResidentialTaxableIncome`, `Commercial…`, `Industrial…`, `Office…`, per level or resource). The city's tax money is
+`CityServiceBudgetSystem`'s **estimate**, recomputed every frame: per tax item (an education level or a resource), the
+city's rate for it × that item's taxable-income statistic (`TaxSystem.GetEstimatedTaxAmount`); an item above 0 adds to
+`TaxResidential` / `TaxCommercial` / `TaxIndustrial` / `TaxOffice` income, an item below 0 to `SubsidyResidential` /
+`Commercial` / `Industrial` / `Office` expense (never netted), and `BudgetApplySystem` pays those arrays into
+`PlayerMoney` 1024 times a month (1.6.3f1). Vanilla's Budget panel shows the subsidies as expense rows. So the engine
+books its own side ([The city's side](#the-citys-side)).
+
 ## The engine
 
 Vanilla `TaxSystem` stays the **data store**: its 92-int rate array, saved by vanilla and read by ~19 systems and the
@@ -66,6 +78,53 @@ UI, and its setters (which clamp with `TaxParameterData`). Only its **update** i
   switch and the reset buttons at any time. Each update the engine builds a `TaxRateResolver` whose `TempJob` arrays
   are computed from it, plus the wage per education level (`TaxRateResolver.Wages`), all disposed with the jobs'
   handle.
+
+## The city's side
+
+The city receives exactly what payers are charged: vanilla's estimate pays it at the stored rates, and the engine's
+charges beyond that are booked on top.
+
+- **Per charge** (`PayTaxJob`): the tax at the stored rate, at the rate without density tax
+  (`EffectiveTaxRate.Compute(base, 0, districtDelta, …)`) and at the charged rate split into the **district part**
+  (without density − stored) and the **density part** (charged − without density), `DensityTaxBooking.Parts`
+  (`Mod/Logic/`, tested). Each chunk sums its charges per zone (office detection as vanilla's) and queues one
+  `TaxBookingEvent` per zone it charged: the district parts, the density parts of each sign, and the tax at the stored
+  rates (only for the log's scale check, never booked).
+- **Accumulation**: the next engine update drains the queue into `TaxEngineSystem.Ledger` (`TaxBookingLedger`,
+  `Mod/Logic/`, tested) under that tick's update frame, replacing what the frame booked a month earlier. Each charge is
+  kept × 32 (`DensityTaxBooking.Monthly`, vanilla's `kUpdatesPerDay`; the scale of `m_AverageTaxPaid` and of the
+  taxable-income statistic), and every payer is charged once per 16 frames, so the sum over the 16 frames is the monthly
+  amount. Density parts of each sign are summed apart. The ledger clears on load and while the engine isn't charging,
+  and fills over the first 1/32 month after a load. The scale is checked in the tests against both vanilla's estimate
+  (rate × the taxable-income statistic, `untaxed × 32` per charge) and the Taxation tab's density estimate
+  (`TaxBookingScaleTests`).
+- **Booking**: `TaxBookingSystem` (`Mod/Systems/`), `UpdateAfter<…, CityServiceBudgetSystem>` in ModificationEnd (as
+  `DistrictServiceUpkeepSystem`), adds the ledger to the arrays vanilla just computed (`GetIncomeArray` /
+  `GetExpenseArray`, then `AddArrayReader`), per zone by `DensityTaxBooking.BookZone`: the district part on the zone's
+  tax income (should it go below 0, the rest is subsidy), a positive density part on tax income, a negative one on the
+  zone's subsidy expense. It adds once per vanilla update (`CityServiceBudgetSystem.LastSystemVersion`) and writes
+  nothing while the ledger is empty, so **no density tax and no override is vanilla's numbers, bit for bit**.
+- **Charge records**: every charged payer's untaxed income and engine tick go into a per-payer map
+  (`ChargeRecordEvent` → `RecordChargesJob`, pruned every 16 ticks, cleared on load and while the engine isn't
+  charging); the Taxation estimates read it (`GetChargeRecords` / `AddChargeRecordsReader`,
+  [tax-engine-ui.md](tax-engine-ui.md)) so they count exactly the payers and the base the ledger books.
+- **Log**: while the engine charges, one Mod.log line per 1/32 month (`TaxBooking (monthly):`, `TaxBookingLog`), per
+  zone: vanilla's income and subsidy, the engine's charges at vanilla rates with `scale` = vanilla net / that (about 1
+  when the ledger's scale is vanilla's), the district and density parts booked, and the result. Compare the density
+  part with the Taxation tab's estimate there rather than the Budget row, which drifts with the city. The head reads
+  `settled` once all 16 frames in the window were charged at the current rates (`RateSignature`: vanilla's rates, the
+  density switch and the rate table; `TaxBookingLedger.Settled`), else `NOT settled`: a moved rate mixes old and new
+  charges for up to 1/32 month (plus one tick), so compare only settled lines. After the zones: each density cell with a
+  rate or a booked part (`cells:`, the charged payers' monthly taxable income, the density booked, and taxable x the
+  city's rate, which the Taxation row's estimate should match), then every district override other than density
+  (`district rate overrides:`, `Type/zone/key@district:version=value`), which is where a district part comes from.
+- **What it shows**: the Budget tab reads vanilla's arrays and the Income/Expense statistics `BudgetApplySystem`
+  records from them, so the zone's tax income row and chart line include the density and district parts and a negative
+  density tax appears under Subsidies (Residential subsidies, …). `CityServiceBudgetSystem.GetTotalTaxIncome` (a
+  private total taken inside vanilla's job, used by the event journal) stays vanilla's.
+  The per-district split weighs the same parts (`DistrictBudgetMath.PayerTaxWeights`,
+  [budget-chart.md](budget-chart.md)), so a district's shares add up to the booked row and its negative density tax
+  lands in its subsidies.
 
 ## The rate model
 
@@ -170,6 +229,7 @@ every district's).
 
 ## Follow-ups
 
-- Check in game that no density tax and no override match vanilla's monthly tax income within 1%, and that a density
-  tax or a district override changes the zone's tax revenue.
+- Check in game that no density tax and no override match vanilla's monthly tax income exactly, that density +10
+  raises the zone's tax income by about the Taxation tab's estimate, and that a negative density tax shows a subsidies
+  row.
 - Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.3f1` (the known-list format).

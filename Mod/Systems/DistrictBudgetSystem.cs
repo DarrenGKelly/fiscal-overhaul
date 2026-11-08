@@ -20,6 +20,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine.Scripting;
 
 namespace FiscalOverhaul
@@ -32,7 +33,8 @@ namespace FiscalOverhaul
     /// Each sample weighs every district (plus "outside", <see cref="Entity.Null"/>, for buildings in no district) per
     /// source and splits the vanilla Budget row by those weights (<see cref="DistrictBudgetMath.Samples"/>):
     /// taxes and subsidies by the payers' paid sums (scaled so the policy-blind vanilla row is matched at the city rate,
-    /// so a district tax discount stays in its district); electricity / water by fulfilled consumption; healthcare /
+    /// so a district tax discount stays in its district; while the tax engine charges, the parts it books beyond vanilla
+    /// count as paid and a negative density part weighs the subsidy slot, <see cref="DistrictBudgetMath.PayerTaxWeights"/>); electricity / water by fulfilled consumption; healthcare /
     /// education by patients / students; garbage by garbage produced; parking by parked cars x their lane's fee;
     /// public transport by residents; service upkeep by each service building's upkeep (the road / network part stays
     /// city-only, it is not apportioned). The upkeep is also weighed per service (each building's upkeep under its
@@ -58,6 +60,7 @@ namespace FiscalOverhaul
         private ResourceSystem m_ResourceSystem;
         private CitySystem m_CitySystem;
         private DistrictServiceBudgetSystem m_ServiceBudgetStore;
+        private TaxEngineSystem m_TaxEngine;
 
         private EntityQuery m_DistrictQuery;
         private EntityQuery m_PayerQuery;
@@ -118,6 +121,7 @@ namespace FiscalOverhaul
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_ServiceBudgetStore = World.GetOrCreateSystemManaged<DistrictServiceBudgetSystem>();
+            m_TaxEngine = World.GetOrCreateSystemManaged<TaxEngineSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
             // As Game.UI.InGame.DistrictsSection.
@@ -173,12 +177,18 @@ namespace FiscalOverhaul
             int columnCount = m_ServiceColumns.Count;
             var serviceColumn = new NativeHashMap<Entity, int>(services.Count, Allocator.TempJob);
             var serviceWeights = new NativeArray<double>(areaCount * columnCount, Allocator.TempJob);
+            // The tax engine's rates, to split what each payer paid as the city books it (TaxBookingSystem).
+            NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
+            TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, m_ResourceSystem.GetPrefabs(), wages, Allocator.TempJob);
+            TaxParameterData taxParameters = m_TaxSystem.GetTaxParameterData();
             try
             {
                 foreach (KeyValuePair<Entity, int> service in services) serviceColumn[service.Key] = service.Value;
                 for (int i = 0; i < districts.Length; i++) areaOf[districts[i]] = i;
                 int outside = districts.Length;
 
+                // The engine's charge records: while it charges, only payers it charged in the last 1/32 month weigh.
+                NativeParallelHashMap<Entity, int2> records = m_TaxEngine.GetChargeRecords(out JobHandle recordDeps, out int nowTick);
                 var currentDistricts = GetComponentLookup<CurrentDistrict>(true);
                 var owners = GetComponentLookup<Owner>(true);
                 var prefabRefs = GetComponentLookup<PrefabRef>(true);
@@ -206,8 +216,15 @@ namespace FiscalOverhaul
                     m_Weights = weights,
                     m_AtCityRate = atCityRate,
                     m_DistrictModifiers = GetBufferLookup<DistrictModifier>(true),
+                    m_Rates = rates,
+                    m_EngineCharges = m_TaxEngine.Mode == TaxEngineMode.Engine,
+                    m_Records = records,
+                    m_NowTick = nowTick,
+                    m_JobLevelLimits = taxParameters.m_JobLevelTaxLimits,
+                    m_ResourceLimits = taxParameters.m_ResourceTaxLimits,
                 };
-                JobHandle handle = taxJob.Schedule(m_PayerQuery, Dependency);
+                JobHandle handle = taxJob.Schedule(m_PayerQuery, JobHandle.CombineDependencies(Dependency, recordDeps));
+                m_TaxEngine.AddChargeRecordsReader(handle);
 
                 // Per-district service budgets: a building's upkeep runs at its district's %, as DistrictServiceUpkeepSystem charges it.
                 bool useOverrides = m_ServiceBudgetStore.Applies;
@@ -324,6 +341,8 @@ namespace FiscalOverhaul
                 atCityRate.Dispose();
                 serviceColumn.Dispose();
                 serviceWeights.Dispose();
+                rates.Dispose(default);
+                wages.Dispose();
             }
         }
 
@@ -461,6 +480,13 @@ namespace FiscalOverhaul
             public int m_Outside;
             public NativeArray<double> m_Weights;
             public NativeArray<double> m_AtCityRate;
+            /// <summary>The tax engine's rates; read only while it charges (<see cref="m_EngineCharges"/>).</summary>
+            public TaxRateResolver m_Rates;
+            public bool m_EngineCharges;
+            [ReadOnly] public NativeParallelHashMap<Entity, int2> m_Records;
+            public int m_NowTick;
+            public int2 m_JobLevelLimits;
+            public int2 m_ResourceLimits;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -534,19 +560,28 @@ namespace FiscalOverhaul
 
                     TaxPayer payer = taxPayers[i];
                     int paid = payer.m_AverageTaxPaid;
+                    int2 charge = default;
+                    bool hasRecord = m_EngineCharges && m_Records.TryGetValue(entities[i], out charge);
+                    if (!DistrictBudgetMath.PayerCounts(m_EngineCharges, hasRecord, charge.y, m_NowTick)) continue;
                     if (paid == 0) continue;
-                    double atCity = DistrictBudgetMath.AtCityRate(paid, districtRate, cityRate);
-                    if (paid > 0)
+                    // The rates the tax engine charged it at (its district's and density rates), as TaxEngineSystem's
+                    // charge (untaxed income taken as positive: a payment that paid something had some).
+                    int stored = payer.m_AverageTaxRate, withoutDensity = stored, charged = stored;
+                    if (m_EngineCharges)
                     {
-                        m_Weights[baseIndex + row] += paid;
-                        m_AtCityRate[row] += atCity;
+                        TaxPayerKind kind = isHousehold ? TaxPayerKind.Household : isCommercial ? TaxPayerKind.Commercial : TaxPayerKind.Industrial;
+                        int2 limits = isHousehold ? m_JobLevelLimits : m_ResourceLimits;
+                        m_Rates.Adjustments(entities[i], renters[i].m_Property, kind, out int incomeDelta, out int densityTax);
+                        withoutDensity = EffectiveTaxRate.Compute(stored, 0, incomeDelta, limits.x, limits.y, 1);
+                        charged = EffectiveTaxRate.Compute(stored, densityTax, incomeDelta, limits.x, limits.y, 1);
                     }
-                    else
-                    {
-                        // A subsidy, kept as a positive amount like the vanilla expense row.
-                        m_Weights[baseIndex + kSlotSubsidyStart + row] += -paid;
-                        m_AtCityRate[4 + row] += -atCity;
-                    }
+                    // A subsidy is kept as a positive amount like the vanilla expense row.
+                    DistrictBudgetMath.PayerTaxWeights(paid, districtRate, cityRate, stored, withoutDensity, charged,
+                        out double taxWeight, out double taxAtCity, out double subsidyWeight, out double subsidyAtCity);
+                    m_Weights[baseIndex + row] += taxWeight;
+                    m_AtCityRate[row] += taxAtCity;
+                    m_Weights[baseIndex + kSlotSubsidyStart + row] += subsidyWeight;
+                    m_AtCityRate[4 + row] += subsidyAtCity;
                 }
             }
         }
