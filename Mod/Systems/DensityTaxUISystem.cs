@@ -83,18 +83,13 @@ namespace FiscalOverhaul
         }
 
         /// <summary>
-        /// A slider moved. The offset applies from the next tax payment. Saved straight away, as the offsets are global
-        /// mod settings, not part of the city save.
+        /// A slider moved. The offset applies from the next tax payment. It is the loaded city's (kept in its save by
+        /// <see cref="TaxRatesSystem"/>); the Options template is left as it is.
         /// </summary>
         private void SetDensityTax(int zone, int density, int offset)
         {
             if (zone < 0 || zone >= DensityTaxTable.ZoneCount || density < 0 || density >= DensityTaxTable.DensityCount) return;
             DensityTaxState.Set((TaxZone)zone, (Density)density, offset);
-            if (m_Setting != null)
-            {
-                m_Setting.DensityTaxOffsets = DensityTaxState.Table.Serialize();
-                m_Setting.ApplyAndSave();
-            }
         }
 
         private void Write(IJsonWriter writer)
