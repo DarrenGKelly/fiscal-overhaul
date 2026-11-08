@@ -105,6 +105,9 @@ charges beyond that are booked on top.
   records from them, so the zone's tax income row and chart line include the density and district parts and a negative
   density tax appears under Subsidies (Residential subsidies, …). `CityServiceBudgetSystem.GetTotalTaxIncome` (a
   private total taken inside vanilla's job, used by the event journal) stays vanilla's.
+  The per-district split weighs the same parts (`DistrictBudgetMath.PayerTaxWeights`,
+  [budget-chart.md](budget-chart.md)), so a district's shares add up to the booked row and its negative density tax
+  lands in its subsidies.
 
 ## The rate model
 
