@@ -14,7 +14,7 @@ The docs are an [OKF](knowledge/knowledge-format.md) bundle: start from [knowled
 | To add | Start from |
 |---|---|
 | A UI panel, tab or vanilla UI change | [cs2-ui-modding.md § Reusing and replacing vanilla UI](knowledge/cs2-ui-modding.md#reusing-and-replacing-vanilla-ui) (TODO main session: a step-by-step recipe); the Budget tab as the example: [impl/budget-chart.md](knowledge/impl/budget-chart.md) |
-| A C# simulation or UI system | [cs2-ui-modding.md § Scheduling simulation systems](knowledge/cs2-ui-modding.md#scheduling-simulation-systems) (TODO main session: a step-by-step recipe); the example: [impl/density-taxes.md](knowledge/impl/density-taxes.md) |
+| A C# simulation or UI system | [cs2-ui-modding.md § Scheduling simulation systems](knowledge/cs2-ui-modding.md#scheduling-simulation-systems) (TODO main session: a step-by-step recipe); the example: [impl/tax-engine.md](knowledge/impl/tax-engine.md) |
 | Logic that needs tests | [Pure logic](knowledge/patterns.md#pure-logic), and [testing.md](knowledge/testing.md#the-rule) |
 | A setting | `Mod/Setting.cs` (TODO main session: a recipe); its Options text goes in `l10n/en-US.json` |
 | Player-facing text, or a language | [cs2-ui-modding.md § Localization](knowledge/cs2-ui-modding.md#localization): a key in `l10n/en-US.json`, read with `localize()` |
@@ -55,7 +55,7 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
   (`budgetChartEnabled`, `history`, `setSpan`, `districtBudgetEnabled`, `districts`, `setDistrict`, `densityTaxesEnabled`, `densityTaxes`,
-  `setDensityTax`) and compute
+  `setDensityTax`, `taxEngineWarning`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
 - **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
@@ -66,9 +66,13 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
   while the chart is off) and draws `UI/src/chart/line-chart.tsx` (canvas).
   [impl/budget-chart.md](knowledge/impl/budget-chart.md)
-- **Density taxes:** an apply/restore system pair around vanilla `TaxSystem` adds each building's density offset only
-  while tax is charged; offsets are per save (`TaxRatesSystem`, seeded once from the `Setting.DensityTaxOffsets` template); the Taxation tab extends vanilla `TaxationGroup`.
-  [impl/density-taxes.md](knowledge/impl/density-taxes.md)
+- **Tax engine (density taxes):** `TaxEngineSystem`, a copy of vanilla `TaxSystem`'s charge, runs in its place
+  (`TaxSystem.Enabled = false`; vanilla stays the rate store) and charges each payer its vanilla rate plus its density
+  and district adjustments, clamped to the vanilla limits. A guard keeps vanilla on an untested game version (unless
+  Options > Run on untested game version), on a structure mismatch, and while Options > Simulation changes
+  (`Setting.EnableSimulationChanges`) is off. Adjustments are per save (`TaxRatesSystem`, density seeded once from the
+  `Setting.DensityTaxOffsets` template); the Taxation tab extends vanilla `TaxationGroup`.
+  [impl/tax-engine.md](knowledge/impl/tax-engine.md)
 - **Pure logic** (`Mod/Logic/`, `UI/src/chart/chart-math.ts`, `UI/src/taxation/density.ts`) carries the maths and is
   what the unit tests cover.
 
