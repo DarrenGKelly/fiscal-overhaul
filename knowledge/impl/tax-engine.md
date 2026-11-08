@@ -136,7 +136,9 @@ the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells
 **Taxation tab layout.** With density taxes on, the wrapper around each vanilla `TaxationGroup`
 (`UI/src/taxation/tax-sections-view.tsx`) draws collapsible sections under the zone's main slider, each a header row
 with an arrow (and an optional summary) over its rows: **Density** first (one vanilla `TaxSlider` per density the zone
-has, `density-rows.tsx`; the old "revenue only" note is gone, density is a real tax charge now), then vanilla's own sub-rows, re-hosted as
+has, `density-rows.tsx`; the old "revenue only" note is gone, density is a real tax charge now; each row leads with the zoning toolbar's icon
+as a 32rem `<img>` like vanilla's education rows, `Media/Game/Icons/Zone*.svg` via `densityIcon` in
+`density-icons.ts`, an empty box where the game has none, e.g. Commercial/Office medium), then vanilla's own sub-rows, re-hosted as
 vanilla `TaxationItem`s from `taxation.areaResources$` (**Education** for Residential, **Resources** for the other
 zones). All start collapsed; the open ones are kept for the UI session (`sectionExpandState`, not reset when the panel
 closes). The section list is data (`TAX_SECTIONS` in `tax-sections.ts`: id, title per zone; `sectionsForArea` keeps the
