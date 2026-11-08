@@ -42,7 +42,7 @@ namespace FiscalOverhaul
             Version++;
         }
 
-        /// <summary>Clears the loaded city's density offsets (Options > reset).</summary>
+        /// <summary>Clears the loaded city's density tax rates, city and district overrides (Options > reset).</summary>
         public static void ClearAll()
         {
             s_Table.Rates.Clear(TaxType.Density);
@@ -56,13 +56,27 @@ namespace FiscalOverhaul
             Version++;
         }
 
-        /// <summary>Sets any adjustment in the loaded city's table (clamped to its type's cap; 0 removes it). Returns the stored value.</summary>
-        public static int SetRate(TaxType type, int zone, int key, int keyVersion, int value)
+        /// <summary>
+        /// Sets a district's value from what its slider shows (<see cref="TaxRateModel.SetDistrictValue"/>: clamped to
+        /// vanilla's limits; the value it would have without the override removes it). Returns false for a bad name.
+        /// </summary>
+        public static bool SetDistrictValue(TaxType type, TaxZone zone, int key, int area, int areaVersion, int value, int[] cityRates, TaxLimits limits)
         {
-            int stored = s_Table.Rates.Set(type, zone, key, keyVersion, value);
-            Version++;
-            return stored;
+            bool ok = TaxRateModel.SetDistrictValue(s_Table.Rates, type, zone, key, area, areaVersion, value, cityRates, limits);
+            if (ok) Version++;
+            return ok;
         }
+
+        /// <summary>Removes every override of one district ("Use city rates"). Returns how many.</summary>
+        public static int ClearDistrict(int area, int areaVersion)
+        {
+            int removed = s_Table.Rates.ClearArea(area, areaVersion);
+            Version++;
+            return removed;
+        }
+
+        /// <summary>Bumps <see cref="Version"/> so bindings that show values derived from vanilla's rates refresh.</summary>
+        public static void Touch() => Version++;
 
         public static int Set(TaxZone zone, Density density, int offset)
         {

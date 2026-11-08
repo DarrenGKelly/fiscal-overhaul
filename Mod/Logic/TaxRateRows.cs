@@ -3,62 +3,86 @@ using System.Globalization;
 
 namespace FiscalOverhaul.Logic
 {
-    /// <summary>One district adjustment as the Taxation tab gets it: the district's <see cref="DistrictKey"/>, zone, points.</summary>
+    /// <summary>One district override as the Taxation tab gets it: the district's <see cref="DistrictKey"/>, type, zone, key and stored value.</summary>
     public readonly struct DistrictRateRow
     {
-        public readonly string Key;
+        public readonly string Area;
+        public readonly TaxType Type;
         public readonly int Zone;
+        public readonly int Key;
+        /// <summary>As stored: a full zone rate, an offset from the zone rate (level/resource), a density tax rate.</summary>
         public readonly int Value;
 
-        public DistrictRateRow(string key, int zone, int value)
+        public DistrictRateRow(string area, TaxType type, int zone, int key, int value)
         {
-            Key = key;
+            Area = area;
+            Type = type;
             Zone = zone;
+            Key = key;
             Value = value;
         }
     }
 
     /// <summary>
     /// The pure half of <see cref="FiscalOverhaul.TaxRatesUISystem"/>: the rows its <c>taxRates</c> binding sends, and
-    /// what a <c>setTaxRate(type, zone, key, value)</c> call names in the <see cref="TaxRateTable"/>.
+    /// what a <c>setTaxRate(type, zone, key, area, value)</c> call names.
     /// </summary>
     public static class TaxRateRows
     {
-        /// <summary>Every stored district adjustment of a real zone, keyed for the UI (<see cref="DistrictKey.Format"/>), in table order.</summary>
+        /// <summary>Every stored district override of a real zone, keyed for the UI (<see cref="DistrictKey.Format"/>), in table order.</summary>
         public static List<DistrictRateRow> DistrictRows(TaxRateTable table)
         {
             var rows = new List<DistrictRateRow>();
             if (table == null) return rows;
             foreach (TaxRateEntry e in table.Entries())
             {
-                if (e.Type != TaxType.District || e.Zone < 0 || e.Zone >= DensityTaxTable.ZoneCount) continue;
-                rows.Add(new DistrictRateRow(DistrictKey.Format(e.Key, e.KeyVersion), e.Zone, e.Value));
+                if (e.IsCity || e.Zone < 0 || e.Zone >= DensityTaxTable.ZoneCount) continue;
+                rows.Add(new DistrictRateRow(DistrictKey.Format(e.Area, e.AreaVersion), e.Type, e.Zone, e.Key, e.Value));
             }
             return rows;
         }
 
         /// <summary>
-        /// What a setTaxRate call names: <see cref="TaxType.District"/> with a district key ("index:version"; not Entire
-        /// City or Outside), or <see cref="TaxType.Density"/> with a supported density ("0".."2") of the zone. False for
-        /// anything else (unknown type, zone out of range, bad key), which the trigger ignores.
+        /// What a setTaxRate call names: a type, a zone, a key ("0".."2" density, "0".."4" education level, a resource
+        /// index; ignored for a zone rate) and an area: "" for the city (density only: the city's zone and resource
+        /// rates are vanilla's own sliders) or a district key ("index:version"; not Outside). False for anything else.
         /// </summary>
-        public static bool TryResolve(int type, int zone, string key, out TaxType taxType, out int keyIndex, out int keyVersion)
+        public static bool TryResolve(int type, int zone, string key, string area, out TaxType taxType, out int keyIndex, out int areaIndex, out int areaVersion)
         {
             taxType = (TaxType)type;
             keyIndex = 0;
-            keyVersion = 0;
+            areaIndex = TaxRateTable.CityArea;
+            areaVersion = 0;
             if (zone < 0 || zone >= DensityTaxTable.ZoneCount) return false;
+            bool city = string.IsNullOrEmpty(area);
+            if (!city && !DistrictKey.TryParse(area, out areaIndex, out areaVersion)) return false;
             switch (taxType)
             {
-                case TaxType.District:
-                    return DistrictKey.TryParse(key, out keyIndex, out keyVersion);
                 case TaxType.Density:
-                    if (!int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out keyIndex)) return false;
-                    if (keyIndex < 0 || keyIndex >= DensityTaxTable.DensityCount) return false;
+                    if (!TryKey(key, out keyIndex) || keyIndex >= DensityTaxTable.DensityCount) return false;
                     return DensityTaxTable.IsSupported((TaxZone)zone, (Density)keyIndex);
+                case TaxType.ZoneRate:
+                    return !city;
+                case TaxType.ResourceRate:
+                    return !city && TryKey(key, out keyIndex) && TaxRateModel.IsValidKey((TaxZone)zone, keyIndex);
                 default:
                     return false;
             }
         }
+
+        /// <summary>
+        /// Splits setTaxRate's target, "key@area" (a trigger takes at most four arguments): "2@604018:1" is key "2" of
+        /// that district, "2" (or "2@") key "2" of the city. Null gives empty strings.
+        /// </summary>
+        public static void SplitTarget(string target, out string key, out string area)
+        {
+            target = target ?? "";
+            int at = target.IndexOf('@');
+            key = at < 0 ? target : target.Substring(0, at);
+            area = at < 0 ? "" : target.Substring(at + 1);
+        }
+
+        private static bool TryKey(string key, out int value)
+            => int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out value);
     }
 }
