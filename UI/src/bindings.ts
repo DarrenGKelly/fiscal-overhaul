@@ -2,6 +2,7 @@ import { bindValue, trigger } from "cs2/api";
 import { BudgetHistory } from "chart/chart-math";
 import { SoundName } from "sounds";
 import { DistrictServiceBudget } from "services/district-services";
+import { DistrictServiceFee, ServiceFeeDefault } from "services/service-table";
 
 /** Plays a vanilla UI sound (sounds.ts SOUNDS), as vanilla does: the "audio" group's playSound trigger, next frame. */
 export function playSound(sound: SoundName | null) {
@@ -125,11 +126,17 @@ export function setTaxRate(type: number, zone: number, key: number, area: string
   trigger(GROUP, "setTaxRate", type, zone, area ? `${key}@${area}` : `${key}`, value);
 }
 
-/** Options > District service budgets (BETA) with Simulation changes on. Off: the Services tab is vanilla. */
+/** Options > District service budgets (BETA) with Simulation changes on. Off: the Services table is city-only (no picker, no district overrides). */
 export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
 
 /** Each (service, area) with buildings or an override: its override % (0 = city) and its upkeep. */
 export const districtServiceBudgets$ = bindValue<DistrictServiceBudget[]>(GROUP, "districtServiceBudgets", []);
+
+/** Each area's share of each service's fee income, by usage (C# ServiceTableUISystem); [] while district budgets aren't recorded. */
+export const districtServiceFees$ = bindValue<DistrictServiceFee[]>(GROUP, "districtServiceFees", []);
+
+/** Vanilla's default fee per resource (what resetService sets): the Services table's fee reset target. */
+export const serviceFeeDefaults$ = bindValue<ServiceFeeDefault[]>(GROUP, "serviceFeeDefaults", []);
 
 /** Sets an area's % for a service (50-150), or 0 to follow the city slider again. districtKey: a district key or "outside". */
 export function setDistrictServiceBudget(serviceKey: string, districtKey: string, budget: number) {

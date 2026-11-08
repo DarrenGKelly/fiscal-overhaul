@@ -38,9 +38,22 @@ namespace FiscalOverhaul.Logic
 
         /// <summary>
         /// Whether the Services tab shows the district selector and per-district budget sliders: simulation changes
-        /// allowed and the feature on. Off, the Services tab is vanilla (the overrides don't apply either).
+        /// allowed and the feature on. Off, the Services table is city-only (the overrides don't apply either).
         /// </summary>
         public static bool ShowsDistrictServiceBudgets(bool simulationChanges, bool featureEnabled) => simulationChanges && featureEnabled;
+
+        /// <summary>
+        /// Whether the Services table's data (vanilla's default fees) is built: whenever the Economy panel is open. The
+        /// table is always the Services tab (a user decision), District service budgets or not.
+        /// </summary>
+        public static bool BuildsServiceTable(bool economyPanelOpen) => economyPanelOpen;
+
+        /// <summary>
+        /// Whether the Services table's district fee shares are built: the panel open and the district view offered
+        /// (<see cref="ShowsDistrictServiceBudgets"/>). Off, the table is city-only and needs none.
+        /// </summary>
+        public static bool BuildsDistrictServiceFees(bool simulationChanges, bool featureEnabled, bool economyPanelOpen)
+            => economyPanelOpen && ShowsDistrictServiceBudgets(simulationChanges, featureEnabled);
 
         /// <summary>
         /// Whether the district list (the selector's choices) is published: any tab that shows the selector needs it —

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ResetButton, ResetButtonProps } from "./reset-button";
 import { SliderMarker } from "./slider-marker";
-import { Box, relativeBox } from "./slider-reset";
+import { Box, keepMeasuring, relativeBox } from "./slider-reset";
 import styles from "./slider-reset-frame.module.scss";
 
 // A slider with its reset button and target marker over it, shared by the Taxation tab and (later) the Services tab.
@@ -46,18 +46,34 @@ const same = (a: Measured, b: Measured) =>
 export const SliderResetFrame = ({ className, locate, reset, fraction, children }: SliderResetFrameProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [measured, setMeasured] = useState<Measured>({ track: null, slot: null });
-  const measure = () => {
+  const measure = (): Measured | null => {
     const frame = ref.current;
-    if (!frame) return;
+    if (!frame) return null;
     const layout = locate(frame);
     const outer = frame.getBoundingClientRect();
     const track = layout.track ? relativeBox(outer, layout.track.getBoundingClientRect()) : null;
     const next = { track, slot: layout.slot };
     setMeasured((m) => (same(m, next) ? m : next));
+    return next;
   };
-  useLayoutEffect(measure);
+  useLayoutEffect(() => {
+    measure();
+  });
+  // Re-measure each frame until the track and the slot are found and settled (keepMeasuring): the panel's layout
+  // takes several frames, and nothing may render the row again (a paused game).
   useEffect(() => {
-    const id = requestAnimationFrame(measure);
+    let id = 0;
+    let frames = 0;
+    let stable = 0;
+    let last: Measured | null = null;
+    const tick = () => {
+      const next = measure();
+      stable = last && next && same(last, next) ? stable + 1 : 0;
+      last = next;
+      frames++;
+      if (keepMeasuring(frames, stable, !!next?.track && !!next?.slot)) id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
   });
   return (

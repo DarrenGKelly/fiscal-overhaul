@@ -33,7 +33,7 @@ export const ActiveFocusDiv: any = getModule("game-ui/common/focus/focus-div.tsx
 export const taxationGroupClasses: Record<string, string> | undefined = getModule(`${ECONOMY}/taxation-page/taxation-group.module.scss`, "classes");
 
 /** The Taxation page's class names; `totalValue` is the ESTIMATED TOTAL NumberField's className (and its only class). */
-export const taxationPageClasses: { totalValue?: string } | undefined = getModule(`${ECONOMY}/taxation-page/taxation-page.module.scss`, "classes");
+export const taxationPageClasses: Record<string, string> | undefined = getModule(`${ECONOMY}/taxation-page/taxation-page.module.scss`, "classes");
 
 /**
  * Vanilla scroll container with the game's own scroll bar (Gameface draws none for `overflow: auto`): props
@@ -56,28 +56,30 @@ export const TAX_SLIDER_PATH = `${ECONOMY}/taxation-page/tax-slider.tsx`;
 /** Extended for ESTIMATED TOTAL, which TaxationPage draws with a NumberField of the `taxIncome` binding. */
 export const MONEY_FIELD_PATH = `${ECONOMY}/components/money-field/money-field.tsx`;
 
-// Services tab (UI/src/services/service-page.tsx).
-const SERVICE_DETAIL = `${ECONOMY}/service-page/service-detail`;
-/** Extended: props { service: Entity, className? }; in a district view our own detail is drawn instead. */
-export const SERVICE_DETAIL_PATH = `${SERVICE_DETAIL}/service-detail.tsx`;
+// Services tab (UI/src/services/service-table-view.tsx): the page is replaced by a table built like the Taxation tab's.
+/** Extended: props none; with the feature on our table is drawn instead (vanilla's service list, detail and info column). */
+export const SERVICE_PAGE_PATH = `${ECONOMY}/service-page/service-page.tsx`;
 
-/** The service detail's class names: header, title, resetButton, scrollable, content, adjustment, space, budget, budgetTitle, hint. */
-export const serviceDetailClasses: Record<string, string> | undefined = getModule(`${SERVICE_DETAIL}/service-detail.module.scss`, "classes");
-
-/** Panel section (the detail's frame): props { header?, className?, theme?, focusKey?, children }. */
+/** Panel section (a frame with an optional header): props { header?, className?, theme?, focusKey?, children }. */
 export const Section: any = getModule("game-ui/common/section/section.tsx", "Section");
 
 /**
- * The budget/fee slider row: props { identifier, label, value, min, max, gradient, locked, onValueChange }.
- * Vanilla BudgetSliderItem draws it with min 50, max 150 and calls setServiceBudget; ours calls the district trigger.
+ * Vanilla's gradient slider (TaxSlider's and SliderItem's track): props { value, start, end, gamepadStep?,
+ * valueTransformer?, gradient: { stops: [{ offset, color }] }, theme?, className?, disabled?, onChange }.
  */
-export const SliderItem: any = getModule(`${SERVICE_DETAIL}/slider-item/slider-item.tsx`, "SliderItem");
+export const GradientSlider: any = getModule("game-ui/common/input/slider/gradient-slider/gradient-slider.tsx", "GradientSlider");
 
-/** A label + money row: props { identifier: { type }, label, value }; type 5 = the service's upkeep. */
-export const BudgetItem: any = getModule(`${SERVICE_DETAIL}/budget-item/budget-item.tsx`, "BudgetItem");
+/** The economy panel's gradient slider theme (TaxSlider and SliderItem pass it as `theme`). */
+export const economyGradientSliderClasses: Record<string, string> | undefined = getModule(`${ECONOMY}/components/gradient-slider/gradient-slider.module.scss`, "classes");
 
-/** Vanilla button: props { className?, disabled?, selected?, onSelect?, children } (the detail's Reset is one). */
-export const Button: any = getModule("game-ui/common/input/button/button.tsx", "Button");
+/** The slider's whole-number value transformer (TaxSlider passes it). */
+export const intTransformer: any = getModule("game-ui/common/input/slider/slider.tsx", "intTransformer");
+
+/**
+ * TaxSlider's class names (`taxSlider`, `sliderColumn`, `rate`, `slider`, `estimateColumn`, `estimateValue`): the
+ * Services table's slider rows are drawn in its DOM so their columns line up as the Taxation tab's.
+ */
+export const taxSliderClasses: Record<string, string> | undefined = getModule(`${ECONOMY}/taxation-page/tax-slider.module.scss`, "classes");
 
 /** Whether the legacy interface style is on: vanilla BudgetSliderItem picks its slider gradient by it. */
 export const useLegacyInterfaceActive: () => boolean = getModule("game-ui/common/hooks/use-legacy-interface.tsx", "useLegacyInterfaceActive");

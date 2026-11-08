@@ -3,7 +3,7 @@
 # Implementation
 
 * [Budget tab line chart](budget-chart.md) - The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets and the per-service upkeep split are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
-* [District service budgets](district-service-budgets.md) - Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab UI (district selector, the area's slider and upkeep), and the master "Simulation changes" switch every simulation-changing feature gates on.
+* [District service budgets](district-service-budgets.md) - Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab table (Type | Budget / Fee | Estimate, fee sub-rows, reset buttons and markers, NET per service and total, district view), and the master "Simulation changes" switch every simulation-changing feature gates on.
 * [Tax engine](tax-engine.md) - The mod's own tax charge — a copy of vanilla TaxSystem's charge at each payer's income tax plus density tax with its district's own rates (the rate model), TaxRateResolver as the one effective-rate computation, the city's side (TaxBookingSystem books what the engine charges beyond vanilla as tax income or subsidy), the game-version guard and the Simulation changes switch, how buildings are classified, and how rates are stored per save.
   * [Tax engine effects](tax-engine-effects.md)
   * [Taxation tab](tax-engine-ui.md)

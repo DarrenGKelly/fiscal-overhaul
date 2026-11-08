@@ -95,7 +95,9 @@ city's value, or for a level/resource row under a district zone override, the di
 offset). The button shows only while the row differs from its target (city view) or stores an override (district
 view); `RESET_WHEN_UNCHANGED` in `common/slider-reset.ts` switches that to dimmed (provisional, pending the in-game
 look). The pieces are shared for the Services tab: `UI/src/common/reset-button.tsx`, `slider-marker.tsx` and
-`slider-reset-frame.tsx` (a vanilla slider takes no children, so the frame wraps it, takes its layout class, measures
+`slider-reset-frame.tsx` (re-measuring every frame after a render until the track and the button slot are found and
+have held for 3 frames, at most 120: `keepMeasuring`; the panel's layout takes several frames and a paused game may
+not render the row again, so measuring once left rows with no button or marker until a slider was touched) (a vanilla slider takes no children, so the frame wraps it, takes its layout class, measures
 the track and the slot with `getBoundingClientRect` after each render and on the next frame, and draws both on top);
 the maths is `common/slider-reset.ts` (`resetVisibility`, `markerFraction`, `markerLeft`) and `rowReset` in
 `taxation/district-tax.ts`; the Taxation glue is `taxation/tax-row-slider.tsx` (it widens vanilla's 22rem padding to

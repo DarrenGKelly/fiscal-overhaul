@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: District service budgets
-description: Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab UI (district selector, the area's slider and upkeep), and the master "Simulation changes" switch every simulation-changing feature gates on.
+description: Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab table (Type | Budget / Fee | Estimate, fee sub-rows, reset buttons and markers, NET per service and total, district view), and the master "Simulation changes" switch every simulation-changing feature gates on.
 resource:
   - Mod/Systems/DistrictServiceBudgetSystem.cs
   - Mod/Systems/DistrictServiceUpkeepSystem.cs
@@ -9,7 +9,10 @@ resource:
   - Mod/Systems/ServiceUpkeepCost.cs
   - Mod/Systems/DistrictListUISystem.cs
   - Mod/Logic/DistrictServiceBudgetRows.cs
-  - UI/src/services/service-page.tsx
+  - UI/src/services/service-table-view.tsx
+  - UI/src/services/service-table.ts
+  - Mod/Systems/ServiceTableUISystem.cs
+  - Mod/Logic/DistrictServiceFees.cs
   - UI/src/services/district-services.ts
   - Mod/Logic/DistrictServiceBudgetTable.cs
   - Mod/Logic/ServiceUpkeepMath.cs
@@ -114,8 +117,10 @@ children (same weights) still sum to the district slot.
 
 ## UI
 
-Shown while `FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding);
-off, the Services tab is vanilla, and the header's picker hides on it.
+**The table is always the Services tab** (a user decision): with District service budgets (BETA) off, or Simulation
+changes off, it is city-only: the header's picker hides on Services and no district overrides show or apply
+(`tableDistrict` in `service-table.ts` forces the city view). The district features show while
+`FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding).
 
 - **Bindings** (`DistrictListUISystem`, only while the Economy panel is open): `districts`, the selector's list, now
   shared by every tab and published while any district feature is on (`FeatureGates.PublishesDistrictList`; it moved
@@ -125,12 +130,49 @@ off, the Services tab is vanilla, and the header's picker hides on it.
   job over the upkeep group with `ServiceUpkeepCost.MoneyFullCost`, every 30 frames and at once after an override changes).
 - **District picker:** the one picker in the Economy panel header (`economy/economy-tab-bar.tsx`,
   [budget-chart.md § District selector](budget-chart.md#district-selector)), shown on this tab while the feature is on;
-  the vanilla ServicePage is no longer extended. One selection across tabs (`useSelectedDistrict`).
-- **ServiceDetail** (`extend`): Entire City is vanilla's detail, Reset and fees included. In a district view (a district
-  or Outside Districts) the mod draws its own detail from vanilla's pieces (`Section`, `Scrollable`, `SliderItem`,
-  `BudgetItem`, `Button`, the detail's classes, BudgetSliderItem's two gradients copied): the service's title; **Use city
-  budget** where vanilla has Reset (it clears the override, trigger budget 0; disabled while none is set); the area's
-  slider (50-150, shows the override or the city %, `sliderValue`) with a line saying which; Expenses with the area's
-  upkeep. No fee sliders, fee income or imports: they are city-wide. Vanilla's own detail is not used there because its
-  slider, Reset and fees all act on the city (`setServiceBudget` / `resetService`).
-- The service list on the left still shows each service's city-wide cost.
+  it drives the table below. One selection across tabs (`useSelectedDistrict`).
+- **The table** (`override` of vanilla `ServicePage`, always, `services/service-table-view.tsx`; pure logic `service-table.ts`):
+  a user decision (playtest), replacing vanilla's left service list, centre detail and right info column with a table
+  built like the Taxation tab, in its DOM and live classes (`taxationPageClasses`, `taxationGroupClasses`,
+  `taxationItemClasses`, `taxSliderClasses`): columns **Type | Budget / Fee | Estimate**, one group per
+  `serviceBudget.services` row (icon and name as a zone header; a locked service is shown disabled), then a sub-row
+  per adjustable fee (`serviceDetails(entity).fees[].adjustable`, read, never hard-coded; always shown, not
+  collapsible; vanilla's own detail filters the same way). In game 1.6.3 only **Electricity and Water** have one: the
+  Garbage, Healthcare and Education fees are not adjustable in the game's `ServiceFeeParameterPrefab` data (the flag
+  is asset data, `FeeParameters.m_Adjustable`, not code), so vanilla shows no slider for them either; and an **ESTIMATED TOTAL** footer (vanilla's label). The right info column (description, image) is
+  dropped: the table takes the width. Vanilla `TaxSlider` is not reused: its gradient is the tax colours by rate, so the
+  rows draw TaxSlider's DOM (`[slider column > [rate, track], estimate column]`) with vanilla `GradientSlider`
+  (`economyGradientSliderClasses` theme, `intTransformer`) and the service gradients (BudgetSliderItem's, and
+  ServiceFeeSliderItem's reversed one, both copied). A fee slider is vanilla's 0..200 mapping
+  (`feeToSlider`/`feeFromSlider`: 200 × (fee − min) / (max − min)).
+- **City view:** the sliders call vanilla's `setServiceBudget` / `setServiceFee`. Estimate: a service row is vanilla's
+  NET (`services[].budget`: fee income + exports − imports − upkeep, `ServiceBudgetUISystem.GetTotalBudget`), a fee row
+  **no figure** (a user request: its income is already in the NET above it, and a figure there made the visible column
+  not add up to the footer; `feeRowEstimate`, `visibleEstimates`); the total is the sum of the service rows.
+- **District view** (a district or Outside Districts, the header's picker): the budget slider shows and sets the area's %
+  (`setDistrictServiceBudget`, as above). **Fees are city-wide** (per-district fees deferred by the user): a fee row
+  shows the city's fee read-only, disabled (`DISTRICT_FEE_ROWS = "disabled"` in `service-table.ts`, provisional; "hidden"
+  drops the rows). Estimate: the area's fee income share minus its upkeep at its effective % (`districtServiceBudgets`
+  upkeep); the total is the sum of the rows. Upkeep belongs to the area holding the service's buildings
+  (`districtServiceBudgets` has a row only where there are some), so a district with consumers but no power plant
+  shows Electricity as its fee share alone, and the district with the plant carries its whole upkeep. The fee share is `districtServiceFees` (below); exports, imports and the
+  network base cost (roads) stay city-only, so a district's rows don't add up to vanilla's city NET.
+- **Reset buttons and markers** (the shared `common/` pieces, [tax-engine-ui.md § Reset buttons and markers](tax-engine-ui.md#reset-buttons-and-markers)):
+  each slider has a marker at its reset target and a button at the right of its slider column, left of the Estimate
+  divider (the column's padding widened to 40rem). City view, the plain glyph: budget back to 100 % (`setServiceBudget`),
+  a fee back to vanilla's default (`setServiceFee`, the default from `serviceFeeDefaults`); shown only while the slider
+  is off it. District view, the glyph with the city mark: clears the area's override (budget 0), marker at the city's %;
+  the read-only fee rows have neither.
+- **Bindings** (`ServiceTableUISystem`, every 30 frames while the panel is open, `FeatureGates.BuildsServiceTable`; the fee
+  shares only while the district view is offered, `BuildsDistrictServiceFees`):
+  `serviceFeeDefaults` = `[{ resource, fee }]`, `ServiceFeeParameterData.GetFeeParameters(r).m_Default` (what
+  `resetService` sets; vanilla's serviceDetails carries no default); `districtServiceFees` =
+  `[{ service, district, resource, income }]`: each service's fee income per resource (vanilla's `incomeInternal`
+  estimate) split over the areas by `DistrictServiceFees.Build` with the Budget chart's usage weights
+  (`DistrictBudgetSystem.LiveValues` per area, the slot of `EconomyUtils.GetIncomeSource(resource)`;
+  [budget-chart.md § Per-district recording](budget-chart.md#per-district-recording)). Those weights exist only while
+  district budgets are recorded (Enable budget chart and Record district budgets): otherwise the binding is `[]` and a
+  district's fee income reads 0.
+- **Issue #62** (the left list showed city-wide costs in a district view) is gone with the list.
+- **Trap:** the total's `NumberField` must not wear the Taxation page's `totalValue` class: the extended `NumberField`
+  (`taxation/density-totals.tsx`) adds the density total to any field with that class.
