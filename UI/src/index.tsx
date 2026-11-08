@@ -3,7 +3,7 @@ import { ModRegistrar } from "cs2/modding";
 import { budgetChartEnabled$ } from "bindings";
 import { BudgetPage } from "budget/budget-page";
 import { withEstimatedTotalDensityExtra, withTotalDensityExtra, withZoneDensityExtra } from "taxation/density-totals";
-import { withTaxSections } from "taxation/tax-sections";
+import { withTaxSections } from "taxation/tax-sections-view";
 import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
 
 const register: ModRegistrar = (moduleRegistry) => {
@@ -15,7 +15,7 @@ const register: ModRegistrar = (moduleRegistry) => {
   });
 
   // Taxation tab: keep each vanilla tax group; with density taxes on, its sub-rows become collapsible sections under it
-  // (Density, then vanilla's own rows: taxation/tax-sections.tsx). Off: the vanilla group as is.
+  // (Density, then vanilla's own rows: taxation/tax-sections-view.tsx). Off: the vanilla group as is.
   // The group's total (its header slider) includes the zone's density extra, provided to the extended TaxSlider.
   moduleRegistry.extend(TAXATION_GROUP_PATH, "TaxationGroup", withTaxSections);
 

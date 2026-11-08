@@ -93,7 +93,7 @@ describe("UI source", () => {
   const jsxText = (src: string) => [...src.matchAll(/>([^<>{}=;()&|]*[A-Za-z]{2,}[^<>{}=;()&|]*)</g)].map((m) => m[1].trim());
 
   it("finds literal text in JSX, and not localized text", () => {
-    expect(jsxText(`<div className={styles.title}>By density</div>`)).toEqual(["Density"]);
+    expect(jsxText(`<div className={styles.title}>By density</div>`)).toEqual(["By density"]);
     expect(jsxText(`<div className={styles.title}>{localize(translate, "SectionDensity")}</div>`)).toEqual([]);
   });
 

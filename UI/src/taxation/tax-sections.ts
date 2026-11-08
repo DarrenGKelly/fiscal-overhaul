@@ -1,9 +1,9 @@
 import { UiKey } from "../l10n";
 // The collapsible sections under each zone's main tax slider on the Taxation tab, in the order they are drawn. Data
-// only: tax-sections.tsx draws each section's rows (TAX_SECTION_ROWS, keyed by the same id). A new tax type is one
+// only: tax-sections-view.tsx draws each section's rows (TAX_SECTION_ROWS, keyed by the same id). A new tax type is one
 // more entry here, one more renderer there, and its title in l10n/en-US.json.
 
-/** A section's id: also its key in the expand state and in tax-sections.tsx's renderers. */
+/** A section's id: also its key in the expand state and in tax-sections-view.tsx's renderers. */
 export type TaxSectionId = "density" | "vanilla";
 
 export interface TaxSectionDef {
