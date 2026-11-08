@@ -100,12 +100,24 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
 - **Economy panel header (the header hook):** EconomyPanel's `Panel` header is the title bar, then vanilla
   `TabBar` (`game-ui/common/tabs/tabs.tsx`: `<div class=tabBar {className}>` around the children, a centred flex row)
   with one child per tab carrying `{ tab, selectedTab, feature, uiTag, onSelect }`. `extend(TAB_BAR_PATH, "TabBar", …)`
-  recognises that set (`isEconomyTabSet`) and draws `EconomyTabBar` (`UI/src/economy/economy-tab-bar.tsx`): the district
-  picker's slot first (the tab bar left-aligned), then the tabs reordered (Budget, Taxation, Services | Production,
-  Loans) with `orderEconomyTabs` (`UI/src/economy/tab-order.ts`) and a divider element before the first city-only tab
-  (`withTabGroupDivider`), by `tab` id, never by position (vanilla indexes features by enum value). The selected tab is
-  read from a child's `selectedTab`. Other tab bars pass through. The Switch Tab key/gamepad cycle keeps
-  the vanilla order: an accepted limitation.
+  recognises that set (`isEconomyTabSet`) and draws `EconomyTabBar` (`UI/src/economy/economy-tab-bar.tsx`) with
+  `economyTabBarChildren` (`UI/src/economy/header-picker.ts`): the district picker's marker first, then vanilla's tab
+  elements unchanged, reordered (Budget, Taxation, Services | Production, Loans) with `orderEconomyTabs`
+  (`UI/src/economy/tab-order.ts`), and a divider marker before the first city-only tab (`withTabGroupDivider`), by `tab`
+  id, never by position (vanilla indexes features by enum value). The picker and the divider are zero-width, zero-basis
+  markers that draw their content absolutely; the room after each is the next tab's margin (`marker + button`). The
+  picker's list draws through vanilla's `Portal` (`game-ui/common/portal/portal.tsx`, the tooltip layer), placed under
+  the name with `listAnchor`: in the header it would sit under the panel content. The selected tab is read from a
+  child's `selectedTab`. Other tab bars pass through. The Switch Tab key/gamepad cycle keeps the vanilla order: an
+  accepted limitation.
+- **Trap: never style vanilla's `.tab-bar` itself.** Any style of ours on the tab bar element (`justify-content:
+  flex-start`, or `padding-left` with `position: relative`) made every tab about 2.5e8 px wide in Gameface: one blue
+  bar, no labels, no clicks, and UI.log logs "An elements' size (2.5e+08) exceeds the maximum allowed representable
+  size". Gameface reads the tabs' `flex: 0 1` as basis `auto`. Add children that take no part in the flex sizing
+  instead (above).
+- **Trap: one focus child under a pass-through focus controller.** The panel content hosts a single focus child (the
+  page); a focusable `Button` of ours beside the page logs "Cannot register second focus key" in UI.log. Give such a
+  button `focusKey={FOCUS_DISABLED}` (`cs2/input`).
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
   `BudgetItemDetail`, `TaxSlider`, `TaxationItem`, and for the Services tab `Section`, `SliderItem`, `BudgetItem`, `Button`,
   `useLegacyInterfaceActive`, the service detail's classes) and their props as read from the bundle. **After a game patch, check those

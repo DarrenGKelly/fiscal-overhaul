@@ -29,3 +29,12 @@ describe("rateFromSlider", () => {
     expect(Object.is(rateFromSlider(-0.4), 0)).toBe(true);
   });
 });
+
+describe("DENSITY_RATE_RANGE", () => {
+  it("matches C#'s TaxRateTable.DensityMin/DensityMax, -5..+10", () => {
+    expect(DENSITY_RATE_RANGE).toEqual({ min: -5, max: 10 });
+    expect(DENSITY_RATE_RANGE.max).not.toBe(5);
+    expect(rateFromSlider(10)).toBe(10);
+    expect(rateFromSlider(11)).toBe(10);
+  });
+});

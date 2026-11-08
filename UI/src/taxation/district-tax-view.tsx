@@ -1,6 +1,7 @@
 import { useMapValue, useValue } from "cs2/api";
 import { taxation } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Button } from "cs2/ui";
 import { createContext, useContext, useMemo } from "react";
 import { districts$, resetDistrictTaxRates, setTaxRate, taxRates$ } from "bindings";
@@ -50,6 +51,9 @@ export function TaxResetBar() {
     <div className={styles.resetBar}>
       <Button
         variant="flat"
+        // The panel content is a pass-through focus controller hosting one child, the TaxationPage; a focus key of
+        // ours beside it logged "Cannot register second focus key" (UI.log). Mouse-only, like the header picker.
+        focusKey={FOCUS_DISABLED}
         className={styles.resetButton}
         disabled={!hasDistrictOverrides(rates?.districts, view)}
         onSelect={() => resetDistrictTaxRates(view)}
