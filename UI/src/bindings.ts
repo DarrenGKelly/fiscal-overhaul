@@ -1,6 +1,7 @@
 import { bindValue, trigger } from "cs2/api";
 import { BudgetHistory } from "chart/chart-math";
 import { SoundName } from "sounds";
+import { DistrictServiceBudget } from "services/district-services";
 
 /** Plays a vanilla UI sound (sounds.ts SOUNDS), as vanilla does: the "audio" group's playSound trigger, next frame. */
 export function playSound(sound: SoundName | null) {
@@ -25,7 +26,7 @@ export interface DistrictChoice {
   name: string;
 }
 
-/** The city's districts by name (not Entire City / Outside: the UI adds those). */
+/** The city's districts by name (not Entire City / Outside: the UI adds those); [] while no district feature is on. */
 export const districts$ = bindValue<DistrictChoice[]>(GROUP, "districts", []);
 
 /** Options > Record district budgets (with the chart on). Off: no district selector, vanilla Budget rows only. */
@@ -113,6 +114,17 @@ export const TAX_TYPE_RESOURCE_RATE = 3;
  */
 export function setTaxRate(type: number, zone: number, key: number, area: string, value: number) {
   trigger(GROUP, "setTaxRate", type, zone, area ? `${key}@${area}` : `${key}`, value);
+}
+
+/** Options > District service budgets (BETA) with Simulation changes on. Off: the Services tab is vanilla. */
+export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
+
+/** Each (service, area) with buildings or an override: its override % (0 = city) and its upkeep. */
+export const districtServiceBudgets$ = bindValue<DistrictServiceBudget[]>(GROUP, "districtServiceBudgets", []);
+
+/** Sets an area's % for a service (50-150), or 0 to follow the city slider again. districtKey: a district key or "outside". */
+export function setDistrictServiceBudget(serviceKey: string, districtKey: string, budget: number) {
+  trigger(GROUP, "setDistrictServiceBudget", serviceKey, districtKey, budget);
 }
 
 /** "Use city rates": removes every override of the district. */

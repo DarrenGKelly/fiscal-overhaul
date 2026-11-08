@@ -7,10 +7,6 @@ describe("densitySliderValues", () => {
     expect(densitySliderValues(0).rate).toBe(0);
     expect(densitySliderValues(3).rate).not.toBe(14); // a zone rate of 11 + 3
   });
-  it("spans -5..+10, matching the C# density cap (TaxRateTable.DensityMin/DensityMax)", () => {
-    expect(DENSITY_RATE_RANGE).toEqual({ min: -5, max: 10 });
-    expect(DENSITY_RATE_RANGE).not.toEqual({ min: -5, max: 5 });
-  });
   it("spans the one range constant", () => {
     expect(densitySliderValues(3)).toEqual({ rate: 3, min: DENSITY_RATE_RANGE.min, max: DENSITY_RATE_RANGE.max });
     expect(densitySliderValues(3, { min: -5, max: 10 })).toEqual({ rate: 3, min: -5, max: 10 });

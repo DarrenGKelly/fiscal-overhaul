@@ -196,6 +196,90 @@ namespace FiscalOverhaul.Tests
             Assert.Equal(0, table.Count);
         }
 
+        // The one resident rate every tax effect uses (TaxRateResolver.ResidentRate: happiness, home choice, the demand
+        // view's education slots) and the household charge (TaxRateResolver.ChargedRate).
+
+        private static readonly int High = DensityTaxTable.Index(TaxZone.Residential, Density.High);
+        private static readonly int[] Wages = { 1000, 1200, 1500, 2000, 2500 };
+
+        [Fact]
+        public void ResidentRates_HighlyEducatedOverride_MovesOnlyThatLevel()
+        {
+            var table = new TaxRateTable();
+            TaxRateModel.SetDistrictValue(table, TaxType.ResourceRate, TaxZone.Residential, 4, A, AV, 20, CityRates(), Limits());
+
+            int[] inA = TaxRateModel.ResidentRates(table, A, AV, CityRates(), Limits(), true, High);
+            int[] inB = TaxRateModel.ResidentRates(table, B, BV, CityRates(), Limits(), true, High);
+
+            Assert.Equal(new[] { 8, 9, 10, 11, 20 }, inA); // only level 4 (city 12) moves
+            Assert.Equal(new[] { 8, 9, 10, 11, 12 }, inB); // another district: the city's
+        }
+
+        [Fact]
+        public void HouseholdCharge_HighlyEducatedOverride_MovesOnlyHouseholdsWithSuchWorkers()
+        {
+            var table = new TaxRateTable();
+            TaxRateModel.SetDistrictValue(table, TaxType.ResourceRate, TaxZone.Residential, 4, A, AV, 20, CityRates(), Limits());
+
+            int uneducated = TaxRateModel.HouseholdChargedRate(table, A, AV, CityRates(), Limits(), true, High, 8, new[] { 0, 0 }, Wages, Untaxed);
+            int highly = TaxRateModel.HouseholdChargedRate(table, A, AV, CityRates(), Limits(), true, High, 12, new[] { 4 }, Wages, Untaxed);
+            int mixed = TaxRateModel.HouseholdChargedRate(table, A, AV, CityRates(), Limits(), true, High, 10, new[] { 0, 4 }, Wages, Untaxed);
+
+            Assert.Equal(8, uneducated);
+            Assert.Equal(20, highly);
+            Assert.Equal(10 + 6, mixed); // +8 at level 4 weighted 2500 against 0 at level 0 weighted 1000: 5.71 -> 6
+        }
+
+        [Fact]
+        public void ResidentRates_DensityTaxStacksOnTheLevelRate()
+        {
+            var table = new TaxRateTable();
+            table.Set(TaxType.Density, (int)TaxZone.Residential, (int)Density.High, 2); // the city's
+            TaxRateModel.SetDistrictValue(table, TaxType.ResourceRate, TaxZone.Residential, 4, A, AV, 20, CityRates(), Limits());
+            TaxRateModel.SetDistrictValue(table, TaxType.Density, TaxZone.Residential, (int)Density.High, A, AV, 5, CityRates(), Limits());
+
+            Assert.Equal(new[] { 13, 14, 15, 16, 25 }, TaxRateModel.ResidentRates(table, A, AV, CityRates(), Limits(), true, High));
+            Assert.Equal(new[] { 10, 11, 12, 13, 14 }, TaxRateModel.ResidentRates(table, B, BV, CityRates(), Limits(), true, High));
+            int low = DensityTaxTable.Index(TaxZone.Residential, Density.Low);
+            Assert.Equal(new[] { 8, 9, 10, 11, 20 }, TaxRateModel.ResidentRates(table, A, AV, CityRates(), Limits(), true, low));
+            // Density taxes off: the level override alone.
+            Assert.Equal(new[] { 8, 9, 10, 11, 20 }, TaxRateModel.ResidentRates(table, A, AV, CityRates(), Limits(), false, High));
+            Assert.Equal(12 + 8 + 5, TaxRateModel.HouseholdChargedRate(table, A, AV, CityRates(), Limits(), true, High, 12, new[] { 4 }, Wages, Untaxed));
+        }
+
+        [Fact]
+        public void EveryValueAtTheCitys_IsBitIdenticalToVanilla()
+        {
+            var table = new TaxRateTable();
+            int[] rates = CityRates();
+            // A district whose overrides all equal the city's values: stored but changing nothing.
+            table.Set(TaxType.ZoneRate, (int)TaxZone.Residential, 0, A, AV, TaxRateModel.CityZoneRate(rates, TaxZone.Residential));
+            table.Set(TaxType.ResourceRate, (int)TaxZone.Residential, 4, A, AV, rates[5 + 4]);
+            table.Set(TaxType.Density, (int)TaxZone.Residential, (int)Density.High, A, AV, 0);
+
+            var vanilla = new int[5];
+            for (int level = 0; level < 5; level++) vanilla[level] = TaxRateModel.CityItemRate(rates, TaxZone.Residential, level);
+            Assert.Equal(vanilla, TaxRateModel.ResidentRates(table, A, AV, rates, Limits(), true, High));
+            Assert.Equal(vanilla, TaxRateModel.ResidentRates(table, TaxRateTable.CityArea, 0, rates, Limits(), true, High));
+            // The household charge is its stored rate, even one outside the limits.
+            Assert.Equal(11, TaxRateModel.HouseholdChargedRate(table, A, AV, rates, Limits(), true, High, 11, new[] { 0, 4 }, Wages, Untaxed));
+            Assert.Equal(31, TaxRateModel.HouseholdChargedRate(table, A, AV, rates, Limits(), true, High, 31, new[] { 4 }, Wages, Untaxed));
+
+            // Fail case: one value off the city's does move the rate.
+            table.Set(TaxType.ResourceRate, (int)TaxZone.Residential, 4, A, AV, rates[5 + 4] + 1);
+            Assert.NotEqual(vanilla, TaxRateModel.ResidentRates(table, A, AV, rates, Limits(), true, High));
+        }
+
+        [Fact]
+        public void ResidentRate_IsTheEnginesClamp()
+        {
+            Assert.Equal(12, TaxRateModel.ResidentRate(12, 0, 0, 0, 30));
+            Assert.Equal(30, TaxRateModel.ResidentRate(12, 15, 10, 0, 30));
+            Assert.Equal(0, TaxRateModel.ResidentRate(3, -5, -5, -10, 30)); // never below 0
+            Assert.Equal(35, TaxRateModel.ResidentRate(35, 0, 0, 0, 30));   // vanilla outside the limits stands
+            Assert.Equal(EffectiveTaxRate.Compute(12, 5, 3, 0, 30, 1), TaxRateModel.ResidentRate(12, 3, 5, 0, 30));
+        }
+
         [Theory]
         [InlineData(10, 4, 3)]   // 2.5 rounds away from zero
         [InlineData(-10, 4, -3)]

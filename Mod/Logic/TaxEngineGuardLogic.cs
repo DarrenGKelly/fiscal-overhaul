@@ -38,7 +38,7 @@ namespace FiscalOverhaul.Logic
         /// Add a version only after comparing vanilla TaxSystem's charge (PayTaxJob, OnUpdate, OnGameLoaded) with the
         /// copy in TaxEngineSystem.
         /// </summary>
-        public static readonly string[] KnownGameVersions = { "1.6.0f1" };
+        public static readonly string[] KnownGameVersions = { "1.6.0f1", "1.6.3f1" };
 
         /// <summary>
         /// Whether <paramref name="version"/> is a known one: its first word equals one exactly ("1.6.0f1" and
@@ -80,6 +80,29 @@ namespace FiscalOverhaul.Logic
             if (!structureOk) return TaxEngineWarning.Incompatible;
             if (!versionKnown) return forceUntested ? TaxEngineWarning.UntestedVersionForced : TaxEngineWarning.UntestedVersion;
             return TaxEngineWarning.None;
+        }
+
+        /// <summary>
+        /// Whether the mod's copy of CitizenHappinessSystem's update runs (vanilla's is then off): only while the tax
+        /// engine charges (<paramref name="engineMode"/> is Engine, so the guard, the version and the master switch
+        /// already agree), vanilla CitizenHappinessSystem still has the private fields the copy writes
+        /// (<paramref name="happinessStructureOk"/>), and no one else (another mod) had already disabled vanilla's
+        /// update (<paramref name="foreignDisabled"/>).
+        /// </summary>
+        public static bool RunsHappiness(TaxEngineMode engineMode, bool happinessStructureOk, bool foreignDisabled)
+        {
+            return engineMode == TaxEngineMode.Engine && happinessStructureOk && !foreignDisabled;
+        }
+
+        /// <summary>
+        /// Whether the mod's copy of HouseholdFindPropertySystem's update runs (vanilla's is then off): only while the
+        /// tax engine charges (<paramref name="engineMode"/> is Engine) and no one else (another mod) had already
+        /// disabled vanilla's update (<paramref name="foreignDisabled"/>). The copy touches no private vanilla state, so
+        /// there is no structure check of its own; the game-version guard covers the copy.
+        /// </summary>
+        public static bool RunsHomeChoice(TaxEngineMode engineMode, bool foreignDisabled)
+        {
+            return engineMode == TaxEngineMode.Engine && !foreignDisabled;
         }
     }
 }

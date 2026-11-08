@@ -28,34 +28,53 @@ export const TaxDistrictView = createContext<string>(CITY_KEY);
  */
 export const TaxRowTarget = createContext<RowTarget | null>(null);
 
-/** TaxationPage, with the district selector (and "Use city rates") above it and the view it picks provided to the zone groups. */
-export const withTaxDistrictSelector = (TaxationPage: any) => (props: any) => {
+/**
+ * The district the Taxation tab shows and its choices: the shared selection (district/selection.ts) checked against
+ * the districts binding (the one list, DistrictListUISystem's) and the engine's state.
+ */
+function useTaxView() {
   const { translate } = useLocalization();
   const rates = useValue(taxRates$);
   const districts = useValue(districts$);
   const [selected, setSelected] = useSelectedDistrict();
   const options = useMemo(() => taxDistrictOptions(districts ?? [], translate), [districts, translate]);
   const engineOn = rates?.engineOn ?? false;
-  const view = taxViewKey(engineOn, options, selected);
+  return { rates, options, view: taxViewKey(engineOn, options, selected), setSelected, shown: showsTaxDistrictSelector(engineOn, options) };
+}
+
+/**
+ * The Taxation tab's district picker: the shared DistrictSelector and, in a district view, "Use city rates". Self-contained
+ * (it reads the same selection the page does), so it can be drawn anywhere in the Economy panel.
+ */
+export function TaxDistrictBar() {
+  const { translate } = useLocalization();
+  const { rates, options, view, setSelected, shown } = useTaxView();
+  if (!shown) return null;
+  return (
+    <>
+      <DistrictSelector options={options} selected={view} onSelect={setSelected} />
+      {view !== CITY_KEY && (
+        <div className={styles.resetBar}>
+          <Button
+            variant="flat"
+            className={styles.resetButton}
+            disabled={!hasDistrictOverrides(rates?.districts, view)}
+            onSelect={() => resetDistrictTaxRates(view)}
+          >
+            {localize(translate, "UseCityRates")}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** TaxationPage, with the district picker (TaxDistrictBar) above it and the view it picks provided to the zone groups. */
+export const withTaxDistrictSelector = (TaxationPage: any) => (props: any) => {
+  const { view } = useTaxView();
   return (
     <TaxDistrictView.Provider value={view}>
-      {showsTaxDistrictSelector(engineOn, options) && (
-        <>
-          <DistrictSelector options={options} selected={view} onSelect={setSelected} />
-          {view !== CITY_KEY && (
-            <div className={styles.resetBar}>
-              <Button
-                variant="flat"
-                className={styles.resetButton}
-                disabled={!hasDistrictOverrides(rates?.districts, view)}
-                onSelect={() => resetDistrictTaxRates(view)}
-              >
-                {localize(translate, "UseCityRates")}
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+      <TaxDistrictBar />
       <TaxationPage {...props} />
     </TaxDistrictView.Provider>
   );
