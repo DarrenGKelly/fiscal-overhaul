@@ -29,13 +29,13 @@ namespace FiscalOverhaul
         [SettingsUISection(kSection, kFeaturesGroup)]
         public bool EnableBudgetChart { get; set; } = FeatureGates.BudgetChartDefault;
 
-        /// <summary>Off: buildings pay the vanilla rates and the Taxation tab has no density rows. The offsets are kept.</summary>
-        [SettingsUISection(kSection, kFeaturesGroup)]
-        public bool EnableDensityTaxes { get; set; } = FeatureGates.DensityTaxesDefault;
-
         /// <summary>Off (or the budget chart off): no per-district budget samples are recorded; the recorded ones are kept.</summary>
         [SettingsUISection(kSection, kFeaturesGroup)]
         public bool EnableDistrictBudget { get; set; } = FeatureGates.DistrictBudgetDefault;
+
+        /// <summary>Off: buildings pay the vanilla rates and the Taxation tab has no density rows. The offsets are kept.</summary>
+        [SettingsUISection(kSection, kFeaturesGroup)]
+        public bool EnableDensityTaxes { get; set; } = FeatureGates.DensityTaxesDefault;
 
         /// <summary>Serialized <see cref="DensityTaxTable"/>; edited through the Taxation tab, not shown directly.</summary>
         [SettingsUIHidden]
