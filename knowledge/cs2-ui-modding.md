@@ -94,6 +94,10 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   read it (the Taxation totals: [impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
   It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
   the Options switch (a bool binding) is off.
+- **Economy tab order:** `extend(TAB_BAR_PATH, "TabBar", …)` reorders the Economy panel's tab children (Budget, Taxation,
+  Services, Production, Loans) with `orderEconomyTabs` (`UI/src/economy/tab-order.ts`), by their `tab` id, never by
+  position (vanilla indexes features by enum value); other tab bars pass through. The Switch Tab key/gamepad cycle keeps
+  the vanilla order: an accepted limitation.
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
   `BudgetItemDetail`, `TaxSlider`) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.

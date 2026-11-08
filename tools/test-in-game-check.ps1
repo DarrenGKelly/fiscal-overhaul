@@ -145,7 +145,7 @@ try {
     Write-Host '--- the steps grammar ---'
     $steps = ConvertFrom-GameRunSteps @('# a comment', 'click @TaxationTab', 'hover 1800,660   # the chart', 'key Escape', 'wait 500', 'screenshot after-escape the panel closed', '') (Merge-GameRunPoints)
     Check ($steps.Count -eq 5) 'comments and blank lines are skipped' "$($steps.Count) steps"
-    Check ($steps[0].X -eq 1280 -and $steps[0].Y -eq 306 -and $steps[0].Point -eq 'TaxationTab') '@Name resolves to the named point''s offsets'
+    Check ($steps[0].X -eq 1008 -and $steps[0].Y -eq 306 -and $steps[0].Point -eq 'TaxationTab') '@Name resolves to the named point''s offsets'
     Check ($steps[1].Verb -eq 'hover' -and $steps[1].X -eq 1800 -and $steps[1].Y -eq 660) 'x,y is a client offset'
     Check ($steps[3].Ms -eq 500 -and $steps[4].Name -eq 'after-escape' -and $steps[4].What -eq 'the panel closed') 'wait and screenshot keep their values'
     Check (Throws { ConvertFrom-GameRunSteps @('jump 1,2') (Merge-GameRunPoints) } "line 1.*unknown verb 'jump'") 'fail case: an unknown verb names its line'

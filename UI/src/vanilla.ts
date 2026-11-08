@@ -24,7 +24,9 @@ export const taxationPageClasses: { totalValue?: string } | undefined = getModul
  */
 export const Scrollable: any = getModule("game-ui/common/scrolling/scrollable.tsx", "Scrollable");
 
-export const BUDGET_PAGE_PATH = `${ECONOMY}/budget-page/budget-page.tsx`;
+/** Extended to reorder the Economy panel's tabs (TabBar draws `<div class=tabBar>{children}</div>`; EconomyPanel passes children keyed by `tab`). */
+export const TAB_BAR_PATH = "game-ui/common/tabs/tabs.tsx";
+export const BUDGET_PAGE_PATH =`${ECONOMY}/budget-page/budget-page.tsx`;
 export const TAXATION_GROUP_PATH = `${ECONOMY}/taxation-page/taxation-group.tsx`;
 export const TAXATION_PAGE_PATH = `${ECONOMY}/taxation-page/taxation-page.tsx`;
 /** Extended (not borrowed) for the zone totals: TaxationGroup draws each zone's total as its primary TaxSlider's income. */
