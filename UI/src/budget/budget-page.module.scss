@@ -115,13 +115,37 @@ $value-field-radius: 8rem;
   padding-top: 10rem;
 }
 
+// The rows' column: as tall as the body (the flex chain from .budget-page down has min-height: 0, so it is never taller),
+// with the rows in vanilla's Scrollable, which draws the game's scroll bar when expanded categories overflow it
+// (Gameface draws none for plain overflow: auto, and a percentage max-height wouldn't constrain it).
 .list-column {
   display: flex;
   flex-direction: column;
   width: 400rem;
   flex: 0 0 auto;
+  min-height: 0;
   margin-right: 12rem;
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+.list-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+// A category's expand arrow, or an empty box of its size for a category without subcategories, so the titles line up.
+.expander {
+  width: 16rem;
+  height: 16rem;
+  margin-right: 6rem;
+  flex: 0 0 auto;
+}
+
+// A subcategory row: indented under its category, in smaller, fainter text.
+.row.child-row {
+  padding-left: 46rem;
+  font-size: 14rem;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .section {
