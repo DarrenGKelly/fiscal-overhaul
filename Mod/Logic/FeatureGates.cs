@@ -37,6 +37,18 @@ namespace FiscalOverhaul.Logic
             => simulationChanges && featureEnabled && hasAnyOverride;
 
         /// <summary>
+        /// Whether the Services tab shows the district selector and per-district budget sliders: simulation changes
+        /// allowed and the feature on. Off, the Services tab is vanilla (the overrides don't apply either).
+        /// </summary>
+        public static bool ShowsDistrictServiceBudgets(bool simulationChanges, bool featureEnabled) => simulationChanges && featureEnabled;
+
+        /// <summary>
+        /// Whether the district list (the selector's choices) is published: any tab that shows the selector needs it —
+        /// district budget recording (the Budget tab) or district service budgets (the Services tab).
+        /// </summary>
+        public static bool PublishesDistrictList(bool recordsDistrictBudget, bool showsDistrictServiceBudgets) => recordsDistrictBudget || showsDistrictServiceBudgets;
+
+        /// <summary>
         /// Whether DistrictBudgetSystem records a sample: the per-district view is part of the budget chart, so it
         /// records only while both switches are on, whether or not the panel is open.
         /// </summary>

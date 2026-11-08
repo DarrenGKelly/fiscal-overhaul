@@ -51,5 +51,8 @@
   "FiscalOverhaul.UI.DensityOther": "Density {NUMBER}",
   "FiscalOverhaul.UI.EntireCity": "Entire City",
   "FiscalOverhaul.UI.OutsideDistricts": "Outside Districts",
-  "FiscalOverhaul.UI.DistrictNumber": "District {NUMBER}"
+  "FiscalOverhaul.UI.DistrictNumber": "District {NUMBER}",
+  "FiscalOverhaul.UI.UseCityBudget": "Use city budget",
+  "FiscalOverhaul.UI.DistrictBudgetOwn": "This area's own budget. City budget: {PERCENT}%",
+  "FiscalOverhaul.UI.DistrictBudgetFollowsCity": "Follows the city budget ({PERCENT}%)"
 }
