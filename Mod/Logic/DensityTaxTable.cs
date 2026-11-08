@@ -105,6 +105,32 @@ namespace FiscalOverhaul.Logic
         /// Right after the offset changes, the paid amounts still reflect the old one until each payer's next payment
         /// (1/32 of a month).
         /// </summary>
+        /// <summary>
+        /// One payer's monthly taxable base: what it paid (TaxPayer.m_AverageTaxPaid) over the rate it was charged at
+        /// (its own resolved rate, <c>TaxRateResolver</c>: vanilla rate, district difference, its own density tax).
+        /// 0 when nothing was paid or charged. Burst-safe: the Taxation tab's sum job calls it per payer.
+        /// </summary>
+        public static double TaxableBase(long monthlyTaxPaid, int chargedRate)
+        {
+            if (monthlyTaxPaid <= 0 || chargedRate <= 0) return 0;
+            return monthlyTaxPaid * 100.0 / chargedRate;
+        }
+
+        /// <summary>
+        /// A cell's estimate from its payers' summed <see cref="TaxableBase"/>: the extra (or lost) monthly revenue of
+        /// <paramref name="offset"/> on that base. Each payer's base is taken at its own charged rate, so a district's
+        /// density override (charging some of the cell's payers another rate) doesn't skew the city's estimate.
+        /// </summary>
+        public static long EstimateFromBase(double taxableBase, int offset)
+        {
+            if (offset == 0 || taxableBase <= 0) return 0;
+            return (long)Math.Round(taxableBase * offset / 100.0, MidpointRounding.AwayFromZero);
+        }
+
+        /// <summary>
+        /// The older cell-wide form (every payer assumed charged the cell's average stored rate plus
+        /// <paramref name="offset"/>); kept for the tests that pin its maths. The tab uses <see cref="TaxableBase"/>.
+        /// </summary>
         public static long EstimateExtraRevenue(long monthlyTaxPaid, double averageRate, int offset)
         {
             if (offset == 0 || averageRate <= 0 || monthlyTaxPaid == 0) return 0;
