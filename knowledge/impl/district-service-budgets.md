@@ -91,9 +91,10 @@ Service Upkeep row charged against the row at the city %.
 
 **Simulation changes** (`Setting.EnableSimulationChanges`, default **on**, `FeatureGates.SimulationChangesDefault`):
 off, every feature that changes how vanilla simulates (demand, happiness, service efficiency and upkeep, taxes charged)
-runs vanilla whatever its own switch says; stored values are kept. Today that is density taxes
-(`FeatureGates.AppliesDensityTaxes`) and district service budgets. **Any new simulation-changing feature, including the
-coming tax engine, must take this switch first in its `FeatureGates` gate.** The charts and recorded histories are not
+runs vanilla whatever its own switch says; stored values are kept. Today that is the tax engine (off: vanilla
+`TaxSystem` charges again, so no density or district adjustment is paid; [tax-engine.md](tax-engine.md)), density taxes
+(`FeatureGates.AppliesDensityTaxes`) and district service budgets. **Any new simulation-changing feature must take this
+switch first in its gate.** The charts and recorded histories are not
 simulation changes and ignore it.
 
 ## The Budget tab follows the %

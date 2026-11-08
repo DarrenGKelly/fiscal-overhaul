@@ -91,10 +91,10 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   The registry's setter reassigns the bundle's own variable, so other vanilla components that use the export get the
   wrapper too: extending `TaxSlider`/`NumberField` reaches the ones `TaxationGroup`/`TaxationPage` draw. To change one
   value a vanilla component computes itself, wrap its parent in a React context provider and let the extended child
-  read it (the Taxation totals: [impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
+  read it (the Taxation totals: [impl/tax-engine.md](impl/tax-engine.md#storage-and-ui)).
   To hide part of a vanilla component, add a class to its live `*.module.scss` `classes` object (from `getModule`),
   which it reads on every render, and restore it when off: the Taxation tab hides `TaxationGroup`'s own expander this
-  way ([impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
+  way ([impl/tax-engine.md](impl/tax-engine.md#storage-and-ui)).
   It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
   the Options switch (a bool binding) is off.
 - **Economy tab order:** `extend(TAB_BAR_PATH, "TabBar", …)` reorders the Economy panel's tab children (Budget, Taxation,
@@ -180,5 +180,5 @@ file up, `LocaleFileTests` checks it parses and holds only known keys, and keys 
 
 `UpdateSystem` runs a `GameSystemBase` every `GetUpdateInterval()` frames at an offset. A system registered with
 `UpdateBefore<Ours, Theirs>`/`UpdateAfter` that has the **same interval and offset -1 (the default) inherits
-`Theirs`'s offset**, so it runs on exactly the same frames. Density taxes depend on that:
-[impl/density-taxes.md](impl/density-taxes.md).
+`Theirs`'s offset**, so it runs on exactly the same frames. The tax engine depends on that:
+[impl/tax-engine.md](impl/tax-engine.md).

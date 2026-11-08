@@ -12,6 +12,7 @@ namespace FiscalOverhaul
     {
         public static ILog log = LogManager.GetLogger($"{nameof(FiscalOverhaul)}.{nameof(Mod)}").SetShowsErrorsInUI(false);
         private Setting m_Setting;
+        private static TaxEngineSystem s_TaxEngine;
 
         public void OnLoad(UpdateSystem updateSystem)
         {
@@ -34,16 +35,17 @@ namespace FiscalOverhaul
             // The options page calls ApplyAndSave on every change, so the switches take effect live.
             m_Setting.onSettingsApplied += ApplyFeatureSwitches;
 
-            // Density taxes: adjust the rate right before TaxSystem charges it, undo right after. Every vanilla rate
-            // lookup happens inside Burst jobs a mod can't patch, so the rate TaxSystem reads is changed around it.
-            // Same update interval as TaxSystem, so both inherit its update offset and run on exactly its frames; on any
-            // other frame the pair would adjust payers TaxSystem doesn't charge.
-            updateSystem.UpdateBefore<DensityTaxApplySystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
-            updateSystem.UpdateAfter<DensityTaxRestoreSystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
+            // The tax engine: charges tax in place of vanilla TaxSystem's update (which it turns off while it runs), at
+            // each payer's vanilla rate plus the city's adjustments. Right before TaxSystem with the same update
+            // interval, so it inherits TaxSystem's update offset and charges on exactly its frames; when the guard or
+            // the Simulation changes switch says vanilla, TaxSystem runs again right after it on the same frame.
+            updateSystem.UpdateBefore<TaxEngineSystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
+            s_TaxEngine = updateSystem.World.GetOrCreateSystemManaged<TaxEngineSystem>();
+            s_TaxEngine.SetSettings(m_Setting);
 
-            // District budget recording: a sample per 1/32 month, panel open or not, kept in the save. After the restore
-            // system so a sample on a tax frame reads the stored (vanilla) rates; its own interval, so this orders only.
-            updateSystem.UpdateAfter<DistrictBudgetSystem, DensityTaxRestoreSystem>(SystemUpdatePhase.GameSimulation);
+            // District budget recording: a sample per 1/32 month, panel open or not, kept in the save. After TaxSystem
+            // (and so after the engine); its own interval, so this orders only.
+            updateSystem.UpdateAfter<DistrictBudgetSystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.World.GetOrCreateSystemManaged<DistrictBudgetSystem>().SetSettings(m_Setting);
 
             // The city's Service Upkeep split per service: a weight sample per vanilla statistics sample, kept in the save.
@@ -66,13 +68,15 @@ namespace FiscalOverhaul
         }
 
         /// <summary>
-        /// Pushes the density tax switch (gated by the master "Simulation changes" switch) to the simulation.
+        /// Pushes the density tax switch (gated by the master "Simulation changes" switch) to the simulation, and has
+        /// the tax engine re-decide (Simulation changes, Run on untested game version) right away.
         /// DistrictServiceBudgetSystem reads its switches each frame. (The budget chart switch is read by
         /// <see cref="BudgetHistoryUISystem"/> each frame, as it only matters while the UI runs.)
         /// </summary>
         private static void ApplyFeatureSwitches(Game.Settings.Setting setting)
         {
             if (setting is Setting s) DensityTaxState.SetEnabled(Logic.FeatureGates.AppliesDensityTaxes(s.EnableSimulationChanges, s.EnableDensityTaxes));
+            s_TaxEngine?.ApplyMode();
         }
 
         public void OnDispose()
@@ -81,6 +85,7 @@ namespace FiscalOverhaul
             if (m_Setting != null)
             {
                 m_Setting.onSettingsApplied -= ApplyFeatureSwitches;
+                s_TaxEngine = null;
                 m_Setting.UnregisterInOptionsUI();
                 LocaleRegistry.Unregister();
                 m_Setting = null;
