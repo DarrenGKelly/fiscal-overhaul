@@ -5,9 +5,15 @@ import { BudgetPage } from "budget/budget-page";
 import { withServiceDetailDistricts, withServicePageDistricts } from "services/service-page";
 import { withEstimatedTotalDensityExtra, withTotalDensityExtra, withZoneDensityExtra } from "taxation/density-totals";
 import { withTaxSections } from "taxation/tax-sections-view";
-import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, SERVICE_DETAIL_PATH, SERVICE_PAGE_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
+import { orderEconomyTabs } from "economy/tab-order";
+import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, SERVICE_DETAIL_PATH, SERVICE_PAGE_PATH, TAB_BAR_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
 
 const register: ModRegistrar = (moduleRegistry) => {
+  // Economy panel tabs: Budget, Taxation, Services, Production, Loans. Any other tab bar passes through untouched.
+  moduleRegistry.extend(TAB_BAR_PATH, "TabBar", (TabBar) => (props: any) => (
+    <TabBar {...props} children={Array.isArray(props.children) ? orderEconomyTabs(props.children) : props.children} />
+  ));
+
   // Budget tab: the line-chart page in place of the whole vanilla page (bar chart + lists), or the vanilla page
   // itself while Options > Enable budget chart is off.
   moduleRegistry.extend(BUDGET_PAGE_PATH, "BudgetPage", (VanillaBudgetPage) => (props: any) => {

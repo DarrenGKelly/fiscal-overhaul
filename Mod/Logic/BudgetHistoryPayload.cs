@@ -10,7 +10,12 @@ namespace FiscalOverhaul.Logic
     {
         public const string TypeName = "FiscalOverhaul.BudgetHistory";
 
-        private static readonly string[] s_Properties = { "span", "samples", "monthsAgo", "income", "expense", "district", "nowIncome", "nowExpense" };
+        private static readonly string[] s_Properties = { "span", "samples", "monthsAgo", "income", "expense", "district", "nowIncome", "nowExpense", "services" };
+
+        /// <summary>The type of each entry of "services" (one service's row under Service Upkeep), and its properties in order.</summary>
+        public const string ServiceTypeName = "FiscalOverhaul.ServiceUpkeep";
+
+        public static readonly string[] ServiceProperties = { "name", "start", "values" };
 
         /// <summary>The properties to write, in order. The same for Entire City and a district view.</summary>
         public static string[] Properties(bool districtView) => s_Properties;

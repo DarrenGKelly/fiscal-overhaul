@@ -18,6 +18,15 @@ export const TaxSlider: any = getModule(`${ECONOMY}/taxation-page/tax-slider.tsx
 export const TaxationItem: any = getModule(`${ECONOMY}/taxation-page/taxation-item.tsx`, "TaxationItem");
 
 /**
+ * TaxationItem's class names (`taxationItem` row, `icon`, `title`, `slider`): the density rows wear them so their
+ * columns line up with the education/resource rows (taxation/density-rows.tsx).
+ */
+export const taxationItemClasses: Record<string, string> | undefined = getModule(`${ECONOMY}/taxation-page/taxation-item.module.scss`, "classes");
+
+/** The focusable row wrapper TaxationItem draws its row in (hover and gamepad focus): props { className?, children }. */
+export const ActiveFocusDiv: any = getModule("game-ui/common/focus/focus-div.tsx", "ActiveFocusDiv");
+
+/**
  * TaxationGroup's class names, read by it on every render (`toggleButton`, `hint`, `content` among them): the live
  * object, so the density sections can hide vanilla's own expander (taxation/tax-sections.tsx).
  */
@@ -33,7 +42,9 @@ export const taxationPageClasses: { totalValue?: string } | undefined = getModul
  */
 export const Scrollable: any = getModule("game-ui/common/scrolling/scrollable.tsx", "Scrollable");
 
-export const BUDGET_PAGE_PATH = `${ECONOMY}/budget-page/budget-page.tsx`;
+/** Extended to reorder the Economy panel's tabs (TabBar draws `<div class=tabBar>{children}</div>`; EconomyPanel passes children keyed by `tab`). */
+export const TAB_BAR_PATH = "game-ui/common/tabs/tabs.tsx";
+export const BUDGET_PAGE_PATH =`${ECONOMY}/budget-page/budget-page.tsx`;
 export const TAXATION_GROUP_PATH = `${ECONOMY}/taxation-page/taxation-group.tsx`;
 export const TAXATION_PAGE_PATH = `${ECONOMY}/taxation-page/taxation-page.tsx`;
 /** Extended (not borrowed) for the zone totals: TaxationGroup draws each zone's total as its primary TaxSlider's income. */

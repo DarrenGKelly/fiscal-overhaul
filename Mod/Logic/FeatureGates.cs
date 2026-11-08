@@ -12,10 +12,13 @@ namespace FiscalOverhaul.Logic
         /// <summary>Default of the per-district budget switch: on (it only records while the budget chart is on too).</summary>
         public const bool DistrictBudgetDefault = true;
 
+        /// <summary>Default of "Run on untested game version": off, so an unknown game version gets vanilla simulation.</summary>
+        public const bool RunOnUntestedGameVersionDefault = false;
+
         /// <summary>
         /// Default of the master "Simulation changes" switch: on. Off, every feature that changes how the vanilla
         /// simulation behaves (demand, happiness, service efficiency and upkeep, taxes charged: density taxes, district
-        /// service budgets and any later tax engine) runs vanilla; their stored values are kept. Every such feature's
+        /// service budgets and the tax engine) runs vanilla; their stored values are kept. Every such feature's
         /// gate takes this switch first.
         /// </summary>
         public const bool SimulationChangesDefault = true;
@@ -50,6 +53,12 @@ namespace FiscalOverhaul.Logic
         /// records only while both switches are on, whether or not the panel is open.
         /// </summary>
         public static bool RecordsDistrictBudget(bool budgetChartEnabled, bool districtBudgetEnabled) => budgetChartEnabled && districtBudgetEnabled;
+
+        /// <summary>
+        /// Whether ServiceUpkeepSystem records the city's per-service upkeep split: it is part of the budget chart, so
+        /// it records only while that switch is on (as district recording), whether or not the panel is open.
+        /// </summary>
+        public static bool RecordsServiceUpkeep(bool budgetChartEnabled) => budgetChartEnabled;
 
         /// <summary>
         /// Whether a UI system builds its Economy panel data this frame: only while its feature is enabled and the

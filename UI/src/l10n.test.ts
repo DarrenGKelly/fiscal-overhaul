@@ -14,14 +14,14 @@ describe("localize", () => {
   it("returns the game's translation when it has the key", () => {
     const t = fakeTranslate({ "FiscalOverhaul.UI.SectionDensity": "Dichte" });
     expect(localize(t, "SectionDensity")).toBe("Dichte");
-    expect(localize(t, "SectionDensity")).not.toBe("Density");
+    expect(localize(t, "SectionDensity")).not.toBe("Density tax");
   });
 
   it("falls back to the English text when the game has no translation", () => {
-    expect(localize(fakeTranslate({}), "SectionDensity")).toBe("Density");
+    expect(localize(fakeTranslate({}), "SectionDensity")).toBe("Density tax");
     // The game's translate returns null when it has neither the key nor a fallback; an empty string isn't a translation.
-    expect(localize(() => null, "SectionDensity")).toBe("Density");
-    expect(localize(() => "", "SectionDensity")).toBe("Density");
+    expect(localize(() => null, "SectionDensity")).toBe("Density tax");
+    expect(localize(() => "", "SectionDensity")).toBe("Density tax");
   });
 
   it("gives English without a translate (tests, no game)", () => {
@@ -72,7 +72,7 @@ describe("en-US.json", () => {
   });
 
   it("has English text for every UI key", () => {
-    expect(english("SectionDensity")).toBe("Density");
+    expect(english("SectionDensity")).toBe("Density tax");
     for (const k of keys) expect((EN_US as Record<string, string>)[k].trim()).not.toBe("");
   });
 });

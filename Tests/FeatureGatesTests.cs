@@ -47,6 +47,14 @@ namespace FiscalOverhaul.Tests
         }
 
         [Theory]
+        [InlineData(true, true)]   // chart on: the city's per-service upkeep split records
+        [InlineData(false, false)] // chart off: nothing beyond vanilla is recorded
+        public void RecordsServiceUpkeep_OnlyWithTheChartOn(bool budgetChart, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.RecordsServiceUpkeep(budgetChart));
+        }
+
+        [Theory]
         [InlineData(false, true)]  // switched off in Options: the tab is vanilla
         [InlineData(true, false)]  // panel closed
         [InlineData(false, false)]

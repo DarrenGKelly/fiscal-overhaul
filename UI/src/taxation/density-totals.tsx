@@ -3,6 +3,7 @@ import { taxation } from "cs2/bindings";
 import { createContext, useContext } from "react";
 import { densityTaxes$, densityTaxesEnabled$ } from "bindings";
 import { taxationPageClasses } from "vanilla";
+import { EngineWarningLine } from "./engine-warning-line";
 import { densityExtraForArea, densityExtraTotal, estimatedTotalValue, zoneTotalIncome } from "./density";
 
 // The Taxation tab's totals with the density offsets' extra revenue in them. Vanilla computes both totals in C#
@@ -30,6 +31,7 @@ export const withTotalDensityExtra = (TaxationPage: any) => (props: any) => {
   const areas = useValue(taxation.areaTypes$);
   return (
     <TotalDensityExtra.Provider value={densityExtraTotal(data?.cells, areas, enabled)}>
+      <EngineWarningLine />
       <TaxationPage {...props} />
     </TotalDensityExtra.Provider>
   );

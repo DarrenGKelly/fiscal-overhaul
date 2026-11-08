@@ -28,6 +28,9 @@ namespace FiscalOverhaul
     ///   (the selector's district list, `districts`, is <see cref="DistrictListUISystem"/>'s)
     ///   setDistrict         trigger(string key)  "" = Entire City, "outside", or a key from districts; with a district the
     ///                       history also has { district, nowIncome: number[14], nowExpense: number[15] }
+    ///   history.services    [{ name, start, values: number[] }] the Service Upkeep row split per service (prefab name,
+    ///                       Services.NAME[name] in vanilla's locale) at the same points, summing to the row from start on
+    ///                       (ServiceUpkeepSystem for Entire City, DistrictBudgetSystem for a district); empty without data
     /// Expense values are positive amounts (the UI decides the sign). With the chart disabled no history is built.
     /// </summary>
     public partial class BudgetHistoryUISystem : UISystemBase
@@ -44,6 +47,8 @@ namespace FiscalOverhaul
         private ValueBinding<bool> m_EnabledBinding;
         private ValueBinding<bool> m_DistrictsEnabledBinding;
         private DistrictBudgetSystem m_DistrictBudgetSystem;
+        private ServiceUpkeepSystem m_ServiceUpkeepSystem;
+        private NameSystem m_NameSystem;
         private EntityQuery m_DistrictQuery;
         private Setting m_Setting;
         private string m_DistrictKey = DistrictKey.City;
@@ -66,6 +71,8 @@ namespace FiscalOverhaul
             m_PanelSystem = World.GetOrCreateSystemManaged<GamePanelUISystem>();
             m_BudgetSystem = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
             m_DistrictBudgetSystem = World.GetOrCreateSystemManaged<DistrictBudgetSystem>();
+            m_ServiceUpkeepSystem = World.GetOrCreateSystemManaged<ServiceUpkeepSystem>();
+            m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             m_DistrictQuery = GetEntityQuery(ComponentType.ReadOnly<Game.Areas.District>(), ComponentType.Exclude<Temp>());
             AddBinding(m_DistrictsEnabledBinding = new ValueBinding<bool>(kGroup, "districtBudgetEnabled", false));
             AddBinding(new TriggerBinding<string>(kGroup, "setDistrict", key => m_DistrictKey = key ?? DistrictKey.City));
@@ -118,7 +125,8 @@ namespace FiscalOverhaul
             double[] nowIncome = null;
             double[] nowExpense = null;
             int length = 1;
-            if (ResolveDistrict(out Entity district))
+            Entity district = Entity.Null;
+            if (ResolveDistrict(out district))
             {
                 BuildDistrictSeries(district, income, expense, out nowIncome, out nowExpense);
                 for (int i = 0; i < kIncomeSources; i++) if (income[i].Length > length) length = income[i].Length;
@@ -146,6 +154,7 @@ namespace FiscalOverhaul
             // set than its first write crashes Gameface natively in TypeEnd. Entire City (also the fallback for an
             // unknown or deleted district) writes null live sums.
             bool districtView = nowIncome != null;
+            List<ServiceRow> services = BuildServiceRows(expense[ServiceUpkeepSplit.ServiceUpkeepSource], length, picked, districtView, district);
             writer.TypeBegin(BudgetHistoryPayload.TypeName);
             foreach (string property in BudgetHistoryPayload.Properties(districtView))
             {
@@ -169,10 +178,94 @@ namespace FiscalOverhaul
                     case "district": writer.Write(districtView ? m_DistrictKey ?? DistrictKey.City : DistrictKey.City); break;
                     case "nowIncome": WriteRounded(writer, nowIncome); break;
                     case "nowExpense": WriteRounded(writer, nowExpense); break;
+                    case "services": WriteServices(writer, services); break;
                     default: writer.WriteNull(); break;
                 }
             }
             writer.TypeEnd();
+        }
+
+        /// <summary>
+        /// The Service Upkeep row split per service at the picked points: the row as written (WriteSeriesSet) split by
+        /// each point's recorded weights. Entire City: the weights tagged with the statistic sample of the point
+        /// (ServiceUpkeepSystem), the live weights for Now. A district: its weight history by position, carried forward
+        /// to Now.
+        /// </summary>
+        private List<ServiceRow> BuildServiceRows(double[] upkeep, int length, int[] picked, bool districtView, Entity district)
+        {
+            int pad = length - upkeep.Length;
+            var parent = new long[picked.Length];
+            var weights = new float[picked.Length][];
+            ServiceColumns columns;
+            if (districtView)
+            {
+                columns = m_DistrictBudgetSystem.ServiceColumns;
+                int samples = upkeep.Length - 1; // the history, then the live value
+                m_DistrictBudgetSystem.TryGetServiceWeights(district, out ServiceWeightHistory history);
+                int weightCount = history?.Count ?? 0;
+                for (int i = 0; i < picked.Length; i++)
+                {
+                    int local = picked[i] - pad;
+                    if (local < 0) continue;
+                    parent[i] = (long)System.Math.Round(upkeep[local]);
+                    int index = ServiceUpkeepSplit.DistrictWeightIndex(local, samples, weightCount);
+                    if (index >= 0) weights[i] = history.At(index);
+                }
+            }
+            else
+            {
+                columns = m_ServiceUpkeepSystem.Columns;
+                ServiceWeightHistory history = m_ServiceUpkeepSystem.History;
+                int sampleCount = m_StatisticsSystem.sampleCount;
+                for (int i = 0; i < picked.Length; i++)
+                {
+                    int local = picked[i] - pad;
+                    if (local < 0) continue;
+                    parent[i] = (long)System.Math.Round(upkeep[local]);
+                    bool live = local == upkeep.Length - 1;
+                    if (live && (m_Setting == null || FeatureGates.RecordsServiceUpkeep(m_Setting.EnableBudgetChart)))
+                        weights[i] = m_ServiceUpkeepSystem.LiveWeights();
+                    else
+                        weights[i] = history.ForTag(ServiceUpkeepSplit.CityTag(sampleCount, upkeep.Length, local));
+                }
+            }
+
+            // Rows in vanilla's Services tab order (the city's current services), then any service no longer there.
+            var order = new List<int>();
+            ServiceColumns cityColumns = m_ServiceUpkeepSystem.Columns;
+            foreach (int cityColumn in m_ServiceUpkeepSystem.ColumnOrder())
+            {
+                int column = columns.IndexOf(cityColumns[cityColumn]);
+                if (column >= 0 && !order.Contains(column)) order.Add(column);
+            }
+            for (int c = 0; c < columns.Count; c++) if (!order.Contains(c)) order.Add(c);
+            return ServiceRows.Build(parent, weights, columns.Names, order);
+        }
+
+        private static void WriteServices(IJsonWriter writer, List<ServiceRow> services)
+        {
+            writer.ArrayBegin(services.Count);
+            foreach (ServiceRow row in services)
+            {
+                writer.TypeBegin(BudgetHistoryPayload.ServiceTypeName);
+                foreach (string property in BudgetHistoryPayload.ServiceProperties)
+                {
+                    writer.PropertyName(property);
+                    switch (property)
+                    {
+                        case "name": writer.Write(row.Name); break;
+                        case "start": writer.Write(row.Start); break;
+                        case "values":
+                            writer.ArrayBegin(row.Values.Length);
+                            foreach (long v in row.Values) writer.Write((int)v);
+                            writer.ArrayEnd();
+                            break;
+                        default: writer.WriteNull(); break;
+                    }
+                }
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
         }
 
         private static void WriteRounded(IJsonWriter writer, double[] values)

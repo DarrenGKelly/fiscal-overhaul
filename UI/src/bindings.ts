@@ -58,6 +58,12 @@ export function setDensityTax(zone: number, density: number, offset: number) {
   trigger(GROUP, "setDensityTax", zone, density, offset);
 }
 
+/**
+ * Why the Taxation tab warns that taxes are the game's own (C# TaxEngineWarning): 0 none, 1 untested game version,
+ * 2 untested version but forced on, 3 incompatible. See taxation/engine-warning.ts.
+ */
+export const taxEngineWarning$ = bindValue<number>(GROUP, "taxEngineWarning", 0);
+
 /** Options > District service budgets (BETA) with Simulation changes on. Off: the Services tab is vanilla. */
 export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
 
