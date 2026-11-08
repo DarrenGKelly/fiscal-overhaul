@@ -75,6 +75,79 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void Settled_OnlyWhenEveryFrameWasChargedAtTheCurrentRates()
+        {
+            var ledger = new TaxBookingLedger();
+            Assert.False(ledger.Settled(1)); // nothing charged yet (after a load)
+            for (int f = 0; f < TaxBookingLedger.Frames; f++) ledger.BeginFrame(f, 1);
+            Assert.True(ledger.Settled(1));
+            // A rate moves: the next frames are charged at signature 2; the window mixes until all 16 have been.
+            for (int f = 0; f < TaxBookingLedger.Frames - 1; f++)
+            {
+                ledger.BeginFrame(f, 2);
+                Assert.False(ledger.Settled(2));
+                Assert.False(ledger.Settled(1));
+            }
+            ledger.BeginFrame(TaxBookingLedger.Frames - 1, 2);
+            Assert.True(ledger.Settled(2));
+            ledger.Clear();
+            Assert.False(ledger.Settled(2));
+        }
+
+        [Fact]
+        public void Cells_HoldTheirTaxableIncomeAndDensity()
+        {
+            var ledger = new TaxBookingLedger();
+            int high = DensityTaxTable.Index(TaxZone.Residential, Density.High);
+            ledger.AddCell(0, high, 1000, 100);
+            ledger.AddCell(1, high, 500, 50);
+            ledger.AddCell(1, -1, 999, 9); // no cell: ignored
+            ledger.CellMonthly(high, out long taxable, out long density);
+            Assert.Equal(1500 * 32, taxable);
+            Assert.Equal(150 * 32, density);
+            ledger.CellMonthly(DensityTaxTable.Index(TaxZone.Residential, Density.Low), out taxable, out _);
+            Assert.Equal(0, taxable);
+            ledger.BeginFrame(0, 5);
+            ledger.CellMonthly(high, out taxable, out _);
+            Assert.Equal(500 * 32, taxable);
+            Assert.NotEqual(1500 * 32, taxable);
+        }
+
+        [Fact]
+        public void RateSignature_ChangesWithAnyRate_NotWithOrder()
+        {
+            var t = new TaxRateTable();
+            t.Set(TaxType.Density, 0, 2, 10);
+            t.Set(TaxType.ZoneRate, 0, 0, 12, 1, 15);
+            int[] city = new int[92];
+            long a = RateSignature.Of(t.Entries(), city, true);
+            var reversed = t.Entries();
+            reversed.Reverse();
+            Assert.Equal(a, RateSignature.Of(reversed, city, true));
+            Assert.NotEqual(a, RateSignature.Of(t.Entries(), city, false));
+            city[3] = 1;
+            Assert.NotEqual(a, RateSignature.Of(t.Entries(), city, true));
+            city[3] = 0;
+            t.Set(TaxType.Density, 0, 2, -5);
+            Assert.NotEqual(a, RateSignature.Of(t.Entries(), city, true));
+        }
+
+        [Fact]
+        public void Log_HeadCellsAndOverrides()
+        {
+            Assert.Equal("TaxBooking (monthly, settled):", TaxBookingLog.Head(true));
+            Assert.Contains("NOT settled", TaxBookingLog.Head(false));
+            Assert.Equal("Residential High at +10: taxable 272960, density booked +27296 (base x rate +27296)",
+                TaxBookingLog.Cell("Residential High", 10, 272960, 27296));
+            var t = new TaxRateTable();
+            t.Set(TaxType.Density, 0, 2, 10);              // city density: not listed
+            t.Set(TaxType.Density, 0, 2, 12, 1, 3);        // district density: not listed
+            Assert.Equal("none", TaxBookingLog.Overrides(t.Entries()));
+            t.Set(TaxType.ResourceRate, 0, 4, 12, 1, 5);   // a district's Highly Educated offset
+            Assert.Equal("ResourceRate/0/4@12:1=5", TaxBookingLog.Overrides(t.Entries()));
+        }
+
+        [Fact]
         public void Log_ReportsTheScaleCheck()
         {
             string line = TaxBookingLog.Zone("Residential", 248000, 0, 248000, 0, 7300, -200, 255300, 200);

@@ -30,6 +30,10 @@ namespace FiscalOverhaul
     public struct TaxBookingEvent
     {
         public byte m_Zone;
+        /// <summary>The density cell of these charges (<see cref="DensityTaxTable.Index"/>), -1 for none.</summary>
+        public sbyte m_Cell;
+        /// <summary>Their taxable income (the positive untaxed income charged), per charge.</summary>
+        public long m_Base;
         public long m_District;
         public long m_DensityPositive;
         public long m_DensityNegative;
@@ -81,6 +85,10 @@ namespace FiscalOverhaul
         private NativeQueue<TaxBookingEvent> m_BookingQueue;
         private JobHandle m_BookingDeps;
         private int m_BookingFrame = -1;
+        private long m_BookingSignature;
+
+        /// <summary>The fingerprint of the rates the last tick charged at (<see cref="RateSignature"/>).</summary>
+        public long RateSignatureNow { get; private set; }
 
         /// <summary>The engine's charges beyond vanilla over the last month, per zone (<see cref="TaxBookingSystem"/>).</summary>
         public TaxBookingLedger Ledger { get; } = new TaxBookingLedger();
@@ -234,6 +242,8 @@ namespace FiscalOverhaul
             wages.Dispose(Dependency);
             m_BookingDeps = Dependency;
             m_BookingFrame = (int)updateFrame;
+            m_BookingSignature = RateSignature.Of(DensityTaxState.Table.Rates.Entries(), m_TaxSystem.GetTaxRates().ToArray(), DensityTaxState.Enabled);
+            RateSignatureNow = m_BookingSignature;
         }
 
         /// <summary>
@@ -248,9 +258,12 @@ namespace FiscalOverhaul
                 m_BookingQueue.Clear();
                 return;
             }
-            Ledger.BeginFrame(m_BookingFrame);
+            Ledger.BeginFrame(m_BookingFrame, m_BookingSignature);
             while (m_BookingQueue.TryDequeue(out TaxBookingEvent e))
+            {
                 Ledger.AddSums(m_BookingFrame, (TaxZone)e.m_Zone, e.m_District, e.m_DensityPositive, e.m_DensityNegative, e.m_Vanilla);
+                Ledger.AddCell(m_BookingFrame, e.m_Cell, e.m_Base, e.m_DensityPositive + e.m_DensityNegative);
+            }
             m_BookingFrame = -1;
         }
 
@@ -424,8 +437,11 @@ namespace FiscalOverhaul
                 BufferAccessor<Resources> bufferAccessor = chunk.GetBufferAccessor(ref m_ResourceType);
                 bool hasRenter = chunk.Has(ref m_RenterType);
                 NativeArray<PropertyRenter> renters = hasRenter ? chunk.GetNativeArray(ref m_RenterType) : default;
-                // The chunk's sums for the city's side, per zone (a chunk of companies can hold both Industrial and Office).
-                var sums = new NativeArray<long>(TaxBookingLedger.Zones * 4, Allocator.Temp);
+                // The chunk's sums for the city's side, per zone and density cell (slot 0: no cell; a chunk of companies
+                // can hold both Industrial and Office): district, density + and -, tax at vanilla rates, taxable income.
+                const int kSlots = TaxBookingLedger.Cells + 1, kFields = 5;
+                var sums = new NativeArray<long>(TaxBookingLedger.Zones * kSlots * kFields, Allocator.Temp);
+                bool isHousehold = m_Type == IncomeSource.TaxResidential;
                 for (int i = 0; i < nativeArray.Length; i++)
                 {
                     TaxPayer taxPayer = nativeArray2[i];
@@ -433,29 +449,38 @@ namespace FiscalOverhaul
                     if (taxPayer.m_UntaxedIncome != 0)
                     {
                         Entity property = hasRenter ? renters[i].m_Property : Entity.Null;
+                        int untaxed = taxPayer.m_UntaxedIncome;
                         int rate = ChargedRate(taxPayer, nativeArray[i], hasRenter && property != Entity.Null, property, out int withoutDensity);
                         PayTax(ref taxPayer, nativeArray[i], rate, withoutDensity, resources, m_Type, m_StatisticsEventQueue,
                             out TaxZone zone, out int vanillaTax, out int district, out int density);
                         nativeArray2[i] = taxPayer;
-                        int s = (int)zone * 4;
+                        int cell = -1;
+                        if (property != Entity.Null && !m_Rates.m_Keys.TryDensityCell(property, isHousehold, out cell)) cell = -1;
+                        int s = ((int)zone * kSlots + cell + 1) * kFields;
                         sums[s] += district;
                         if (density > 0) sums[s + 1] += density;
                         else sums[s + 2] += density;
                         sums[s + 3] += vanillaTax;
+                        if (untaxed > 0) sums[s + 4] += untaxed;
                     }
                 }
                 for (int z = 0; z < TaxBookingLedger.Zones; z++)
                 {
-                    int s = z * 4;
-                    if (sums[s] == 0 && sums[s + 1] == 0 && sums[s + 2] == 0 && sums[s + 3] == 0) continue;
-                    m_BookingQueue.Enqueue(new TaxBookingEvent
+                    for (int c = 0; c < kSlots; c++)
                     {
-                        m_Zone = (byte)z,
-                        m_District = sums[s],
-                        m_DensityPositive = sums[s + 1],
-                        m_DensityNegative = sums[s + 2],
-                        m_Vanilla = sums[s + 3],
-                    });
+                        int s = (z * kSlots + c) * kFields;
+                        if (sums[s] == 0 && sums[s + 1] == 0 && sums[s + 2] == 0 && sums[s + 3] == 0 && sums[s + 4] == 0) continue;
+                        m_BookingQueue.Enqueue(new TaxBookingEvent
+                        {
+                            m_Zone = (byte)z,
+                            m_Cell = (sbyte)(c - 1),
+                            m_District = sums[s],
+                            m_DensityPositive = sums[s + 1],
+                            m_DensityNegative = sums[s + 2],
+                            m_Vanilla = sums[s + 3],
+                            m_Base = sums[s + 4],
+                        });
+                    }
                 }
                 sums.Dispose();
             }

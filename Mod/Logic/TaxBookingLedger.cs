@@ -19,6 +19,15 @@ namespace FiscalOverhaul.Logic
         private readonly long[] m_DensityPositive = new long[Frames * Zones];
         private readonly long[] m_DensityNegative = new long[Frames * Zones];
         private readonly long[] m_Vanilla = new long[Frames * Zones];
+        // Per density cell (TaxRateModel.DensityCells): the charged payers' taxable income and their density parts.
+        private readonly long[] m_CellBase = new long[Frames * Cells];
+        private readonly long[] m_CellDensity = new long[Frames * Cells];
+        // The rates each frame was charged at (RateSignature); false: never charged since the last clear.
+        private readonly long[] m_Signature = new long[Frames];
+        private readonly bool[] m_Charged = new bool[Frames];
+
+        /// <summary>Density cells (<see cref="DensityTaxTable.Index"/>).</summary>
+        public const int Cells = DensityTaxTable.ZoneCount * DensityTaxTable.DensityCount;
 
         /// <summary>Starts <paramref name="frame"/>'s tick: drops what that frame's previous tick booked.</summary>
         public void BeginFrame(int frame)
@@ -30,6 +39,55 @@ namespace FiscalOverhaul.Logic
                 m_DensityPositive[f * Zones + z] = 0;
                 m_DensityNegative[f * Zones + z] = 0;
                 m_Vanilla[f * Zones + z] = 0;
+            }
+            for (int c = 0; c < Cells; c++)
+            {
+                m_CellBase[f * Cells + c] = 0;
+                m_CellDensity[f * Cells + c] = 0;
+            }
+            m_Charged[f] = false;
+        }
+
+        /// <summary>Starts <paramref name="frame"/>'s tick charged at the rates <paramref name="signature"/> fingerprints.</summary>
+        public void BeginFrame(int frame, long signature)
+        {
+            BeginFrame(frame);
+            m_Signature[Wrap(frame)] = signature;
+            m_Charged[Wrap(frame)] = true;
+        }
+
+        /// <summary>
+        /// True when every frame in the window was charged at the rates <paramref name="signature"/> fingerprints: the
+        /// monthly amounts are then all at the current rates (not a mix of a moved rate's old and new charges).
+        /// </summary>
+        public bool Settled(long signature)
+        {
+            for (int f = 0; f < Frames; f++)
+                if (!m_Charged[f] || m_Signature[f] != signature) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Adds a group of charges in density cell <paramref name="cell"/> (per charge): their taxable income (positive
+        /// untaxed income) and density parts. For the log's comparison with the Taxation tab's cell estimate; never booked.
+        /// </summary>
+        public void AddCell(int frame, int cell, long taxableIncome, long density)
+        {
+            if (cell < 0 || cell >= Cells) return;
+            int i = Wrap(frame) * Cells + cell;
+            m_CellBase[i] += taxableIncome * DensityTaxBooking.ChargesPerMonth;
+            m_CellDensity[i] += density * DensityTaxBooking.ChargesPerMonth;
+        }
+
+        /// <summary>A density cell's monthly taxable income and density part (both on the ledger's scale).</summary>
+        public void CellMonthly(int cell, out long taxableIncome, out long density)
+        {
+            taxableIncome = density = 0;
+            if (cell < 0 || cell >= Cells) return;
+            for (int f = 0; f < Frames; f++)
+            {
+                taxableIncome += m_CellBase[f * Cells + cell];
+                density += m_CellDensity[f * Cells + cell];
             }
         }
 
@@ -98,6 +156,9 @@ namespace FiscalOverhaul.Logic
             Array.Clear(m_DensityPositive, 0, m_DensityPositive.Length);
             Array.Clear(m_DensityNegative, 0, m_DensityNegative.Length);
             Array.Clear(m_Vanilla, 0, m_Vanilla.Length);
+            Array.Clear(m_CellBase, 0, m_CellBase.Length);
+            Array.Clear(m_CellDensity, 0, m_CellDensity.Length);
+            Array.Clear(m_Charged, 0, m_Charged.Length);
         }
 
         private static int Wrap(int frame) => ((frame % Frames) + Frames) % Frames;

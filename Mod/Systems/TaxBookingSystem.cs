@@ -108,13 +108,31 @@ namespace FiscalOverhaul
         /// <summary><paramref name="report"/>: per zone, vanilla income, vanilla subsidy, booked income, booked subsidy.</summary>
         private void Log(int[] report, NativeArray<long> parts)
         {
-            var line = new StringBuilder("TaxBooking (monthly):");
+            TaxBookingLedger ledger = m_Engine.Ledger;
+            var line = new StringBuilder(TaxBookingLog.Head(ledger.Settled(m_Engine.RateSignatureNow)));
             for (int z = 0; z < TaxBookingLedger.Zones; z++)
             {
                 line.Append(z == 0 ? " " : " | ");
-                line.Append(TaxBookingLog.Zone(kZoneNames[z], report[z * 4], report[z * 4 + 1], m_Engine.Ledger.VanillaMonthly((TaxZone)z),
+                line.Append(TaxBookingLog.Zone(kZoneNames[z], report[z * 4], report[z * 4 + 1], ledger.VanillaMonthly((TaxZone)z),
                     parts[z * 3], parts[z * 3 + 1], parts[z * 3 + 2], report[z * 4 + 2], report[z * 4 + 3]));
             }
+            // The city's density cells with a rate or a booked part, for the Taxation rows' estimates.
+            TaxRateTable table = DensityTaxState.Table.Rates;
+            line.Append(" || cells:");
+            bool anyCell = false;
+            for (int z = 0; z < DensityTaxTable.ZoneCount; z++)
+                for (int d = 0; d < DensityTaxTable.DensityCount; d++)
+                {
+                    if (!DensityTaxTable.IsSupported((TaxZone)z, (Density)d)) continue;
+                    int cell = DensityTaxTable.Index((TaxZone)z, (Density)d);
+                    int rate = DensityTaxState.Enabled ? table.Get(TaxType.Density, z, d) : 0;
+                    ledger.CellMonthly(cell, out long taxable, out long density);
+                    if (rate == 0 && density == 0) continue;
+                    line.Append(anyCell ? "; " : " ").Append(TaxBookingLog.Cell($"{kZoneNames[z]} {(Density)d}", rate, taxable, density));
+                    anyCell = true;
+                }
+            if (!anyCell) line.Append(" none");
+            line.Append(" || district rate overrides: ").Append(TaxBookingLog.Overrides(table.Entries()));
             Mod.log.Info(line.ToString());
         }
 

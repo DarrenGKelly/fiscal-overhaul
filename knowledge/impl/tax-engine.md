@@ -107,7 +107,13 @@ charges beyond that are booked on top.
 - **Log**: while the engine charges, one Mod.log line per 1/32 month (`TaxBooking (monthly):`, `TaxBookingLog`), per
   zone: vanilla's income and subsidy, the engine's charges at vanilla rates with `scale` = vanilla net / that (about 1
   when the ledger's scale is vanilla's), the district and density parts booked, and the result. Compare the density
-  part with the Taxation tab's estimate there rather than the Budget row, which drifts with the city.
+  part with the Taxation tab's estimate there rather than the Budget row, which drifts with the city. The head reads
+  `settled` once all 16 frames in the window were charged at the current rates (`RateSignature`: vanilla's rates, the
+  density switch and the rate table; `TaxBookingLedger.Settled`), else `NOT settled`: a moved rate mixes old and new
+  charges for up to 1/32 month (plus one tick), so compare only settled lines. After the zones: each density cell with a
+  rate or a booked part (`cells:`, the charged payers' monthly taxable income, the density booked, and taxable x the
+  city's rate, which the Taxation row's estimate should match), then every district override other than density
+  (`district rate overrides:`, `Type/zone/key@district:version=value`), which is where a district part comes from.
 - **What it shows**: the Budget tab reads vanilla's arrays and the Income/Expense statistics `BudgetApplySystem`
   records from them, so the zone's tax income row and chart line include the density and district parts and a negative
   density tax appears under Subsidies (Residential subsidies, …). `CityServiceBudgetSystem.GetTotalTaxIncome` (a
