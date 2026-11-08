@@ -123,7 +123,9 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
 
 ## UI
 
-- **Left column**: just the filter rows (the column scrolls when they don't fit). There is no right-hand column, so
+- **Left column**: just the filter rows, inside vanilla's `Scrollable` (`.list-scroll`, `flex: 1 1 0; min-height: 0`
+  under a `min-height: 0` flex chain), so expanded categories that overflow get the game's scroll bar; plain
+  `overflow: auto` scrolled with no bar. There is no right-hand column, so
   the chart takes the rest of the width.
 - **Spacing**: the page adds no side padding of its own (the economy panel's 32rem is the margin, as on the other
   Economy tabs), and rows and sections are kept tight.
@@ -136,6 +138,14 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
   `economyBudget.incomeItems$`. **`incomeValues$`/`expenseValues$` are indexed by source, not by item**: an item's
   value is the sum of `values[source.index]` over its sources (`itemValue`, vanilla's `getItemValue`); indexing by the
   item's position shows the wrong numbers. The checked set and span persist for the session (module-level variables).
+- **Subcategory rows** (`UI/src/budget/budget-rows.ts`): a category with more than one source (in the current view)
+  has an arrow that expands it into one indented row per source, labelled `EconomyPanel.BUDGET_SUB_ITEM[<source id>]`
+  (vanilla's `BudgetItemDetail` names), valued `values[source.index]`, with its own checkbox and line
+  (`income:<itemId>:<sourceId>`, from `history.income[source.index]`; `buildSourceSeries`). Child colours are the
+  parent's shaded lighter/darker (`childColor`), distinct from it and each other. A single-source category gets no
+  arrow (`EXPAND_SINGLE_SOURCE`, provisional); totals and the balance never do. A district view hides city-only
+  sources, the `isCityOnlyItem` rule per source. The expanded set persists like the checked set; expanding plays
+  `expand-panel`. Hovering a child row pops out its category's detail.
 - **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All, opening on 3M (`DEFAULT_SPAN_MONTHS` / `BudgetHistoryMath.DefaultSpanMonths`). Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
@@ -165,4 +175,5 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
 
 `Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting; `UI/src/budget/district-select.test.ts` the selector's
-options, when it shows, cycling, names, city-only rows and row values.
+options, when it shows, cycling, names, city-only rows and row values; `UI/src/budget/budget-rows.test.ts` the
+subcategory rows (keys, which categories expand, district filtering, colours, values and series).
