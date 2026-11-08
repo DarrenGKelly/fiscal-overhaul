@@ -81,5 +81,17 @@ namespace FiscalOverhaul.Logic
             if (!versionKnown) return forceUntested ? TaxEngineWarning.UntestedVersionForced : TaxEngineWarning.UntestedVersion;
             return TaxEngineWarning.None;
         }
+
+        /// <summary>
+        /// Whether the mod's copy of CitizenHappinessSystem's update runs (vanilla's is then off): only while the tax
+        /// engine charges (<paramref name="engineMode"/> is Engine, so the guard, the version and the master switch
+        /// already agree), vanilla CitizenHappinessSystem still has the private fields the copy writes
+        /// (<paramref name="happinessStructureOk"/>), and no one else (another mod) had already disabled vanilla's
+        /// update (<paramref name="foreignDisabled"/>).
+        /// </summary>
+        public static bool RunsHappiness(TaxEngineMode engineMode, bool happinessStructureOk, bool foreignDisabled)
+        {
+            return engineMode == TaxEngineMode.Engine && happinessStructureOk && !foreignDisabled;
+        }
     }
 }
