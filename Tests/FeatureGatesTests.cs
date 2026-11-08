@@ -108,13 +108,14 @@ namespace FiscalOverhaul.Tests
         }
 
         [Theory]
-        [InlineData(true, false, true)]   // Budget tab's district view only (the list used to be gated on this alone)
-        [InlineData(false, true, true)]   // Services tab only: recording off, the list is still published
-        [InlineData(true, true, true)]
-        [InlineData(false, false, false)] // no tab shows a selector: nothing to publish
-        public void PublishesDistrictList_WhenAnyDistrictFeatureIsOn(bool recording, bool services, bool expected)
+        [InlineData(true, false, false, true)]   // Budget tab's district view only (the list used to be gated on this alone)
+        [InlineData(false, true, false, true)]   // Services tab only: recording off, the list is still published
+        [InlineData(false, false, true, true)]   // the tax engine only: the Taxation tab's district selector needs it
+        [InlineData(true, true, true, true)]
+        [InlineData(false, false, false, false)] // no tab shows a selector: nothing to publish
+        public void PublishesDistrictList_WhenAnyDistrictFeatureIsOn(bool recording, bool services, bool taxEngine, bool expected)
         {
-            Assert.Equal(expected, FeatureGates.PublishesDistrictList(recording, services));
+            Assert.Equal(expected, FeatureGates.PublishesDistrictList(recording, services, taxEngine));
         }
     }
 }

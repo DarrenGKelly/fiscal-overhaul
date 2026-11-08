@@ -44,9 +44,11 @@ namespace FiscalOverhaul.Logic
 
         /// <summary>
         /// Whether the district list (the selector's choices) is published: any tab that shows the selector needs it —
-        /// district budget recording (the Budget tab) or district service budgets (the Services tab).
+        /// district budget recording (the Budget tab), district service budgets (the Services tab) or the tax engine
+        /// charging (the Taxation tab's per-district rates).
         /// </summary>
-        public static bool PublishesDistrictList(bool recordsDistrictBudget, bool showsDistrictServiceBudgets) => recordsDistrictBudget || showsDistrictServiceBudgets;
+        public static bool PublishesDistrictList(bool recordsDistrictBudget, bool showsDistrictServiceBudgets, bool taxEngineCharges)
+            => recordsDistrictBudget || showsDistrictServiceBudgets || taxEngineCharges;
 
         /// <summary>
         /// Whether DistrictBudgetSystem records a sample: the per-district view is part of the budget chart, so it
