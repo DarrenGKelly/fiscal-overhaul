@@ -150,7 +150,9 @@ ones a case has no value for, as vanilla's `*Section` writers do (`BudgetHistory
 
 Coherent Gameface isn't Chrome:
 - **Use `<canvas>` 2D for charts**, not inline SVG. The vanilla statistics graphs use chart.js on canvas.
-- No `ResizeObserver`; measure in a layout effect and poll (see `UI/src/chart/line-chart.tsx`).
+- No `ResizeObserver`; measure in a layout effect and poll (see `UI/src/chart/line-chart.tsx`). **Layout runs once a
+  frame**: a just-mounted element reads 0 wide in its layout effect, so retry every `requestAnimationFrame` until it
+  has a size (`UI/src/chart/load-timing.ts`); a slow poll alone delays the first draw by up to the poll interval.
 - Patchy `Intl`; format numbers yourself (`formatMoney` in `chart-math.ts`).
 - Sizes in `rem` follow the game's UI scale setting. The UI is laid out for 4K, so **1rem is less than a pixel**
   below 4K (about 0.67 px at 1440p): vanilla text is around 18–24rem.

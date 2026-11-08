@@ -17,6 +17,11 @@ export const budgetChartEnabled$ = bindValue<boolean>(GROUP, "budgetChartEnabled
 
 export const history$ = bindValue<BudgetHistory | null>(GROUP, "history", null);
 
+/** Writes a Budget chart load timing to Mod.log ("BudgetChart UI: <text>", BudgetHistoryUISystem). */
+export function logTiming(text: string) {
+  trigger(GROUP, "logTiming", text);
+}
+
 /** Months of history the chart shows; 0 = all. */
 export function setSpan(months: number) {
   trigger(GROUP, "setSpan", months);

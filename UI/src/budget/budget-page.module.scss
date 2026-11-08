@@ -91,9 +91,19 @@ $value-field-radius: 8rem;
   border-style: solid;
   border-radius: 3rem;
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .checked {
+}
+
+// A group (category with child rows) with only some of its lines on: a smaller filled square inside the empty box.
+.partial-mark {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 1rem;
 }
 
 .row-title {
