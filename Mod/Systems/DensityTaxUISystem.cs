@@ -21,6 +21,7 @@ namespace FiscalOverhaul
     ///   densityTaxesEnabled  bool  <see cref="Setting.EnableDensityTaxes"/>; false = the UI shows no density rows
     ///   densityTaxes         raw   { maxOffset, cells: [{ zone, density, offset, estimate }] } (supported cells only)
     ///   setDensityTax        trigger(int zone, int density, int offset)
+    ///   taxEngineWarning     int   <see cref="TaxEngineWarning"/>: why the Taxation tab warns that taxes are vanilla (0 = no warning)
     /// The estimate is the extra (or lost) monthly revenue the offset brings: each cell's monthly tax paid scaled back
     /// to its taxable base at the rate charged (stored rate + offset), times the offset. Refreshed every ~2 s while the Economy panel is open and density
     /// taxes are enabled.
@@ -32,6 +33,8 @@ namespace FiscalOverhaul
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_Binding;
         private ValueBinding<bool> m_EnabledBinding;
+        private ValueBinding<int> m_EngineWarningBinding;
+        private TaxEngineSystem m_TaxEngine;
         private EntityQuery m_PayerQuery;
         private Setting m_Setting;
 
@@ -47,6 +50,7 @@ namespace FiscalOverhaul
         {
             base.OnCreate();
             m_PanelSystem = World.GetOrCreateSystemManaged<GamePanelUISystem>();
+            m_TaxEngine = World.GetOrCreateSystemManaged<TaxEngineSystem>();
             m_PayerQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<TaxPayer>(), ComponentType.ReadOnly<PropertyRenter>() },
@@ -55,6 +59,7 @@ namespace FiscalOverhaul
             AddBinding(m_EnabledBinding = new ValueBinding<bool>(BudgetHistoryUISystem.kGroup, "densityTaxesEnabled", FeatureGates.DensityTaxesDefault));
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "densityTaxes", Write));
             AddBinding(new TriggerBinding<int, int, int>(BudgetHistoryUISystem.kGroup, "setDensityTax", SetDensityTax));
+            AddBinding(m_EngineWarningBinding = new ValueBinding<int>(BudgetHistoryUISystem.kGroup, "taxEngineWarning", (int)TaxEngineWarning.None));
         }
 
         [Preserve]
@@ -62,6 +67,7 @@ namespace FiscalOverhaul
         {
             bool enabled = DensityTaxState.Enabled;
             m_EnabledBinding.Update(enabled);
+            m_EngineWarningBinding.Update((int)m_TaxEngine.Warning);
             if (!FeatureGates.BuildsPanelData(enabled, m_PanelSystem.activePanel is EconomyPanel))
             {
                 m_FramesSinceRefresh = kRefreshFrames; // refresh as soon as the rows show again
@@ -147,9 +153,8 @@ namespace FiscalOverhaul
                     m_Paid = paid,
                     m_WeightedRate = weightedRate,
                 };
-                // This system's Dependency includes the restore job's TaxPayer writes, so the sum sees the stored
-                // (vanilla) rates, never one adjusted mid-payment. Completed at once: one single-threaded pass every
-                // ~2 s while the panel is open, and the binding writes the result this frame.
+                // This system's Dependency includes the tax engine's TaxPayer writes. Completed at once: one
+                // single-threaded pass every ~2 s while the panel is open, and the binding writes the result this frame.
                 job.Schedule(m_PayerQuery, Dependency).Complete();
 
                 for (int i = 0; i < cells; i++)

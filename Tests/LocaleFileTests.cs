@@ -145,7 +145,9 @@ namespace FiscalOverhaul.Tests
             Assert.Equal("Reset district service budgets", en["FiscalOverhaul.Options.Label.ResetDistrictServiceBudgets"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.ResetDistrictServiceBudgets"));
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Warning.ResetDistrictServiceBudgets"));
-            Assert.Equal(20, CountOptionKeys(en));
+            Assert.Equal(22, CountOptionKeys(en));
+            Assert.Equal("Run on untested game version", en["FiscalOverhaul.Options.Label.RunOnUntestedGameVersion"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.RunOnUntestedGameVersion"));
         }
 
         private static int CountOptionKeys(Dictionary<string, string> entries)

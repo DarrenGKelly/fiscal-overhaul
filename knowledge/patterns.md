@@ -14,7 +14,7 @@ description: Where to start when adding something to the mod — the how-to-exte
 | To add | Start from |
 |---|---|
 | A UI panel, tab or vanilla UI change | [cs2-ui-modding.md § Reusing and replacing vanilla UI](cs2-ui-modding.md#reusing-and-replacing-vanilla-ui) (TODO main session: a step-by-step recipe); the Budget tab as the example: [impl/budget-chart.md](impl/budget-chart.md) |
-| A C# simulation or UI system | [cs2-ui-modding.md § Scheduling simulation systems](cs2-ui-modding.md#scheduling-simulation-systems) (TODO main session: a step-by-step recipe); the example: [impl/density-taxes.md](impl/density-taxes.md) |
+| A C# simulation or UI system | [cs2-ui-modding.md § Scheduling simulation systems](cs2-ui-modding.md#scheduling-simulation-systems) (TODO main session: a step-by-step recipe); the example: [impl/tax-engine.md](impl/tax-engine.md) |
 | Logic that needs tests | [Pure logic](#pure-logic), and [testing.md](testing.md#the-rule) |
 | A setting | `Mod/Setting.cs` (TODO main session: a recipe); its Options text goes in `l10n/en-US.json` |
 | Player-facing text, or a language | [cs2-ui-modding.md § Localization](cs2-ui-modding.md#localization): a key in `l10n/en-US.json`, read with `localize()` |

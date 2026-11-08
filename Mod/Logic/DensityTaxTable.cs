@@ -25,7 +25,7 @@ namespace FiscalOverhaul.Logic
     /// The density tax offsets, in percentage points added on top of the vanilla rate a building already pays
     /// (zone rate + education/product offset): a view of a <see cref="TaxRateTable"/>'s <see cref="TaxType.Density"/>
     /// entries (key = <see cref="Density"/>), which holds the storage. Pure data: the game systems copy it into a
-    /// native array. The comma-separated text form is the Options template new cities are seeded from.
+    /// native array for the tax engine. The comma-separated text form is the Options template new cities are seeded from.
     /// </summary>
     public sealed class DensityTaxTable
     {
@@ -96,17 +96,6 @@ namespace FiscalOverhaul.Logic
 
         /// <summary>Whether any building pays a density offset: density taxes enabled and at least one offset set.</summary>
         public bool IsCharged(bool enabled) => enabled && !IsEmpty;
-
-        /// <summary>
-        /// The rate actually charged: base + offset, never below 0 (a negative rate would pay citizens).
-        /// Returns the delta applied so it can be undone exactly.
-        /// </summary>
-        public static int AppliedDelta(int baseRate, int offset)
-        {
-            int result = baseRate + offset;
-            if (result < 0) result = 0;
-            return result - baseRate;
-        }
 
         /// <summary>
         /// Rough extra (or lost) monthly revenue from an offset, given what the buildings in that cell pay per
