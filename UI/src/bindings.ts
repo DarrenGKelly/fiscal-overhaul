@@ -74,3 +74,29 @@ export const districtServiceBudgets$ = bindValue<DistrictServiceBudget[]>(GROUP,
 export function setDistrictServiceBudget(serviceKey: string, districtKey: string, budget: number) {
   trigger(GROUP, "setDistrictServiceBudget", serviceKey, districtKey, budget);
 }
+
+/** One stored district adjustment (C# TaxRatesUISystem): percentage points on the city rate for a zone (0 Residential .. 3 Office). */
+export interface DistrictTaxRate {
+  key: string;
+  zone: number;
+  value: number;
+}
+
+export interface TaxRates {
+  /** The tax engine charges (Simulation changes on, guard happy): district adjustments take effect. */
+  engineOn: boolean;
+  /** Adjustments are clamped to ±this. */
+  districtCap: number;
+  /** Sparse: a district/zone with no row is 0. */
+  districts: DistrictTaxRate[];
+}
+
+export const taxRates$ = bindValue<TaxRates | null>(GROUP, "taxRates", null);
+
+/** C# TaxType: Density = 0, District = 1. */
+export const TAX_TYPE_DISTRICT = 1;
+
+/** Sets an adjustment: type (TAX_TYPE_*), zone (0..3), key (a district key for District), value (clamped in C#). */
+export function setTaxRate(type: number, zone: number, key: string, value: number) {
+  trigger(GROUP, "setTaxRate", type, zone, key, value);
+}

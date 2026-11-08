@@ -56,6 +56,14 @@ namespace FiscalOverhaul
             Version++;
         }
 
+        /// <summary>Sets any adjustment in the loaded city's table (clamped to its type's cap; 0 removes it). Returns the stored value.</summary>
+        public static int SetRate(TaxType type, int zone, int key, int keyVersion, int value)
+        {
+            int stored = s_Table.Rates.Set(type, zone, key, keyVersion, value);
+            Version++;
+            return stored;
+        }
+
         public static int Set(TaxZone zone, Density density, int offset)
         {
             int stored = s_Table.Set(zone, density, offset);

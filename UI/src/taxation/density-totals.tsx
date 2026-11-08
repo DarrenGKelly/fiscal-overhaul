@@ -3,6 +3,8 @@ import { taxation } from "cs2/bindings";
 import { createContext, useContext } from "react";
 import { densityTaxes$, densityTaxesEnabled$ } from "bindings";
 import { taxationPageClasses } from "vanilla";
+import { TaxDistrictView } from "./district-tax-view";
+import { headerSliderDisabled } from "./district-tax";
 import { EngineWarningLine } from "./engine-warning-line";
 import { densityExtraForArea, densityExtraTotal, estimatedTotalValue, zoneTotalIncome } from "./density";
 
@@ -37,10 +39,15 @@ export const withTotalDensityExtra = (TaxationPage: any) => (props: any) => {
   );
 };
 
-/** TaxSlider: a zone group's header slider shows the zone total plus the zone's extra. */
+/**
+ * TaxSlider: a zone group's header slider shows the zone total plus the zone's extra. In a district view
+ * (district-tax-view.tsx) it shows the city rate read-only: the district's own slider is in its District section.
+ */
 export const withZoneDensityExtra = (TaxSlider: any) => (props: any) => {
   const extra = useContext(ZoneDensityExtra);
-  return <TaxSlider {...props} income={zoneTotalIncome(props.income, props.primary, extra)} />;
+  const district = useContext(TaxDistrictView);
+  const disabled = headerSliderDisabled(props.disabled, props.primary, district);
+  return <TaxSlider {...props} income={zoneTotalIncome(props.income, props.primary, extra)} disabled={disabled} />;
 };
 
 /** NumberField: the ESTIMATED TOTAL field shows the total plus every zone's extra. */

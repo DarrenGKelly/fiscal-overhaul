@@ -12,6 +12,8 @@ resource:
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/DensityTaxState.cs
   - Mod/Systems/TaxRatesSystem.cs
+  - Mod/Systems/TaxRatesUISystem.cs
+  - Mod/Logic/TaxRateRows.cs
   - Mod/Logic/EffectiveTaxRate.cs
   - Mod/Logic/TaxEngineGuardLogic.cs
   - Mod/Logic/TaxHappinessMath.cs
@@ -197,6 +199,27 @@ extended `NumberField` adds the total's to the field whose className is the page
 through vanilla's own components, so sign and money format are vanilla's. Off, or every offset 0: the extra is 0 and
 both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTotal`/`zoneTotalIncome`/
 `estimatedTotalValue` in `density.ts`.
+
+**Per-district rates** (a user decision: an adjustment of ±`TaxRateTable.DistrictCap` points on the city
+rate, density on top, the sum clamped to vanilla's limits by the engine). `TaxRatesUISystem` publishes
+`taxRates = { engineOn, districtCap, districts[{ key, zone, value }] }`: every stored district entry (sparse, a missing
+row is 0) keyed by `DistrictKey` ("index:version"), built by `TaxRateRows.DistrictRows`; `engineOn` is
+`TaxEngineMode.Engine`. `setTaxRate(type, zone, key, value)` takes a `TaxType`, a zone and a district key (or a density
+"0".."2"); `TaxRateRows.TryResolve` rejects Entire City, Outside, bad keys and zones, and the system also checks the
+district entity still exists, then writes through `DensityTaxState.SetRate` (bumping its version). The UI picks the
+selected district's rows itself, so the selection stays the UI's. The district list is `DistrictListUISystem`'s
+`districts` binding, published while any district feature is on, the engine charging included
+(`FeatureGates.PublishesDistrictList`), so the selector has its districts with the budget chart off.
+
+On the tab (`district-tax.ts` pure, `district-tax-view.tsx`), a TaxationPage wrapper draws the shared
+`DistrictSelector` (`district/selection.ts`, the same choice as the Budget tab) above the page while the engine charges
+and the city has a district (`showsTaxDistrictSelector`): Entire City, then each district, no Outside Districts
+(`taxDistrictOptions`). It provides the view (`taxViewKey`: Entire City for the engine off, Outside or a gone district)
+through `TaxDistrictView`. Entire City is the layout above. A district view shows only the **District** section
+(`TAX_SECTIONS` entry with `view: "district"`, `startsOpen`), whatever the density switch: one `TaxSlider`
+(−cap..+cap, its estimate column hidden, as there is no revenue estimate) labelled "+N% vs city", also the header's
+summary. Density and vanilla's rows are city-wide, so a district view leaves them out (`view: "city"`), and each zone's
+header slider shows the city rate read-only (`headerSliderDisabled` in the extended `TaxSlider`).
 
 ## Happiness
 

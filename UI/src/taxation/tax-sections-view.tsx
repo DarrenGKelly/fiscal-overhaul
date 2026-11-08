@@ -1,20 +1,23 @@
 import { useMapValue, useValue } from "cs2/api";
 import { taxation } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
-import { FC, useCallback, useState } from "react";
+import { FC, useCallback, useContext, useState } from "react";
 import { densityTaxesEnabled$, playSound } from "bindings";
+import { CITY_KEY } from "district/district-select";
 import { localize } from "l10n";
 import { SOUNDS } from "sounds";
 import { TaxationItem, taxationGroupClasses } from "vanilla";
-import { arrowFor } from "./density";
+import { arrowFor, zoneForAreaIndex } from "./density";
 import { DensityRows, DensitySummary, useDensityCells } from "./density-rows";
 import { useZoneDensityExtra, ZoneDensityExtra } from "./density-totals";
-import { groupClasses, sectionExpandState, sectionsForArea, TaxSection, TaxSectionId } from "./tax-sections";
+import { DistrictRows, DistrictSummary, TaxDistrictView } from "./district-tax-view";
+import { groupClasses, sectionExpandState, sectionsForArea, TaxSection, TaxSectionId, TaxView } from "./tax-sections";
 import styles from "./tax-sections.module.scss";
 
 // The Taxation tab with density taxes on: under each zone's main slider, collapsible sections (tax-sections.ts):
-// Density, then vanilla's own rows (education levels or resources), whose vanilla expander is hidden. Off: the vanilla
-// TaxationGroup exactly.
+// Density, then vanilla's own rows (education levels or resources), whose vanilla expander is hidden. A district
+// picked in the selector (district-tax-view.tsx) shows the District section alone, whatever the density switch. Off
+// and in the Entire City view: the vanilla TaxationGroup exactly.
 
 type AreaType = taxation.TaxAreaType;
 
@@ -34,6 +37,7 @@ const VanillaRows = ({ areaType }: { areaType: AreaType }) => {
 const TAX_SECTION_ROWS: Record<TaxSectionId, { Rows: FC<{ areaType: AreaType }>; Summary?: FC<{ areaType: AreaType }> }> = {
   density: { Rows: DensityRows, Summary: DensitySummary },
   vanilla: { Rows: VanillaRows },
+  district: { Rows: DistrictRows, Summary: DistrictSummary },
 };
 
 // TaxationGroup's class names as the game ships them, before any wrapper has changed the live object.
@@ -44,25 +48,31 @@ function hideVanillaExpander(hide: boolean) {
   if (taxationGroupClasses) Object.assign(taxationGroupClasses, groupClasses(VANILLA_GROUP_CLASSES, styles.invisible, styles.removed, hide));
 }
 
-/** The TaxationGroup extension (index.tsx): the zone total with its density extra, then the sections while density taxes are on. */
+/**
+ * The TaxationGroup extension (index.tsx): the zone total with its density extra, then the sections while density
+ * taxes are on or a district is picked.
+ */
 export const withTaxSections = (TaxationGroup: any) => (props: any) => {
   const enabled = useValue(densityTaxesEnabled$);
+  const view: TaxView = useContext(TaxDistrictView) === CITY_KEY ? "city" : "district";
   const extra = useZoneDensityExtra(props.areaType);
-  hideVanillaExpander(enabled);
+  const sectionsOn = enabled || view === "district";
+  hideVanillaExpander(sectionsOn);
   return (
     <>
       <ZoneDensityExtra.Provider value={extra}>
         <TaxationGroup {...props} />
       </ZoneDensityExtra.Provider>
-      {enabled && <TaxSections areaType={props.areaType} />}
+      {sectionsOn && <TaxSections areaType={props.areaType} view={view} />}
     </>
   );
 };
 
-const TaxSections = ({ areaType }: { areaType: AreaType }) => {
+const TaxSections = ({ areaType, view }: { areaType: AreaType; view: TaxView }) => {
   const { cells } = useDensityCells(areaType);
   const resources = useMapValue(taxation.areaResources$, areaType.index);
-  const sections = sectionsForArea(areaType.index, areaType.locked, { density: cells.length, vanilla: resources?.length ?? 0 });
+  const counts = { density: cells.length, vanilla: resources?.length ?? 0, district: zoneForAreaIndex(areaType.index) >= 0 ? 1 : 0 };
+  const sections = sectionsForArea(areaType.index, areaType.locked, counts, undefined, view);
   if (sections.length === 0) return null;
   return (
     <div className={styles.sections}>
@@ -75,11 +85,11 @@ const TaxSections = ({ areaType }: { areaType: AreaType }) => {
 
 const Section = ({ areaType, section }: { areaType: AreaType; section: TaxSection }) => {
   const { translate } = useLocalization();
-  const [open, setOpen] = useState(() => sectionExpandState.isOpen(areaType.id, section.id));
+  const [open, setOpen] = useState(() => sectionExpandState.isOpen(areaType.id, section.id, section.startsOpen));
   const toggle = useCallback(() => {
     playSound(SOUNDS.expandRows);
-    setOpen(sectionExpandState.toggle(areaType.id, section.id));
-  }, [areaType.id, section.id]);
+    setOpen(sectionExpandState.toggle(areaType.id, section.id, section.startsOpen));
+  }, [areaType.id, section.id, section.startsOpen]);
   const { Rows, Summary } = TAX_SECTION_ROWS[section.id];
   return (
     <div className={styles.section}>
