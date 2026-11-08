@@ -2,6 +2,7 @@
 
 ## 2026-11-07
 
+* **Tax home choice**: households score homes with the tax term at each home's charged rate (density + district adjustments) through `TaxFindPropertySystem`, a copy of `HouseholdFindPropertySystem`'s update that runs exactly while the tax engine does ([impl/tax-engine.md § Where people move](impl/tax-engine.md#where-people-move)).
 * **Tax happiness**: citizens' tax happiness follows their home's charged rate (density + district adjustments) through `TaxHappinessSystem`, a copy of `CitizenHappinessSystem`'s update that runs exactly while the tax engine does ([impl/tax-engine.md § Happiness](impl/tax-engine.md#happiness)).
 
 ## 2026-11-06

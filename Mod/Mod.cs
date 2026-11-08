@@ -14,6 +14,7 @@ namespace FiscalOverhaul
         private Setting m_Setting;
         private static TaxEngineSystem s_TaxEngine;
         private static TaxHappinessSystem s_TaxHappiness;
+        private static TaxFindPropertySystem s_TaxFindProperty;
 
         public void OnLoad(UpdateSystem updateSystem)
         {
@@ -55,6 +56,12 @@ namespace FiscalOverhaul
             updateSystem.UpdateBefore<TaxHappinessSystem, CitizenHappinessSystem>(SystemUpdatePhase.GameSimulation);
             s_TaxHappiness = updateSystem.World.GetOrCreateSystemManaged<TaxHappinessSystem>();
 
+            // Tax home choice: households score homes with the tax term at each home's rate, in place of vanilla
+            // HouseholdFindPropertySystem's update (off while it runs). Runs exactly while the tax engine does. Right
+            // before HouseholdFindPropertySystem with the same interval, so it inherits its update offset.
+            updateSystem.UpdateBefore<TaxFindPropertySystem, HouseholdFindPropertySystem>(SystemUpdatePhase.GameSimulation);
+            s_TaxFindProperty = updateSystem.World.GetOrCreateSystemManaged<TaxFindPropertySystem>();
+
             // District budget recording: a sample per 1/32 month, panel open or not, kept in the save. After TaxSystem
             // (and so after the engine); its own interval, so this orders only.
             updateSystem.UpdateAfter<DistrictBudgetSystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
@@ -93,6 +100,7 @@ namespace FiscalOverhaul
             if (setting is Setting s) DensityTaxState.SetEnabled(Logic.FeatureGates.AppliesDensityTaxes(s.EnableSimulationChanges, s.EnableDensityTaxes));
             s_TaxEngine?.ApplyMode();
             s_TaxHappiness?.ApplyMode();
+            s_TaxFindProperty?.ApplyMode();
         }
 
         public void OnDispose()
@@ -103,6 +111,7 @@ namespace FiscalOverhaul
                 m_Setting.onSettingsApplied -= ApplyFeatureSwitches;
                 s_TaxEngine = null;
                 s_TaxHappiness = null;
+                s_TaxFindProperty = null;
                 m_Setting.UnregisterInOptionsUI();
                 LocaleRegistry.Unregister();
                 m_Setting = null;

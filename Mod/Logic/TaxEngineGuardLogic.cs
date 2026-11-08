@@ -93,5 +93,16 @@ namespace FiscalOverhaul.Logic
         {
             return engineMode == TaxEngineMode.Engine && happinessStructureOk && !foreignDisabled;
         }
+
+        /// <summary>
+        /// Whether the mod's copy of HouseholdFindPropertySystem's update runs (vanilla's is then off): only while the
+        /// tax engine charges (<paramref name="engineMode"/> is Engine) and no one else (another mod) had already
+        /// disabled vanilla's update (<paramref name="foreignDisabled"/>). The copy touches no private vanilla state, so
+        /// there is no structure check of its own; the game-version guard covers the copy.
+        /// </summary>
+        public static bool RunsHomeChoice(TaxEngineMode engineMode, bool foreignDisabled)
+        {
+            return engineMode == TaxEngineMode.Engine && !foreignDisabled;
+        }
     }
 }
