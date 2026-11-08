@@ -139,10 +139,15 @@ namespace FiscalOverhaul.Tests
             Assert.Equal("Record district budgets", en["FiscalOverhaul.Options.Label.EnableDistrictBudget"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictBudget"));
             Assert.Equal("Simulation changes", en["FiscalOverhaul.Options.Label.EnableSimulationChanges"]);
-            Assert.Equal("Run on untested game version", en["FiscalOverhaul.Options.Label.RunOnUntestedGameVersion"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableSimulationChanges"));
+            Assert.Equal("District service budgets (BETA)", en["FiscalOverhaul.Options.Label.EnableDistrictServiceBudget"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictServiceBudget"));
+            Assert.Equal("Reset district service budgets", en["FiscalOverhaul.Options.Label.ResetDistrictServiceBudgets"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.ResetDistrictServiceBudgets"));
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Warning.ResetDistrictServiceBudgets"));
+            Assert.Equal(22, CountOptionKeys(en));
+            Assert.Equal("Run on untested game version", en["FiscalOverhaul.Options.Label.RunOnUntestedGameVersion"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.RunOnUntestedGameVersion"));
-            Assert.Equal(17, CountOptionKeys(en));
         }
 
         private static int CountOptionKeys(Dictionary<string, string> entries)

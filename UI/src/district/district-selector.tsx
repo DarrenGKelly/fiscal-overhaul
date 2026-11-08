@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { cycle, dividerBefore, DistrictOption } from "./district-select";
-import styles from "./budget-page.module.scss";
+import styles from "./district-selector.module.scss";
 import { Scrollable } from "vanilla";
 import { playSound } from "bindings";
 import { SOUNDS, soundForPick } from "sounds";
@@ -9,7 +9,7 @@ import { SOUNDS, soundForPick } from "sounds";
 const ARROW = "Media/Glyphs/ThickStrokeArrowRight.svg";
 
 /**
- * `‹ [name] ›` centred above the Budget tab: the arrows step through the options (wrapping), the name opens a list of
+ * `‹ [name] ›` centred above a tab: the arrows step through the options (wrapping), the name opens a list of
  * every option. Shown whenever district recording is on (showsDistrictSelector), even with Entire City the only option.
  */
 export const DistrictSelector = ({
