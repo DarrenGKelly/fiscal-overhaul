@@ -123,11 +123,15 @@ a second rate array, the **view**:
   never through the World: no constructor or `OnCreate`, never updated, and **never saved** — the game's
   `SystemSerializerLibrary.Initialize` (Colossal.Core) serializes only systems in `World.Systems`, keyed by exact type.
   On creation the system checks a sentinel written to the view reads back through `GetTaxRates()` and that the view is
-  not in `World.Systems`, and logs `DemandTaxView: structure ok`.
+  not in `World.Systems`, and logs `DemandTaxView: structure ok`. **Each demand system declares its own private
+  `m_TaxSystem`**: a `FieldInfo` from one type throws `ArgumentException` on another, so `DemandSwapLogic.ResolveFields`
+  takes one per type and `FitsInstances` checks each against its system instance (both tested).
 - **Off**: whenever the engine's mode isn't `Engine` (Simulation changes off, guard blocked) the fields go back to
   vanilla TaxSystem, live. `TaxEngineGuard.DemandStructureOk` checks the three demand systems still have
   `m_TaxSystem : TaxSystem` and TaxSystem `m_TaxRates`; a mismatch leaves demand vanilla (the engine still charges). A
-  field another mod re-pointed is left alone (logged once).
+  field another mod re-pointed is left alone (logged once). A throw while swapping restores vanilla, logs one error and
+  keeps demand vanilla for the session (`m_Faulted`), never a throw per frame. Each change of what demand reads logs once:
+  `demand reads the adjusted view` / `demand reads vanilla rates` (the latter also on the first update with the engine off).
 - Residential demand reacts through the five education slots; residential happiness is S4's.
 
 ## Classifying a building

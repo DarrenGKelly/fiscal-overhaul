@@ -57,7 +57,7 @@ namespace FiscalOverhaul
         private SimulationSystem m_SimulationSystem;
         private ResourceSystem m_ResourceSystem;
         private ComponentSystemBase[] m_DemandSystems;
-        private FieldInfo m_DemandTaxSystemField;
+        private FieldInfo[] m_DemandTaxSystemFields;
 
         private EntityQuery m_HouseholdQuery;
         private EntityQuery m_CommercialQuery;
@@ -84,7 +84,9 @@ namespace FiscalOverhaul
 
         private bool m_StructureOk;
         private bool m_Swapped;
+        private bool m_Faulted;
         private bool m_ForeignLogged;
+        private DemandReads m_Reads = DemandReads.Unknown;
 
         /// <summary>Whether the demand systems read the view right now.</summary>
         public bool Active => m_Swapped;
@@ -97,6 +99,7 @@ namespace FiscalOverhaul
             m_Engine = World.GetOrCreateSystemManaged<TaxEngineSystem>();
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
+            // In TaxEngineGuard.DemandSystemTypes' order (CreateView checks each field against its instance).
             m_DemandSystems = new ComponentSystemBase[]
             {
                 World.GetOrCreateSystemManaged<ResidentialDemandSystem>(),
@@ -130,7 +133,14 @@ namespace FiscalOverhaul
             try
             {
                 const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-                m_DemandTaxSystemField = typeof(ResidentialDemandSystem).GetField("m_TaxSystem", flags);
+                // Each demand system declares its own m_TaxSystem: one FieldInfo per type, checked against its instance.
+                m_DemandTaxSystemFields = DemandSwapLogic.ResolveFields(TaxEngineGuard.DemandSystemTypes, "m_TaxSystem", typeof(TaxSystem), out problem);
+                if (m_DemandTaxSystemFields == null) return false;
+                if (!DemandSwapLogic.FitsInstances(m_DemandTaxSystemFields, m_DemandSystems, out problem))
+                {
+                    m_DemandTaxSystemFields = null;
+                    return false;
+                }
                 var view = (DemandTaxView)FormatterServices.GetUninitializedObject(typeof(DemandTaxView));
                 typeof(TaxSystem).GetField("m_TaxRates", flags).SetValue(view, m_ViewRates);
                 // GetTaxRates() must hand out the view itself: a sentinel written to the view reads back through it.
@@ -188,7 +198,7 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
-            bool want = m_StructureOk && m_Engine != null && m_Engine.Mode == TaxEngineMode.Engine;
+            bool want = DemandSwapLogic.UseView(m_StructureOk, m_Engine != null && m_Engine.Mode == TaxEngineMode.Engine, m_Faulted);
             if (!want)
             {
                 Restore();
@@ -242,34 +252,68 @@ namespace FiscalOverhaul
             return true;
         }
 
-        /// <summary>Points the demand systems at the view; leaves any a third party re-pointed alone.</summary>
+        /// <summary>
+        /// Points the demand systems at the view; leaves any a third party re-pointed alone. A throw restores vanilla,
+        /// logs once and stops the swap for the session (vanilla demand) instead of throwing every update.
+        /// </summary>
         private void Swap()
         {
             if (m_Swapped) return;
-            foreach (ComponentSystemBase demand in m_DemandSystems)
+            try
             {
-                object current = m_DemandTaxSystemField.GetValue(demand);
-                if (ReferenceEquals(current, m_TaxSystem)) m_DemandTaxSystemField.SetValue(demand, m_View);
-                else if (!ReferenceEquals(current, m_View) && !m_ForeignLogged)
+                m_Swapped = true;
+                for (int i = 0; i < m_DemandSystems.Length; i++)
                 {
-                    Mod.log.Warn($"DemandTaxView: {demand.GetType().Name}.m_TaxSystem was replaced by someone else ({current?.GetType().FullName ?? "null"}); left alone");
-                    m_ForeignLogged = true;
+                    ComponentSystemBase demand = m_DemandSystems[i];
+                    FieldInfo field = m_DemandTaxSystemFields[i];
+                    object current = field.GetValue(demand);
+                    if (ReferenceEquals(current, m_TaxSystem)) field.SetValue(demand, m_View);
+                    else if (!ReferenceEquals(current, m_View) && !m_ForeignLogged)
+                    {
+                        Mod.log.Warn($"DemandTaxView: {demand.GetType().Name}.m_TaxSystem was replaced by someone else ({current?.GetType().FullName ?? "null"}); left alone");
+                        m_ForeignLogged = true;
+                    }
                 }
+                SetReads(DemandReads.View);
             }
-            m_Swapped = true;
-            Mod.log.Info("DemandTaxView: demand reads the adjusted view");
+            catch (System.Exception e)
+            {
+                m_Faulted = true;
+                Mod.log.Error($"DemandTaxView: swapping the demand systems' m_TaxSystem threw; vanilla demand for this session. {e}");
+                Restore();
+            }
         }
 
-        /// <summary>Points the demand systems back at vanilla TaxSystem (only those pointing at the view).</summary>
+        /// <summary>Points the demand systems back at vanilla TaxSystem (only those pointing at the view). Never throws.</summary>
         private void Restore()
         {
-            if (!m_Swapped || m_DemandTaxSystemField == null) return;
-            foreach (ComponentSystemBase demand in m_DemandSystems)
-                if (ReferenceEquals(m_DemandTaxSystemField.GetValue(demand), m_View)) m_DemandTaxSystemField.SetValue(demand, m_TaxSystem);
+            if (m_Swapped && m_DemandTaxSystemFields != null)
+            {
+                for (int i = 0; i < m_DemandSystems.Length; i++)
+                {
+                    try
+                    {
+                        FieldInfo field = m_DemandTaxSystemFields[i];
+                        if (ReferenceEquals(field.GetValue(m_DemandSystems[i]), m_View)) field.SetValue(m_DemandSystems[i], m_TaxSystem);
+                    }
+                    catch (System.Exception e)
+                    {
+                        if (!m_Faulted) Mod.log.Error($"DemandTaxView: restoring {m_DemandSystems[i]?.GetType().Name}.m_TaxSystem threw: {e.Message}");
+                        m_Faulted = true;
+                    }
+                }
+            }
             m_Swapped = false;
-            Mod.log.Info("DemandTaxView: demand reads vanilla rates");
+            SetReads(DemandReads.Vanilla);
         }
 
+        /// <summary>Records what demand reads, logging each change once (the vanilla line also on the first update with the engine off).</summary>
+        private void SetReads(DemandReads next)
+        {
+            if (DemandSwapLogic.ShouldLog(m_Reads, next))
+                Mod.log.Info(next == DemandReads.View ? "DemandTaxView: demand reads the adjusted view" : "DemandTaxView: demand reads vanilla rates");
+            m_Reads = next;
+        }
         private void ScheduleAggregate()
         {
             for (int i = 0; i < DemandViewMath.SlotCount; i++)

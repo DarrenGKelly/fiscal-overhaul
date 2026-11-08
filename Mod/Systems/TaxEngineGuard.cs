@@ -88,16 +88,8 @@ namespace FiscalOverhaul
             {
                 const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
                 if (!HasField(typeof(TaxSystem), "m_TaxRates", typeof(NativeArray<int>), flags, ref problem)) return false;
-                foreach (Type demand in DemandSystemTypes)
-                {
-                    FieldInfo field = demand.GetField("m_TaxSystem", flags);
-                    if (field == null || field.FieldType != typeof(TaxSystem))
-                    {
-                        problem = $"{demand.Name}.m_TaxSystem is {(field == null ? "missing" : field.FieldType.Name + ", expected TaxSystem")}";
-                        return false;
-                    }
-                }
-                return true;
+                // Each type's own field (each declares its own private m_TaxSystem), the resolver the swap uses.
+                return DemandSwapLogic.ResolveFields(DemandSystemTypes, "m_TaxSystem", typeof(TaxSystem), out problem) != null;
             }
             catch (Exception e)
             {
