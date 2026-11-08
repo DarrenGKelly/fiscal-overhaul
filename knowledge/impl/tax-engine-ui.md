@@ -8,7 +8,7 @@ resource:
   - Mod/Systems/DistrictTaxEstimateUISystem.cs
   - Mod/Logic/DistrictTaxEstimate.cs
   - Mod/Logic/PayerTaxParts.cs
-  - Mod/Logic/PaymentRate.cs
+  - Mod/Logic/ChargeWindow.cs
   - Mod/Systems/DistrictListUISystem.cs
   - Mod/Logic/TaxRateRows.cs
   - Mod/Logic/DensityTaxTable.cs
@@ -33,14 +33,16 @@ booking: a positive density part is tax income, a negative one the zone's subsid
 part, `PayerTaxParts.DensityPart` = (charged rate − rate without density) × base / 100, summed per cell. Both rates are
 `EffectiveTaxRate.Compute`'s with the payer's resolver adjustments ([tax-engine.md § The rate model](tax-engine.md#the-rate-model)),
 so a payer under a district's density override counts at that district's rate, and one near the limit only for the
-part the clamp lets through. The base is what it paid (`TaxPayer.m_AverageTaxPaid`, the last payment × 32) over the
-rate **that payment was charged at**, so a moved slider moves the estimate at once (within the 10-frame refresh, sim
-paused or not) and the next charge, up to 1/32 month later, leaves it where it is. The engine doesn't store that rate:
-each estimate system keeps a per-payer memo (paid amount seen, its rate; `PaymentRate.Of`): the same paid amount is
-the same payment at the remembered rate, a new amount a new payment at the rate now. The memo is cleared while the
-panel is closed (rates change only from it, so a first sighting is at the current rate). Dividing by the rate charged
-now pinned every total to what was paid until the payer paid again. A payment at 0 says nothing of the base, so a
-payer the density tax took to 0 has its untaxed income × 32 as its base and the subsidy still shows. A negative estimate is drawn as vanilla draws a negative amount. While the engine doesn't
+part the clamp lets through. The base is the untaxed income **the engine last charged** the payer, × 32
+(`PayerTaxParts.FromCharge`), from the engine's charge records (`TaxEngineSystem.GetChargeRecords`: per payer, the
+untaxed income and the engine tick of its last charge), and only a payer charged in the last 1/32 month counts
+(`ChargeWindow.IsCurrent`: within the last 16 engine ticks). That is the base the ledger books from, so a settled
+booking window's density booked equals the estimate, and it is restated at the payer's rates **now**, so a moved slider
+moves the estimate at once (within the 10-frame refresh) and the next charge leaves it where it is. The engine, like
+vanilla, skips a payer with no untaxed income and never resets its `m_AverageTaxPaid`: a household that stopped
+earning keeps its last payment for good. The earlier base, paid over the rate charged (`PaymentRate`, now gone),
+counted those payers and ran about 1.65x the booking in game. A payer with no income at its charge, or a loss, adds
+nothing; one the density tax took to a 0 rate still has its charged income as its base, so its subsidy shows. A negative estimate is drawn as vanilla draws a negative amount. While the engine doesn't
 charge, every estimate is 0. Recomputed every ~2 s while the panel is open and density taxes are on, and within 10
 frames of a rate change (a dragged slider changes it every frame). The older forms (`EstimateFromBase`,
 `EstimateExtraRevenue`, the city's rate on every payer's base) are kept only for their tests.
