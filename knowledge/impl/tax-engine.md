@@ -87,20 +87,27 @@ charges beyond that are booked on top.
 - **Per charge** (`PayTaxJob`): the tax at the stored rate, at the rate without density tax
   (`EffectiveTaxRate.Compute(base, 0, districtDelta, …)`) and at the charged rate split into the **district part**
   (without density − stored) and the **density part** (charged − without density), `DensityTaxBooking.Parts`
-  (`Mod/Logic/`, tested). A charge with both parts 0 queues nothing; any other queues a `TaxBookingEvent` on its zone
-  (office detection as vanilla's).
+  (`Mod/Logic/`, tested). Each chunk sums its charges per zone (office detection as vanilla's) and queues one
+  `TaxBookingEvent` per zone it charged: the district parts, the density parts of each sign, and the tax at the stored
+  rates (only for the log's scale check, never booked).
 - **Accumulation**: the next engine update drains the queue into `TaxEngineSystem.Ledger` (`TaxBookingLedger`,
   `Mod/Logic/`, tested) under that tick's update frame, replacing what the frame booked a month earlier. Each charge is
   kept × 32 (`DensityTaxBooking.Monthly`, vanilla's `kUpdatesPerDay`; the scale of `m_AverageTaxPaid` and of the
   taxable-income statistic), and every payer is charged once per 16 frames, so the sum over the 16 frames is the monthly
   amount. Density parts of each sign are summed apart. The ledger clears on load and while the engine isn't charging,
-  and fills over the first 1/32 month after a load.
+  and fills over the first 1/32 month after a load. The scale is checked in the tests against both vanilla's estimate
+  (rate × the taxable-income statistic, `untaxed × 32` per charge) and the Taxation tab's density estimate
+  (`TaxBookingScaleTests`).
 - **Booking**: `TaxBookingSystem` (`Mod/Systems/`), `UpdateAfter<…, CityServiceBudgetSystem>` in ModificationEnd (as
   `DistrictServiceUpkeepSystem`), adds the ledger to the arrays vanilla just computed (`GetIncomeArray` /
   `GetExpenseArray`, then `AddArrayReader`), per zone by `DensityTaxBooking.BookZone`: the district part on the zone's
   tax income (should it go below 0, the rest is subsidy), a positive density part on tax income, a negative one on the
   zone's subsidy expense. It adds once per vanilla update (`CityServiceBudgetSystem.LastSystemVersion`) and writes
   nothing while the ledger is empty, so **no density tax and no override is vanilla's numbers, bit for bit**.
+- **Log**: while the engine charges, one Mod.log line per 1/32 month (`TaxBooking (monthly):`, `TaxBookingLog`), per
+  zone: vanilla's income and subsidy, the engine's charges at vanilla rates with `scale` = vanilla net / that (about 1
+  when the ledger's scale is vanilla's), the district and density parts booked, and the result. Compare the density
+  part with the Taxation tab's estimate there rather than the Budget row, which drifts with the city.
 - **What it shows**: the Budget tab reads vanilla's arrays and the Income/Expense statistics `BudgetApplySystem`
   records from them, so the zone's tax income row and chart line include the density and district parts and a negative
   density tax appears under Subsidies (Residential subsidies, …). `CityServiceBudgetSystem.GetTotalTaxIncome` (a

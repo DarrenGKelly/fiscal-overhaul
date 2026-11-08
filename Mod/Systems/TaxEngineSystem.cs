@@ -22,12 +22,18 @@ using UnityEngine.Scripting;
 
 namespace FiscalOverhaul
 {
-    /// <summary>One charge's parts beyond vanilla (<see cref="DensityTaxBooking.Parts"/>), per charge, on its zone's line.</summary>
+    /// <summary>
+    /// One chunk's charges on one zone's line, per charge (not yet monthly): the sums of their parts beyond vanilla
+    /// (<see cref="DensityTaxBooking.Parts"/>; density by sign) and of their tax at the vanilla rate (for the log's check
+    /// of the scale against vanilla's estimate).
+    /// </summary>
     public struct TaxBookingEvent
     {
         public byte m_Zone;
-        public int m_District;
-        public int m_Density;
+        public long m_District;
+        public long m_DensityPositive;
+        public long m_DensityNegative;
+        public long m_Vanilla;
     }
 
     /// <summary>
@@ -244,7 +250,7 @@ namespace FiscalOverhaul
             }
             Ledger.BeginFrame(m_BookingFrame);
             while (m_BookingQueue.TryDequeue(out TaxBookingEvent e))
-                Ledger.Add(m_BookingFrame, (TaxZone)e.m_Zone, e.m_District, e.m_Density);
+                Ledger.AddSums(m_BookingFrame, (TaxZone)e.m_Zone, e.m_District, e.m_DensityPositive, e.m_DensityNegative, e.m_Vanilla);
             m_BookingFrame = -1;
         }
 
@@ -332,19 +338,23 @@ namespace FiscalOverhaul
                 withoutDensity = EffectiveTaxRate.Compute(taxPayer.m_AverageTaxRate, 0, incomeDelta, m_RateLimits.x, m_RateLimits.y, taxPayer.m_UntaxedIncome);
                 return EffectiveTaxRate.Compute(taxPayer.m_AverageTaxRate, densityTax, incomeDelta, m_RateLimits.x, m_RateLimits.y, taxPayer.m_UntaxedIncome);
             }
-            private void PayTax(ref TaxPayer taxPayer, Entity entity, int chargedRate, int withoutDensityRate, DynamicBuffer<Resources> resources, IncomeSource taxType, NativeQueue<StatisticsEvent>.ParallelWriter statisticsEventQueue)
+            private void PayTax(ref TaxPayer taxPayer, Entity entity, int chargedRate, int withoutDensityRate, DynamicBuffer<Resources> resources, IncomeSource taxType, NativeQueue<StatisticsEvent>.ParallelWriter statisticsEventQueue,
+                out TaxZone zone, out int vanillaTax, out int district, out int density)
             {
                 // Vanilla: int tax = GetTax(taxPayer); here at the charged rate. The stored rate is not changed.
                 TaxPayer charged = taxPayer;
                 charged.m_AverageTaxRate = chargedRate;
                 int tax = TaxSystem.GetTax(charged);
                 // The city's side: what this charge adds beyond vanilla's estimate (which pays the city at the stored rate).
-                int district = 0, density = 0;
+                district = 0;
+                density = 0;
+                vanillaTax = tax;
                 if (chargedRate != taxPayer.m_AverageTaxRate || withoutDensityRate != taxPayer.m_AverageTaxRate)
                 {
                     TaxPayer noDensity = taxPayer;
                     noDensity.m_AverageTaxRate = withoutDensityRate;
-                    DensityTaxBooking.Parts(TaxSystem.GetTax(taxPayer), TaxSystem.GetTax(noDensity), tax, out district, out density);
+                    vanillaTax = TaxSystem.GetTax(taxPayer);
+                    DensityTaxBooking.Parts(vanillaTax, TaxSystem.GetTax(noDensity), tax, out district, out density);
                 }
                 int num = (int)math.round(m_PaidMultiplier * (float)tax);
                 EconomyUtils.AddResources(Resource.Money, -num, resources);
@@ -396,13 +406,9 @@ namespace FiscalOverhaul
                         m_Parameter = parameter2
                     });
                 }
-                if (district != 0 || density != 0)
-                {
-                    TaxZone zone = taxType == IncomeSource.TaxResidential ? TaxZone.Residential
-                        : taxType == IncomeSource.TaxCommercial ? TaxZone.Commercial
-                        : taxType == IncomeSource.TaxOffice ? TaxZone.Office : TaxZone.Industrial;
-                    m_BookingQueue.Enqueue(new TaxBookingEvent { m_Zone = (byte)zone, m_District = district, m_Density = density });
-                }
+                zone = taxType == IncomeSource.TaxResidential ? TaxZone.Residential
+                    : taxType == IncomeSource.TaxCommercial ? TaxZone.Commercial
+                    : taxType == IncomeSource.TaxOffice ? TaxZone.Office : TaxZone.Industrial;
                 taxPayer.m_UntaxedIncome = 0;
                 taxPayer.m_AverageTaxPaid = tax * TaxSystem.kUpdatesPerDay;
             }
@@ -418,6 +424,8 @@ namespace FiscalOverhaul
                 BufferAccessor<Resources> bufferAccessor = chunk.GetBufferAccessor(ref m_ResourceType);
                 bool hasRenter = chunk.Has(ref m_RenterType);
                 NativeArray<PropertyRenter> renters = hasRenter ? chunk.GetNativeArray(ref m_RenterType) : default;
+                // The chunk's sums for the city's side, per zone (a chunk of companies can hold both Industrial and Office).
+                var sums = new NativeArray<long>(TaxBookingLedger.Zones * 4, Allocator.Temp);
                 for (int i = 0; i < nativeArray.Length; i++)
                 {
                     TaxPayer taxPayer = nativeArray2[i];
@@ -426,10 +434,30 @@ namespace FiscalOverhaul
                     {
                         Entity property = hasRenter ? renters[i].m_Property : Entity.Null;
                         int rate = ChargedRate(taxPayer, nativeArray[i], hasRenter && property != Entity.Null, property, out int withoutDensity);
-                        PayTax(ref taxPayer, nativeArray[i], rate, withoutDensity, resources, m_Type, m_StatisticsEventQueue);
+                        PayTax(ref taxPayer, nativeArray[i], rate, withoutDensity, resources, m_Type, m_StatisticsEventQueue,
+                            out TaxZone zone, out int vanillaTax, out int district, out int density);
                         nativeArray2[i] = taxPayer;
+                        int s = (int)zone * 4;
+                        sums[s] += district;
+                        if (density > 0) sums[s + 1] += density;
+                        else sums[s + 2] += density;
+                        sums[s + 3] += vanillaTax;
                     }
                 }
+                for (int z = 0; z < TaxBookingLedger.Zones; z++)
+                {
+                    int s = z * 4;
+                    if (sums[s] == 0 && sums[s + 1] == 0 && sums[s + 2] == 0 && sums[s + 3] == 0) continue;
+                    m_BookingQueue.Enqueue(new TaxBookingEvent
+                    {
+                        m_Zone = (byte)z,
+                        m_District = sums[s],
+                        m_DensityPositive = sums[s + 1],
+                        m_DensityNegative = sums[s + 2],
+                        m_Vanilla = sums[s + 3],
+                    });
+                }
+                sums.Dispose();
             }
         }
     }

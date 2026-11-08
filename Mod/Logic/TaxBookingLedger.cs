@@ -18,6 +18,7 @@ namespace FiscalOverhaul.Logic
         private readonly long[] m_District = new long[Frames * Zones];
         private readonly long[] m_DensityPositive = new long[Frames * Zones];
         private readonly long[] m_DensityNegative = new long[Frames * Zones];
+        private readonly long[] m_Vanilla = new long[Frames * Zones];
 
         /// <summary>Starts <paramref name="frame"/>'s tick: drops what that frame's previous tick booked.</summary>
         public void BeginFrame(int frame)
@@ -28,6 +29,7 @@ namespace FiscalOverhaul.Logic
                 m_District[f * Zones + z] = 0;
                 m_DensityPositive[f * Zones + z] = 0;
                 m_DensityNegative[f * Zones + z] = 0;
+                m_Vanilla[f * Zones + z] = 0;
             }
         }
 
@@ -38,6 +40,31 @@ namespace FiscalOverhaul.Logic
             m_District[i] += DensityTaxBooking.Monthly(district);
             if (density > 0) m_DensityPositive[i] += DensityTaxBooking.Monthly(density);
             else m_DensityNegative[i] += DensityTaxBooking.Monthly(density);
+        }
+
+        /// <summary>
+        /// Adds a group of charges' sums (per charge, as the engine's jobs queue them per chunk): the district parts, the
+        /// positive and the negative density parts, and their tax at the vanilla rate (logged against vanilla's estimate,
+        /// never booked).
+        /// </summary>
+        public void AddSums(int frame, TaxZone zone, long district, long densityPositive, long densityNegative, long vanillaTax)
+        {
+            int i = Wrap(frame) * Zones + (int)zone;
+            m_District[i] += district * DensityTaxBooking.ChargesPerMonth;
+            m_DensityPositive[i] += densityPositive * DensityTaxBooking.ChargesPerMonth;
+            m_DensityNegative[i] += densityNegative * DensityTaxBooking.ChargesPerMonth;
+            m_Vanilla[i] += vanillaTax * DensityTaxBooking.ChargesPerMonth;
+        }
+
+        /// <summary>
+        /// The zone's monthly tax at the payers' vanilla rates, on the ledger's scale: the engine's own measure of what
+        /// vanilla's estimate pays (TaxResidential − SubsidyResidential, …), to check the scale against it.
+        /// </summary>
+        public long VanillaMonthly(TaxZone zone)
+        {
+            long sum = 0;
+            for (int f = 0; f < Frames; f++) sum += m_Vanilla[f * Zones + (int)zone];
+            return sum;
         }
 
         /// <summary>The zone's monthly parts: the district part and the density parts of each sign (negative ≤ 0).</summary>
@@ -53,7 +80,7 @@ namespace FiscalOverhaul.Logic
             }
         }
 
-        /// <summary>True when nothing is booked beyond vanilla: the booking leaves vanilla's numbers alone.</summary>
+        /// <summary>True when nothing is booked beyond vanilla (the vanilla sums don't count): the booking leaves vanilla's numbers alone.</summary>
         public bool IsEmpty
         {
             get
@@ -70,6 +97,7 @@ namespace FiscalOverhaul.Logic
             Array.Clear(m_District, 0, m_District.Length);
             Array.Clear(m_DensityPositive, 0, m_DensityPositive.Length);
             Array.Clear(m_DensityNegative, 0, m_DensityNegative.Length);
+            Array.Clear(m_Vanilla, 0, m_Vanilla.Length);
         }
 
         private static int Wrap(int frame) => ((frame % Frames) + Frames) % Frames;
