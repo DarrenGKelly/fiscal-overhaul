@@ -1,33 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { densitySliderValues, offsetFromSlider } from "./density-slider";
+import { DENSITY_RATE_RANGE, densitySliderValues, rateFromSlider } from "./density-slider";
 
 describe("densitySliderValues", () => {
-  it("draws the zone rate plus the offset on a zone rate ± max slider", () => {
-    expect(densitySliderValues(2, 5, 11, true)).toEqual({ rate: 13, min: 6, max: 16 });
-    expect(densitySliderValues(-5, 5, 11, true)).toEqual({ rate: 6, min: 6, max: 16 });
-    expect(densitySliderValues(0, 5, 11, true)).not.toEqual({ rate: 0, min: -5, max: 5 });
+  it("shows the density tax's own rate, never the zone rate plus it", () => {
+    expect(densitySliderValues(3).rate).toBe(3);
+    expect(densitySliderValues(0).rate).toBe(0);
+    expect(densitySliderValues(3).rate).not.toBe(14); // a zone rate of 11 + 3
   });
-  it("draws the bare offset when switched off or with no zone rate yet", () => {
-    expect(densitySliderValues(2, 5, 11, false)).toEqual({ rate: 2, min: -5, max: 5 });
-    expect(densitySliderValues(2, 5, null, true)).toEqual({ rate: 2, min: -5, max: 5 });
-    expect(densitySliderValues(2, 5, undefined, true)).toEqual({ rate: 2, min: -5, max: 5 });
+  it("spans the one range constant", () => {
+    expect(densitySliderValues(3)).toEqual({ rate: 3, min: DENSITY_RATE_RANGE.min, max: DENSITY_RATE_RANGE.max });
+    expect(densitySliderValues(3, { min: -5, max: 10 })).toEqual({ rate: 3, min: -5, max: 10 });
+    expect(densitySliderValues(3, { min: -5, max: 10 })).not.toEqual({ rate: 3, min: -5, max: 5 });
   });
 });
 
-describe("offsetFromSlider", () => {
-  it("is the inverse of densitySliderValues", () => {
-    for (const absolute of [true, false])
-      for (let o = -5; o <= 5; o++) expect(offsetFromSlider(densitySliderValues(o, 5, 11, absolute).rate, 5, 11, absolute)).toBe(o);
+describe("rateFromSlider", () => {
+  it("is the inverse of densitySliderValues across the range", () => {
+    for (let r = DENSITY_RATE_RANGE.min; r <= DENSITY_RATE_RANGE.max; r++) expect(rateFromSlider(densitySliderValues(r).rate)).toBe(r);
   });
-  it("backs the zone rate off, rounds and clamps", () => {
-    expect(offsetFromSlider(13, 5, 11, true)).toBe(2);
-    expect(offsetFromSlider(13.6, 5, 11, true)).toBe(3);
-    expect(offsetFromSlider(30, 5, 11, true)).toBe(5);
-    expect(offsetFromSlider(0, 5, 11, true)).toBe(-5);
-    expect(offsetFromSlider(13, 5, 11, false)).toBe(5);
-    expect(offsetFromSlider(13, 5, 11, true)).not.toBe(13);
+  it("rounds and keeps the rate in the range", () => {
+    expect(rateFromSlider(2.6)).toBe(3);
+    expect(rateFromSlider(2.6)).not.toBe(2.6);
+    expect(rateFromSlider(30)).toBe(DENSITY_RATE_RANGE.max);
+    expect(rateFromSlider(-30)).toBe(DENSITY_RATE_RANGE.min);
+    expect(rateFromSlider(8, { min: -5, max: 10 })).toBe(8);
   });
   it("never stores -0", () => {
-    expect(Object.is(offsetFromSlider(10.6, 5, 11, true), 0)).toBe(true);
+    expect(Object.is(rateFromSlider(-0.4), 0)).toBe(true);
   });
 });

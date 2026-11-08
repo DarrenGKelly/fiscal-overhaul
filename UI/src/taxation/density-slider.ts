@@ -1,35 +1,22 @@
-// The mapping between a density row's offset (percentage points the building pays on top of its own rate, ±maxOffset)
-// and what its vanilla TaxSlider draws. The rows sit in the same columns as vanilla's education/resource rows, which
-// show an absolute rate ("11 %"), so the density row shows the zone rate plus its offset on a slider spanning
-// zone rate ± maxOffset. One switch: false draws the bare offset ("2 %") on a -max..+max slider instead.
+// What a density row's vanilla TaxSlider draws. Density tax is its own tax, charged on top of income tax (the zone and
+// education/resource rates), so the row shows only its own rate ("3 %", "0 %" by default), never the zone rate plus it.
 
-/** Provisional: draw the zone rate + offset, like the education/resource rows draw their absolute rate. */
-export const DENSITY_ROW_ABSOLUTE_RATE = true;
+/** The density rate slider's range, in percentage points. The C# side clamps what it stores to its own cap. */
+export const DENSITY_RATE_RANGE = { min: -5, max: 5 };
 
 export interface DensitySliderValues {
-  /** The value the slider's thumb and % column show. */
+  /** The value the slider's thumb and % column show: the density tax rate itself. */
   rate: number;
   min: number;
   max: number;
 }
 
-function baseRate(zoneRate: number | null | undefined, absolute: boolean): number {
-  return absolute && zoneRate != null ? zoneRate : 0;
+/** What a density row's TaxSlider draws for its density tax rate. */
+export function densitySliderValues(rate: number, range = DENSITY_RATE_RANGE): DensitySliderValues {
+  return { rate, min: range.min, max: range.max };
 }
 
-/** What a density row's TaxSlider draws for an offset. A null zone rate (not bound yet) draws the bare offset. */
-export function densitySliderValues(
-  offset: number,
-  maxOffset: number,
-  zoneRate: number | null | undefined,
-  absolute = DENSITY_ROW_ABSOLUTE_RATE,
-): DensitySliderValues {
-  const base = baseRate(zoneRate, absolute);
-  return { rate: base + offset, min: base - maxOffset, max: base + maxOffset };
-}
-
-/** The offset to store for a value the slider reports: back off the base, round (the C# trigger takes an int), clamp to ±maxOffset. */
-export function offsetFromSlider(value: number, maxOffset: number, zoneRate: number | null | undefined, absolute = DENSITY_ROW_ABSOLUTE_RATE): number {
-  const offset = Math.round(value - baseRate(zoneRate, absolute));
-  return Math.max(-maxOffset, Math.min(maxOffset, offset)) || 0;
+/** The rate to store for a value the slider reports: rounded (the C# trigger takes an int) and kept in the range. */
+export function rateFromSlider(value: number, range = DENSITY_RATE_RANGE): number {
+  return Math.max(range.min, Math.min(range.max, Math.round(value))) || 0;
 }

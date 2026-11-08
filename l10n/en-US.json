@@ -27,7 +27,7 @@
   "FiscalOverhaul.UI.AxisMonths": "-{COUNT} mo",
   "FiscalOverhaul.UI.AxisMonthsWeeks": "-{MONTHS} mo {WEEKS} wk",
   "FiscalOverhaul.UI.AxisYears": "-{COUNT} yr",
-  "FiscalOverhaul.UI.SectionDensity": "Density",
+  "FiscalOverhaul.UI.SectionDensity": "Density tax",
   "FiscalOverhaul.UI.SectionEducation": "Education",
   "FiscalOverhaul.UI.SectionResources": "Resources",
   "FiscalOverhaul.UI.NoOffsets": "no offsets",

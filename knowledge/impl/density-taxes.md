@@ -78,7 +78,7 @@ the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells
 
 **Taxation tab layout.** With density taxes on, the wrapper around each vanilla `TaxationGroup`
 (`UI/src/taxation/tax-sections-view.tsx`) draws collapsible sections under the zone's main slider, each a header row
-with an arrow (and an optional summary) over its rows: **Density** first (one row per density the zone has,
+with an arrow (and an optional summary) over its rows: **Density tax** first (one row per density the zone has,
 `density-rows.tsx`, with a note that offsets change revenue only), then vanilla's own sub-rows, re-hosted as
 vanilla `TaxationItem`s from `taxation.areaResources$` (**Education** for Residential, **Resources** for the other
 zones). All start collapsed; the open ones are kept for the UI session (`sectionExpandState`, not reset when the panel
@@ -97,11 +97,12 @@ same `ActiveFocusDiv` wrapper (`game-ui/common/focus/focus-div.tsx`), the live `
 `TaxSlider`, so the icon, title, % column, slider and estimate pill sit in the same columns as the rows below
 (`density-rows.module.scss` holds copies of those rules, used only if a patch moves the module). The icon is the
 zoning toolbar's (`Media/Game/Icons/Zone*.svg` via `densityIcon` in `density-icons.ts`; an empty box where the game
-has none, e.g. Commercial/Office medium). Like the education rows the row shows an **absolute rate**: the zone rate
-(`taxation.areaTaxRates$`) plus the offset, on a slider spanning zone rate ± `maxOffset`; the slider still sets the
-offset (`densitySliderValues`/`offsetFromSlider` in `density-slider.ts`, switch `DENSITY_ROW_ABSOLUTE_RATE`; off
-draws the bare offset on −max..+max). The estimate is the offset's extra revenue, so it is a neutral ¢0 (no "+" pill,
-vanilla `NumberField`'s own rule for 0) until an offset is set.
+has none, e.g. Commercial/Office medium). **Density tax is its own tax**, charged on top of income tax (the zone and
+education/resource rates; a user decision), so the row shows only its own rate ("3 %", "0 %" by default),
+never the zone rate plus it, and the section header reads "Density tax". The slider's range is one constant,
+`DENSITY_RATE_RANGE` in `density-slider.ts` (with `densitySliderValues`/`rateFromSlider`, which rounds and clamps what
+the slider reports); the C# side clamps what it stores to its own cap. The estimate is the density tax's revenue, so
+it is a neutral ¢0 (no "+" pill, vanilla `NumberField`'s own rule for 0) until a rate is set.
 
 **Totals include the offsets** (a user decision). Each zone group's total (its header slider's income) and
 ESTIMATED TOTAL add the sum of the zone's (all zones') row `estimate`s; negative offsets lower them. Vanilla computes
