@@ -128,8 +128,9 @@ copy and its headers, then add the version to `KnownGameVersions`; do the same f
 other version stays blocked unless forced.
 
 `Setting.EnableSimulationChanges` (default on, `FeatureGates.SimulationChangesDefault`) and
-`Setting.RunOnUntestedGameVersion` (default off) sit in Options > Features; `Mod.ApplyFeatureSwitches` calls
-`TaxEngineSystem.ApplyMode` on every change.
+`Setting.RunOnUntestedGameVersion` (default off, greyed out while the master is off) sit in Options > Simulation
+changes, with Density taxes ([the Options layout](district-service-budgets.md#the-master-switch)); `Mod.ApplyFeatureSwitches`
+calls `TaxEngineSystem.ApplyMode` on every change.
 
 ## Classifying a building
 

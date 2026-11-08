@@ -16,7 +16,7 @@ The docs are an [OKF](knowledge/knowledge-format.md) bundle: start from [knowled
 | A UI panel, tab or vanilla UI change | [cs2-ui-modding.md § Reusing and replacing vanilla UI](knowledge/cs2-ui-modding.md#reusing-and-replacing-vanilla-ui) (TODO main session: a step-by-step recipe); the Budget tab as the example: [impl/budget-chart.md](knowledge/impl/budget-chart.md) |
 | A C# simulation or UI system | [cs2-ui-modding.md § Scheduling simulation systems](knowledge/cs2-ui-modding.md#scheduling-simulation-systems) (TODO main session: a step-by-step recipe); the example: [impl/tax-engine.md](knowledge/impl/tax-engine.md) |
 | Logic that needs tests | [Pure logic](knowledge/patterns.md#pure-logic), and [testing.md](knowledge/testing.md#the-rule) |
-| A setting | `Mod/Setting.cs` (TODO main session: a recipe); its Options text goes in `l10n/en-US.json` |
+| A setting | `Mod/Setting.cs` (TODO main session: a recipe): a UI-only switch in Features, a simulation-changing one in Simulation changes, greyed out by the master ([the Options layout](knowledge/impl/district-service-budgets.md#the-master-switch)); its Options text goes in `l10n/en-US.json` |
 | Player-facing text, or a language | [cs2-ui-modding.md § Localization](knowledge/cs2-ui-modding.md#localization): a key in `l10n/en-US.json`, read with `localize()` |
 | A tool under `tools/` | [repo-structure.md § tools/](knowledge/repo-structure.md#tools), with its `test-<name>` twin ([testing.md § Tool tests](knowledge/testing.md#tool-tests)) |
 | A knowledge doc | [knowledge-format.md](knowledge/knowledge-format.md), then `python tools/okf.py index` |
@@ -58,12 +58,14 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   `setDensityTax`, `districtServiceBudgetEnabled`, `districtServiceBudgets`, `setDistrictServiceBudget`, `taxEngineWarning`, `taxRates`, `setTaxRate`, `resetDistrictTaxRates`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
-- **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
-  `EnableDensityTaxes`, `EnableDistrictBudget`, `EnableDistrictServiceBudget`): off is vanilla behaviour and vanilla UI;
-  the stored offsets, overrides and district histories are kept. The chart and district recording default on, density
-  taxes and district service budgets (BETA) default off (`FeatureGates`). The master **Simulation changes** switch
-  (`EnableSimulationChanges`, default on) turns every feature that changes the vanilla simulation (demand, happiness,
-  service efficiency/upkeep, taxes) off at once; every such feature, the tax engine included, gates on it first.
+- **Feature switches:** Options > Fiscal Overhaul turns each feature off live: off is vanilla behaviour and vanilla UI;
+  the stored offsets, overrides and district histories are kept. Three groups: **Features**, the core that only changes
+  the UI or reads the game (`Setting.EnableBudgetChart`, `EnableDistrictBudget`; both default on); **Simulation
+  changes**, the master `EnableSimulationChanges` (default on) first, then every switch that changes the vanilla
+  simulation (`EnableDensityTaxes`, `EnableDistrictServiceBudget`, both BETA and default off, and
+  `RunOnUntestedGameVersion`), greyed out while the master is off; **Reset**, the reset buttons. Master off turns every
+  simulation change (demand, happiness, home choice, service efficiency/upkeep, taxes) off at once; every such feature,
+  the tax engine included, gates on it first (`FeatureGates`).
 - **District service budgets (BETA):** an absolute % per (service, district) in the save; `DistrictServiceBudgetSystem`
   rewrites service efficiency after vanilla's pass and `DistrictServiceUpkeepSystem` overwrites the Service Upkeep
   expense. The Services tab (`UI/src/services/`) adds the shared district selector and, in a district view, the area's
