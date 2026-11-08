@@ -92,10 +92,13 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   wrapper too: extending `TaxSlider`/`NumberField` reaches the ones `TaxationGroup`/`TaxationPage` draw. To change one
   value a vanilla component computes itself, wrap its parent in a React context provider and let the extended child
   read it (the Taxation totals: [impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
+  To hide part of a vanilla component, add a class to its live `*.module.scss` `classes` object (from `getModule`),
+  which it reads on every render, and restore it when off: the Taxation tab hides `TaxationGroup`'s own expander this
+  way ([impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
   It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
   the Options switch (a bool binding) is off.
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
-  `BudgetItemDetail`, `TaxSlider`, and for the Services tab `Section`, `SliderItem`, `BudgetItem`, `Button`,
+  `BudgetItemDetail`, `TaxSlider`, `TaxationItem`, and for the Services tab `Section`, `SliderItem`, `BudgetItem`, `Button`,
   `useLegacyInterfaceActive`, the service detail's classes) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.
 - **Scroll bars:** Gameface draws none for `overflow: auto` (it scrolls by wheel, with no sign there is more). Wrap the
