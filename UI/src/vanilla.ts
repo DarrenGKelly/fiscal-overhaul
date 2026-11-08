@@ -42,3 +42,31 @@ export const TAXATION_PAGE_PATH = `${ECONOMY}/taxation-page/taxation-page.tsx`;
 export const TAX_SLIDER_PATH = `${ECONOMY}/taxation-page/tax-slider.tsx`;
 /** Extended for ESTIMATED TOTAL, which TaxationPage draws with a NumberField of the `taxIncome` binding. */
 export const MONEY_FIELD_PATH = `${ECONOMY}/components/money-field/money-field.tsx`;
+
+// Services tab (UI/src/services/service-page.tsx).
+const SERVICE_DETAIL = `${ECONOMY}/service-page/service-detail`;
+/** Extended: the district selector above the vanilla page (no props). */
+export const SERVICE_PAGE_PATH = `${ECONOMY}/service-page/service-page.tsx`;
+/** Extended: props { service: Entity, className? }; in a district view our own detail is drawn instead. */
+export const SERVICE_DETAIL_PATH = `${SERVICE_DETAIL}/service-detail.tsx`;
+
+/** The service detail's class names: header, title, resetButton, scrollable, content, adjustment, space, budget, budgetTitle, hint. */
+export const serviceDetailClasses: Record<string, string> | undefined = getModule(`${SERVICE_DETAIL}/service-detail.module.scss`, "classes");
+
+/** Panel section (the detail's frame): props { header?, className?, theme?, focusKey?, children }. */
+export const Section: any = getModule("game-ui/common/section/section.tsx", "Section");
+
+/**
+ * The budget/fee slider row: props { identifier, label, value, min, max, gradient, locked, onValueChange }.
+ * Vanilla BudgetSliderItem draws it with min 50, max 150 and calls setServiceBudget; ours calls the district trigger.
+ */
+export const SliderItem: any = getModule(`${SERVICE_DETAIL}/slider-item/slider-item.tsx`, "SliderItem");
+
+/** A label + money row: props { identifier: { type }, label, value }; type 5 = the service's upkeep. */
+export const BudgetItem: any = getModule(`${SERVICE_DETAIL}/budget-item/budget-item.tsx`, "BudgetItem");
+
+/** Vanilla button: props { className?, disabled?, selected?, onSelect?, children } (the detail's Reset is one). */
+export const Button: any = getModule("game-ui/common/input/button/button.tsx", "Button");
+
+/** Whether the legacy interface style is on: vanilla BudgetSliderItem picks its slider gradient by it. */
+export const useLegacyInterfaceActive: () => boolean = getModule("game-ui/common/hooks/use-legacy-interface.tsx", "useLegacyInterfaceActive");
