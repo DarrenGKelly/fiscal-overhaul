@@ -1,54 +1,44 @@
 import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
-import { useCallback, useState } from "react";
-import { densityTaxes$, densityTaxesEnabled$, DensityTaxCell, playSound, setDensityTax } from "bindings";
-import { SOUNDS } from "sounds";
+import { useCallback } from "react";
+import { densityTaxes$, DensityTaxCell, setDensityTax } from "bindings";
 import { localize, Translate } from "l10n";
 import { TaxSlider } from "vanilla";
-import { arrowFor, cellsForArea, densityLabel, offsetSummary, payersSuffix } from "./density";
+import { cellsForArea, densityLabel, offsetSummary } from "./density";
 import styles from "./density-rows.module.scss";
 
 interface AreaTypeLike {
   index: number;
-  id: string;
   locked: boolean;
 }
 
+/** The density cells of a zone (none for the city, a locked zone, or no data yet). The sections are drawn only while density taxes are on. */
+export function useDensityCells(areaType: AreaTypeLike): { cells: DensityTaxCell[]; max: number } {
+  const data = useValue(densityTaxes$);
+  return { cells: cellsForArea(data?.cells, areaType.index, areaType.locked, true), max: data?.maxOffset ?? 0 };
+}
+
+/** The Density section's header summary: "no offsets", "2 offsets set". */
+export const DensitySummary = ({ areaType }: { areaType: AreaTypeLike }) => {
+  const { translate } = useLocalization();
+  const { cells } = useDensityCells(areaType);
+  return <>{offsetSummary(cells.filter((c) => c.offset !== 0).length, translate)}</>;
+};
+
 /**
- * Rows added under each vanilla tax group: one slider per density the zone has, setting an offset in
- * percentage points on top of whatever rate the building already pays. Collapsed by default like the
- * vanilla education/product rows.
+ * The Density section's rows: one slider per density the zone has, setting an offset in percentage points on top of
+ * whatever rate the building already pays.
  */
 export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
   const { translate } = useLocalization();
-  const data = useValue(densityTaxes$);
-  const enabled = useValue(densityTaxesEnabled$);
-  const [open, setOpen] = useState(false);
-  const toggle = useCallback(() => {
-    playSound(SOUNDS.expandRows);
-    setOpen((o) => !o);
-  }, []);
-
-  const cells = cellsForArea(data?.cells, areaType.index, areaType.locked, enabled);
-  if (!data || cells.length === 0) return null;
-  const active = cells.filter((c) => c.offset !== 0).length;
-
+  const { cells, max } = useDensityCells(areaType);
   return (
-    <div className={styles.densityRows}>
-      <div className={styles.header} onClick={toggle}>
-        <img className={styles.arrow} src={arrowFor(open)} />
-        <div className={styles.title}>{localize(translate, "ByDensity")}</div>
-        <div className={styles.summary}>{offsetSummary(active, translate)}</div>
-      </div>
-      {open && (
-        <>
-          {cells.map((cell) => (
-            <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={data.maxOffset} translate={translate} />
-          ))}
-          <div className={styles.note}>{localize(translate, "DensityNote")}</div>
-        </>
-      )}
-    </div>
+    <>
+      {cells.map((cell) => (
+        <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={max} translate={translate} />
+      ))}
+      <div className={styles.note}>{localize(translate, "DensityNote")}</div>
+    </>
   );
 };
 
@@ -57,10 +47,7 @@ const DensityRow = ({ cell, max, translate }: { cell: DensityTaxCell; max: numbe
   const onChange = useCallback((v: number) => setDensityTax(cell.zone, cell.density, Math.round(v)), [cell.zone, cell.density]);
   return (
     <div className={styles.row}>
-      <div className={styles.rowTitle}>
-        {densityLabel(cell.density, translate)}
-        <span className={styles.count}>{payersSuffix(cell.payers, translate)}</span>
-      </div>
+      <div className={styles.rowTitle}>{densityLabel(cell.density, translate)}</div>
       <TaxSlider min={-max} max={max} rate={cell.offset} income={cell.estimate} className={styles.slider} onValueChanged={onChange} />
     </div>
   );
