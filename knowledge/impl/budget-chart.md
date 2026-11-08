@@ -1,13 +1,15 @@
 ---
 type: Implementation
 title: Budget tab line chart
-description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
+description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets and the per-service upkeep split are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
 resource:
   - Mod/Systems/BudgetHistoryUISystem.cs
   - Mod/Logic/BudgetHistoryMath.cs
   - Mod/Logic/FeatureGates.cs
   - Mod/Systems/DistrictBudgetSystem.cs
   - Mod/Logic/DistrictBudgetMath.cs
+  - Mod/Systems/ServiceUpkeepSystem.cs
+  - Mod/Logic/ServiceUpkeepSplit.cs
   - UI/src/budget
   - UI/src/chart
 ---
@@ -64,7 +66,7 @@ weights:
 | Garbage | `GarbageProducer.m_Garbage` |
 | Parking | parked cars x their lane's `ParkingLane.m_ParkingFee`, by the lane's district (`BorderDistrict` side, else the owner building's `CurrentDistrict`) |
 | Public transport | household residents |
-| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |
+| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |; the money part runs at the building's district % for its service when per-district service budgets apply (`ServiceUpkeepCost.EffectiveBudget`), else the city %; the per-service weights use the same %, so the children still sum to the district slot |
 
 **Taxes are not apportioned**: vanilla's tax rows are policy-blind estimates (taxable income x city rate), while
 `m_AverageTaxPaid` includes a district's Low Commercial Tax policy; scaling the paid sums keeps a discount in its
@@ -89,13 +91,43 @@ sums x the tax scale, so a Low Commercial Tax district shows its lower commercia
 the lane fees, and usage policies (water, electricity, ...) through usage. History starts when recording does (the
 first save with the mod), not with the city.
 
+## Per-service upkeep split
+
+Vanilla records Service Upkeep as one expense source (`ExpenseSource.ServiceUpkeep`, 5) and keeps no per-service
+series, so the mod records the split itself, as **weights** per service (by service prefab name, `ServiceColumns`), and
+splits the recorded row by them when it builds the history (`ServiceUpkeepSplit.Split`: largest-remainder rounding, so
+each point's parts are whole numbers summing exactly to the row as written; a negative or zero weight counts 0).
+
+- **Entire City**: `ServiceUpkeepSystem` (`GameSimulation`, every 8192 frames at offset 4096, halfway between the
+  statistics samples) records while **Enable budget chart** is on (`FeatureGates.RecordsServiceUpkeep`, panel open or
+  not). A sample is `CityServiceBudgetSystem.GetEstimatedServiceBudget(service)` per service prefab (the
+  `CollectedCityServiceBudgetData` entities); vanilla's ServiceUpkeep expense is exactly the sum of these. Each sample is
+  tagged with `CityStatisticsSystem.sampleCount`, the statistic sample filling at the time; at build time point `local`
+  of the ServiceUpkeep series reads the tag `ServiceUpkeepSplit.CityTag` (the live point uses the live estimates). Its
+  own `IDefaultSerializable` block (`ServiceUpkeepSave.WriteCity`: version, names, tagged samples, 36 months).
+- **A district**: `DistrictBudgetSystem`'s upkeep job also adds each building's upkeep under its service
+  (`ServiceObjectData.m_Service`) into per-area weights, kept beside each `DistrictHistory` as a `ServiceWeightHistory`
+  aligned with its newest sample (`ServiceUpkeepSplit.DistrictWeightIndex`); the split is of the district's own upkeep
+  slot, so networks stay out as they do there. Save **format 2** (`DistrictHistory.FormatVersion`,
+  `ServiceUpkeepSave.WriteDistricts`): version, service names, then per area its key, samples and weights. Format 1
+  saves (before the split) still load, with no weights: a district's split starts with the next sample.
+- **Gaps**: points before the first recorded weights have no split (`start`, the line starts there; months before the
+  mod recorded have none); after it, the last weights carry forward over gaps (recording switched off for a while), and
+  Now uses the latest weights. A service at 0 on every point with data is left out (`ServiceRows.Build`).
+- The save codec is pure (`ISaveReader`/`ISaveWriter`, wrapped round the game's `IReader`/`IWriter` by `SaveReader` /
+  `SaveWriter` in `ServiceUpkeepSystem.cs`, which are classes so a struct reader advances in one place), so the format 1
+  load is tested. A future per-district service budget % changes the weights only; `Split` takes any weights.
+
 ### Bindings
 
-`BudgetHistoryUISystem` publishes `districtBudgetEnabled` (recording on: `FeatureGates.RecordsDistrictBudget`) and
-`districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
+`BudgetHistoryUISystem` publishes `districtBudgetEnabled` (recording on: `FeatureGates.RecordsDistrictBudget`); the
+list, `districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name), is `DistrictListUISystem`'s, shared with the
+Services tab and `[]` while no district feature is on (`FeatureGates.PublishesDistrictList`). It takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
 unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and `nowIncome[14]` /
 `nowExpense[15]` (a district's live values, expenses positive; `null` for Entire City: every view writes the same
-properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0.
+properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0. Every view also
+writes `services`: `[{ name, start, values }]` (`FiscalOverhaul.ServiceUpkeep`, never null, `[]` without data), the
+Service Upkeep row split per service at the same points, in vanilla's Services tab order (`UIObjectData.m_Priority`).
 
 ### District selector
 
@@ -146,6 +178,12 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
   arrow (`EXPAND_SINGLE_SOURCE`, provisional); totals and the balance never do. A district view hides city-only
   sources, the `isCityOnlyItem` rule per source. The expanded set persists like the checked set; expanding plays
   `expand-panel`. Hovering a child row pops out its category's detail.
+- **Service rows** (`UI/src/budget/service-rows.ts`): the expense item holding Service Upkeep (a single source, so no
+  source rows) expands into one row per service in `history.services`, labelled with vanilla's Services tab name
+  `Services.NAME[<prefab name>]`, valued minus its newest point, keyed `expense:<itemId>:service:<name>`, coloured after
+  any source rows. Its line (`buildServiceSeries`) starts at the service's `start`: `SeriesDef`/`ChartLine` `start`,
+  which the chart skips when drawing, scaling (`shownValues`, `valueRange`), hit-testing (`nearestSeries`) and the span
+  stats.
 - **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All, opening on 3M (`DEFAULT_SPAN_MONTHS` / `BudgetHistoryMath.DefaultSpanMonths`). Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
@@ -176,4 +214,7 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
 `Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
 ranges, value and time ticks, hit-testing and formatting; `UI/src/budget/district-select.test.ts` the selector's
 options, when it shows, cycling, names, city-only rows and row values; `UI/src/budget/budget-rows.test.ts` the
-subcategory rows (keys, which categories expand, district filtering, colours, values and series).
+subcategory rows (keys, which categories expand, district filtering, colours, values and series);
+`Tests/ServiceUpkeepSplitTests.cs` the per-service split (exact sums, rounding, zero / one / negative inputs, gaps,
+alignment, the save codec and a format 1 load) and `UI/src/budget/service-rows.test.ts` the service rows and lines
+with a `start`.

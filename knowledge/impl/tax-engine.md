@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: Tax engine
-description: The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, happiness at each citizen's home rate (a copy of CitizenHappinessSystem's update), how buildings are classified, what it does not affect (demand), storage and the Taxation tab rows.
+description: The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, happiness at each citizen's home rate (a copy of CitizenHappinessSystem's update), demand through a rate view handed to the demand systems, how buildings are classified, storage and the Taxation tab rows.
 resource:
   - Mod/Systems/TaxEngineSystem.cs
   - Mod/Systems/TaxEngineGuard.cs
@@ -26,7 +26,7 @@ resource:
 
 User decisions (2026-11-03): density is **another adjustment** on top of the vanilla rate (zone rate + education/product
 offset), capped at ±5 points (`DensityTaxTable.MaxOffset`); district adjustments are relative to the city rate, capped
-±10. They change revenue and citizen happiness ([§ Happiness](#happiness)), not yet demand (a later slice). User decisions (2026-11-07): the mod
+±10. They change revenue, demand (through the [demand view](#demand)) and citizen happiness ([§ Happiness](#happiness)). User decisions (2026-11-07): the mod
 charges tax with its own copy of vanilla's charge (copying decompiled game code is fine: minimal copies, each with a
 header naming the source class, method, line range and game version); on an unknown game version it falls back to
 vanilla with a warning unless the player forces it; a "Simulation changes" master switch turns every simulation change
@@ -96,6 +96,41 @@ and `1.6.3f1` (the copy's source); any other version stays blocked unless forced
 `Setting.RunOnUntestedGameVersion` (default off) sit in Options > Features; `Mod.ApplyFeatureSwitches` calls
 `TaxEngineSystem.ApplyMode` on every change.
 
+## Demand
+
+Vanilla demand reads only city-level rates: Residential averages `10 − rate` over the five education levels
+(`ResidentialDemandSystem.cs:116-120`), Commercial and Industrial/Office use each resource's rate
+(`CommercialDemandSystem.cs:180`, `IndustrialDemandSystem.cs:402`). The demand systems are not copied; they are handed
+a second rate array, the **view**:
+
+- `DemandTaxViewSystem` (`Mod/Systems/`, every frame, `UpdateAfter<…, TaxEngineSystem>`) sums every payer's charged
+  adjustment (`DemandViewMath.PayerAdjustment`: the engine's keys and clamp, as a change from its stored rate) per rate
+  slot every **4096 frames** (a single-threaded job, read back the next update). **Each payer weighs 1** (provisional:
+  untaxed income is zeroed at every charge, so it is a noisy weight). Households count in all five education slots
+  (5..9), companies in their output resource's slot (10+r commercial, 51+r industrial, flagged Office when the output
+  weighs nothing); payers with no property count with adjustment 0.
+- `DemandViewMath.Compose` (`Mod/Logic/`, tested): view = vanilla's array with each leaf slot that has payers moved by
+  its payers' mean adjustment (halves to even, as `math.round`), the slot's full rate clamped like `EffectiveTaxRate`
+  (job-level limits for residential, resource limits otherwise; never past vanilla). Slots 0..4 and payer-less slots stay
+  vanilla, so **all-zero adjustments give vanilla's array**. It is recomposed every frame from the live vanilla rates and
+  written only when it changes, after completing the view's readers (vanilla's `AddReader` pattern).
+- **The swap**: each demand system's private `m_TaxSystem` is pointed (reflection) at a `DemandTaxView : TaxSystem`.
+  The demand systems call only the non-virtual `GetTaxRates()` (returns the instance's private `m_TaxRates`, set by
+  reflection to the view) and `AddReader()` on it. The view is built with `FormatterServices.GetUninitializedObject`,
+  never through the World: no constructor or `OnCreate`, never updated, and **never saved** — the game's
+  `SystemSerializerLibrary.Initialize` (Colossal.Core) serializes only systems in `World.Systems`, keyed by exact type.
+  On creation the system checks a sentinel written to the view reads back through `GetTaxRates()` and that the view is
+  not in `World.Systems`, and logs `DemandTaxView: structure ok`. **Each demand system declares its own private
+  `m_TaxSystem`**: a `FieldInfo` from one type throws `ArgumentException` on another, so `DemandSwapLogic.ResolveFields`
+  takes one per type and `FitsInstances` checks each against its system instance (both tested).
+- **Off**: whenever the engine's mode isn't `Engine` (Simulation changes off, guard blocked) the fields go back to
+  vanilla TaxSystem, live. `TaxEngineGuard.DemandStructureOk` checks the three demand systems still have
+  `m_TaxSystem : TaxSystem` and TaxSystem `m_TaxRates`; a mismatch leaves demand vanilla (the engine still charges). A
+  field another mod re-pointed is left alone (logged once). A throw while swapping restores vanilla, logs one error and
+  keeps demand vanilla for the session (`m_Faulted`), never a throw per frame. Each change of what demand reads logs once:
+  `demand reads the adjusted view` / `demand reads vanilla rates` (the latter also on the first update with the engine off).
+- Residential demand reacts through the five education slots; residential happiness is S4's.
+
 ## Classifying a building
 
 `DensityClassifier.TryClassify` (Burst-safe copy of `PropertyUtils.GetZoneDensity`): `PropertyRenter.m_Property` →
@@ -138,8 +173,8 @@ the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells
 
 **Taxation tab layout.** With density taxes on, the wrapper around each vanilla `TaxationGroup`
 (`UI/src/taxation/tax-sections-view.tsx`) draws collapsible sections under the zone's main slider, each a header row
-with an arrow (and an optional summary) over its rows: **Density** first (one vanilla `TaxSlider` per density the zone
-has, `density-rows.tsx`; the old "revenue only" note is gone, density is a real tax charge now), then vanilla's own sub-rows, re-hosted as
+with an arrow (and an optional summary) over its rows: **Density tax** first (one row per density the zone has,
+`density-rows.tsx`; the old "revenue only" note is gone, density is a real tax charge now), then vanilla's own sub-rows, re-hosted as
 vanilla `TaxationItem`s from `taxation.areaResources$` (**Education** for Residential, **Resources** for the other
 zones). All start collapsed; the open ones are kept for the UI session (`sectionExpandState`, not reset when the panel
 closes). The section list is data (`TAX_SECTIONS` in `tax-sections.ts`: id, title per zone; `sectionsForArea` keeps the
@@ -149,6 +184,20 @@ content) is hidden by adding classes to the live `taxation-group.module.scss` cl
 on every render (`groupClasses`): the toggle is `visibility: hidden` so the header slider keeps its place. Off, the
 names are vanilla's again and no sections are drawn, so the tab is vanilla. Rows show no payer count (removed by
 request, 2026-11-07).
+
+**Density rows are vanilla rows.** Each density row is built exactly as vanilla `TaxationItem` builds an
+education/resource row (`TaxationItem` itself reads its values from per-resource bindings, so it can't take ours): the
+same `ActiveFocusDiv` wrapper (`game-ui/common/focus/focus-div.tsx`), the live `taxation-item.module.scss` class names
+(`taxationItemClasses`: row, icon, title, and `slider`, which fixes the TaxSlider at vanilla's 580rem) and vanilla
+`TaxSlider`, so the icon, title, % column, slider and estimate pill sit in the same columns as the rows below
+(`density-rows.module.scss` holds copies of those rules, used only if a patch moves the module). The icon is the
+zoning toolbar's (`Media/Game/Icons/Zone*.svg` via `densityIcon` in `density-icons.ts`; an empty box where the game
+has none, e.g. Commercial/Office medium). **Density tax is its own tax**, charged on top of income tax (the zone and
+education/resource rates; a user decision), so the row shows only its own rate ("3 %", "0 %" by default),
+never the zone rate plus it, and the section header reads "Density tax". The slider's range is one constant,
+`DENSITY_RATE_RANGE` in `density-slider.ts` (with `densitySliderValues`/`rateFromSlider`, which rounds and clamps what
+the slider reports); the C# side clamps what it stores to its own cap. The estimate is the density tax's revenue, so
+it is a neutral ¢0 (no "+" pill, vanilla `NumberField`'s own rule for 0) until a rate is set.
 
 **Totals include the offsets** (a user decision). Each zone group's total (its header slider's income) and
 ESTIMATED TOTAL add the sum of the zone's (all zones') row `estimate`s; negative offsets lower them. Vanilla computes
@@ -203,6 +252,7 @@ bonuses, so it moves with the share of citizens under an adjustment.
 - Check in game that all-zero adjustments match vanilla's monthly tax income within 1%, and that a non-zero density
   adjustment changes the zone's tax revenue.
 - Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.3f1` (the known-list format).
-- Demand reacting to adjusted rates: a later slice (S3).
+- Check in game that +5 on every residential density lowers the residential demand tax factor, and that all 0 or
+  Simulation changes off gives vanilla demand.
 - Check in game that the happiness Taxes factor with all-zero adjustments equals vanilla's, and that +5 in one district
   lowers its residents' wellbeing over a couple of in-game days.

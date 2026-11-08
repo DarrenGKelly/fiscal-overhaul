@@ -27,7 +27,7 @@ describe("sectionsForArea", () => {
       { id: "density", title: "SectionDensity" },
       { id: "vanilla", title: "SectionEducation" },
     ]);
-    expect(english("SectionDensity")).toBe("Density");
+    expect(english("SectionDensity")).toBe("Density tax");
     expect(english("SectionEducation")).toBe("Education");
   });
 
