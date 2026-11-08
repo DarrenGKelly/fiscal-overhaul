@@ -39,8 +39,11 @@ inside the central ~90% (the wordmark's `OVERHAUL` spans 88% of the width, as wi
 ## Designs
 
 - **Primary** (`Thumbnail.png`, `wordmark()`): `FISCAL` (white) along the top and `OVERHAUL` (gold) along the
-  bottom, around a squat chart: a rising income line (green) over a flatter expense line (red), the Budget tab's
-  colours, on a gridded dark slate-blue panel, with a small gold coin marked `¢`. Both words stay legible at 64 px.
+  bottom, around a squat chart: a rising income line (green) over a flatter expense line (red), each ending in an
+  arrow head, the Budget tab's colours, on a gridded dark slate-blue panel with the mod's y-axis labels (`¢0` to `¢3M`). The
+  chart is shown hovered as in the mod: a white hover line runs from the zero axis up through `FISCAL`'s C, which is
+  gold and whose bar the line becomes, making the money sign `¢`; the hover dot sits on the income line with a
+  mouse pointer on it. Both words stay legible at 64 px.
   Popular CS2 mods mostly name themselves on the cover: 28 of the 30 most popular on Paradox Mods (2026-11) do.
 - **Concepts** (`concepts/`), alternatives to pick from:
   - `chart-coin.png`: the primary without the words, the chart taller and the `¢` coin larger.
