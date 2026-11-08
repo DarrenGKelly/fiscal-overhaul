@@ -17,12 +17,14 @@ import {
   SPAN_OPTIONS,
   spanLabel,
   seriesStats,
+  shownValues,
   TOTAL_COLORS,
 } from "chart/chart-math";
 import { ChartLine, LineChart } from "chart/line-chart";
 import { localizeVanilla, Translate } from "l10n";
 import { BudgetItemDetail, NumberField, Scrollable } from "vanilla";
-import { buildSourceSeries, childRows, expandArrow, hasExpander, itemKey, subItemLocaleId, toggled } from "./budget-rows";
+import { buildSourceSeries, childRows, expandArrow, hasExpander, itemKey, subItemLocaleId, toggled, visibleSources } from "./budget-rows";
+import { buildServiceSeries, hasServiceRows, serviceLocaleId, serviceRows } from "./service-rows";
 import styles from "./budget-page.module.scss";
 import {
   BudgetKind,
@@ -124,10 +126,11 @@ export const BudgetPage = () => {
   }, []);
 
   const label = useCallback(
-    (key: string, itemId?: string, sourceId?: string) => {
+    (key: string, itemId?: string, sourceId?: string, serviceName?: string) => {
       if (key === INCOME_TOTAL) return localizeVanilla(translate, "revenues");
       if (key === EXPENSE_TOTAL) return localizeVanilla(translate, "expenses");
       if (key === BALANCE) return localizeVanilla(translate, "monthlyBalance");
+      if (serviceName) return translate(serviceLocaleId(serviceName), serviceName) ?? serviceName;
       if (sourceId) return translate(subItemLocaleId(sourceId), sourceId) ?? sourceId;
       return translate(`EconomyPanel.BUDGET_ITEM[${itemId}]`, itemId ?? key) ?? itemId ?? key;
     },
@@ -142,9 +145,10 @@ export const BudgetPage = () => {
             ...buildSeries(history, shownIncome, shownExpense),
             ...buildSourceSeries(history, shownIncome, "income"),
             ...buildSourceSeries(history, shownExpense, "expense"),
+            ...buildServiceSeries(history, shownExpense, (i) => sourceChildCount(i, "expense", inDistrict)),
           ]
         : [],
-    [history, shownIncome, shownExpense]
+    [history, shownIncome, shownExpense, inDistrict]
   );
 
   const lines: ChartLine[] = useMemo(
@@ -153,9 +157,10 @@ export const BudgetPage = () => {
         .filter((s) => enabled.has(s.key))
         .map((s) => ({
           key: s.key,
-          label: label(s.key, s.itemId, s.sourceId),
+          label: label(s.key, s.itemId, s.sourceId, s.serviceName),
           color: s.color,
           values: s.values,
+          start: s.start,
           negateInTooltip: s.kind === "expense" || s.kind === "expense-total",
         })),
     [allSeries, enabled, label]
@@ -210,16 +215,23 @@ export const BudgetPage = () => {
     </div>
   );
 
-  // A category's row and, while it is expanded, one indented row per subcategory (source).
+  // A category's row and, while it is expanded, one indented row per subcategory (source), then for Service Upkeep
+  // one per service (service-rows.ts).
   const categoryRows = (item: BudgetItemLike, kind: BudgetKind, values: number[], value: number) => {
     const key = itemKey(kind, item.id);
-    const expander = hasExpander(item, kind, inDistrict);
+    const sourceRows = hasExpander(item, kind, inDistrict);
+    const services = hasServiceRows(item, kind, history);
+    const open = (sourceRows || services) && expanded.has(key);
     return (
       <Fragment key={key}>
-        {row(key, label("", item.id), rgbaToCss(item.color), value, false, expander)}
-        {expander &&
-          expanded.has(key) &&
+        {row(key, label("", item.id), rgbaToCss(item.color), value, false, sourceRows || services)}
+        {open &&
+          sourceRows &&
           childRows(item, kind, values, history).map((c) => row(c.key, label(c.key, item.id, c.source.id), c.color, c.value, false, false, true))}
+        {open &&
+          serviceRows(item, kind, history, sourceChildCount(item, kind, inDistrict)).map((c) =>
+            row(c.key, label(c.key, item.id, undefined, c.name), c.color, c.value, false, false, true)
+          )}
       </Fragment>
     );
   };
@@ -293,9 +305,13 @@ export const BudgetPage = () => {
   );
 };
 
+/** How many source child rows a category shows before its service rows: its sources, if it expands into them. */
+const sourceChildCount = (item: BudgetItemLike, kind: BudgetKind, inDistrict: boolean) =>
+  hasExpander(item, kind, inDistrict) ? visibleSources(item, kind, inDistrict).length : 0;
+
 /** Change and average over the selected span (the points on the chart), per month, side by side on one line. */
 const SeriesStats = ({ series, negate, translate }: { series: SeriesDef; negate: boolean; translate: Translate }) => {
-  const stats = seriesStats(series.values, translate);
+  const stats = seriesStats(shownValues(series), translate);
   if (stats.length === 0) return null;
   const sign = negate ? -1 : 1;
   return (
