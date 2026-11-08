@@ -45,6 +45,10 @@ drops deleted districts (on load and whenever a `District` is created / updated 
 `FormatVersion`, then per entry name, `isOutside`, district `Entity`, %. An unknown version loads empty; a district
 entry whose entity comes back `Entity.Null` (deleted before saving) is dropped, never turned into an Outside override.
 
+Service keys are prefab names (e.g. `Police & Administration`, not `Police`). An unknown key is ignored: the system
+logs `District service budget: unknown service '<key>' ignored` and stores nothing (`IsKnownService` on the table is the
+gate); on load `PruneServices` drops stored keys that name no service, so saves holding junk clean up.
+
 For jobs the table is resolved to a `NativeHashMap<ServiceDistrictKey, int>` (service entity, district entity;
 `Entity.Null` = outside), rebuilt on the main thread after its readers complete: `GetOverrides()` +
 `AddOverridesReader(handle)`. A later slice (`DistrictBudgetSystem` following the district %) reads it from there.
