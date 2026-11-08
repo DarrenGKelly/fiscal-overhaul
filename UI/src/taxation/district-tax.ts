@@ -97,14 +97,6 @@ export function shown(rate: number, cityRate: number): ShownRate {
   return { rate, overridden: rate !== cityRate };
 }
 
-/** How many of a zone's density cells differ from the city's in a district (the Density tax header's "N overrides"). */
-export function densityOverrideCount(
-  rows: OverrideRow[] | null | undefined,
-  area: string,
-  cells: { zone: number; density: number; offset: number }[],
-): number {
-  return cells.filter((c) => districtDensityRate(rows, area, c.zone, c.density, c.offset) !== c.offset).length;
-}
 /** Which value a slider row sets: a zone's header (zone rate), an education/resource row, or a density row. */
 export interface RowTarget {
   type: number;

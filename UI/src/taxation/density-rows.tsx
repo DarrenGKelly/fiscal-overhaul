@@ -6,8 +6,8 @@ import { CITY_KEY } from "district/district-select";
 import { Translate } from "l10n";
 import { ActiveFocusDiv, TaxSlider, taxationItemClasses } from "vanilla";
 import { densityIcon } from "./density-icons";
-import { cellsForArea, densityLabel, rateSummary } from "./density";
-import { densityOverrideCount, districtDensityRate, TYPE_DENSITY } from "./district-tax";
+import { cellsForArea, densityLabel } from "./density";
+import { districtDensityRate, TYPE_DENSITY } from "./district-tax";
 import { TaxDistrictView } from "./district-tax-view";
 import districtStyles from "./district-tax-view.module.scss";
 import { densitySliderValues, rateFromSlider } from "./density-slider";
@@ -27,16 +27,6 @@ export function useDensityCells(areaType: AreaTypeLike): { cells: DensityTaxCell
   const enabled = useValue(densityTaxesEnabled$);
   return { cells: cellsForArea(data?.cells, areaType.index, areaType.locked, enabled) };
 }
-
-/** The Density tax section's header summary: "2 rates set" (Entire City), "1 override" (a district); nothing at 0. */
-export const DensitySummary = ({ areaType }: { areaType: AreaTypeLike }) => {
-  const { translate } = useLocalization();
-  const { cells } = useDensityCells(areaType);
-  const area = useContext(TaxDistrictView);
-  const rates = useValue(taxRates$);
-  if (area !== CITY_KEY) return <>{rateSummary(densityOverrideCount(rates?.districts, area, cells), translate, true)}</>;
-  return <>{rateSummary(cells.filter((c) => c.offset !== 0).length, translate)}</>;
-};
 
 /**
  * The Density section's rows: one slider per density the zone has, setting an offset in percentage points on top of
