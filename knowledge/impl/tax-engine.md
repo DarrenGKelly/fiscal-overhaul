@@ -40,6 +40,18 @@ the applicable vanilla rate into `m_AverageTaxRate`. `TaxSystem` (every 512 fram
 charges `untaxed * averageRate / 100` and zeroes `m_UntaxedIncome`. Every vanilla rate lookup happens inside Burst
 jobs we can't patch.
 
+**The charge does not pay the city.** `PayTaxJob` only takes the money from the payer and enqueues its taxable income
+(`ResidentialTaxableIncome`, `Commercial…`, `Industrial…`, `Office…`, per level or resource). The city's tax money is
+`CityServiceBudgetSystem`'s **estimate**: per tax item (an education level or a resource), the city's rate for it ×
+that item's taxable-income statistic (`TaxSystem.GetEstimatedTaxAmount`); an item above 0 adds to `TaxResidential` /
+`TaxCommercial` / `TaxIndustrial` / `TaxOffice` income, an item below 0 to `SubsidyResidential` / `Commercial` /
+`Industrial` / `Office` expense (never netted), and `BudgetApplySystem` pays that into `PlayerMoney` 1024 times a
+month. So whatever rate the engine charges, the city is paid at its own vanilla rates: density tax and district
+differences reach the payers but not the city's balance or the Budget tab's tax and subsidy rows (1.6.3f1).
+`DensityTaxBooking` (`Mod/Logic/`, tested) holds the maths for booking density tax as its own item, a positive part as
+tax income and a negative part as that zone's subsidy, with income − subsidy always the whole charge; nothing books
+with it yet (the city's side is an open decision).
+
 ## The engine
 
 Vanilla `TaxSystem` stays the **data store**: its 92-int rate array, saved by vanilla and read by ~19 systems and the
@@ -165,6 +177,8 @@ every district's).
 
 ## Follow-ups
 
-- Check in game that no density tax and no override match vanilla's monthly tax income within 1%, and that a density
-  tax or a district override changes the zone's tax revenue.
+- Check in game that no density tax and no override match vanilla's monthly tax income within 1%. A density tax or a
+  district override does **not** change the zone's tax revenue yet (see "The charge does not pay the city"): the
+  city's side needs a system right after `CityServiceBudgetSystem` that rewrites the tax income and subsidy entries,
+  as `DistrictServiceUpkeepSystem` does for upkeep.
 - Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.3f1` (the known-list format).
