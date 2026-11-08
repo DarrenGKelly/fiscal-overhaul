@@ -56,6 +56,9 @@ namespace FiscalOverhaul
             updateSystem.UpdateAt<DensityTaxUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.World.GetOrCreateSystemManaged<BudgetHistoryUISystem>().SetSettings(m_Setting);
             updateSystem.World.GetOrCreateSystemManaged<DensityTaxUISystem>().SetSettings(m_Setting);
+            // The district list the tabs' selectors share, and the Services tab's per-district budgets.
+            updateSystem.UpdateAt<DistrictListUISystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.World.GetOrCreateSystemManaged<DistrictListUISystem>().SetSettings(m_Setting);
         }
 
         /// <summary>

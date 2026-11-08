@@ -88,5 +88,25 @@ namespace FiscalOverhaul.Tests
             Assert.False(FeatureGates.AppliesDistrictServiceBudgets(simulationChanges: false, featureEnabled: true, hasAnyOverride: true));
             Assert.False(FeatureGates.AppliesDensityTaxes(simulationChanges: false, densityTaxesEnabled: true));
         }
+
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(false, true, false)]  // master "Simulation changes" off: vanilla Services tab
+        [InlineData(true, false, false)]  // feature off: vanilla Services tab
+        [InlineData(false, false, false)]
+        public void ShowsDistrictServiceBudgets_NeedsMasterAndFeature(bool master, bool feature, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.ShowsDistrictServiceBudgets(master, feature));
+        }
+
+        [Theory]
+        [InlineData(true, false, true)]   // Budget tab's district view only (the list used to be gated on this alone)
+        [InlineData(false, true, true)]   // Services tab only: recording off, the list is still published
+        [InlineData(true, true, true)]
+        [InlineData(false, false, false)] // no tab shows a selector: nothing to publish
+        public void PublishesDistrictList_WhenAnyDistrictFeatureIsOn(bool recording, bool services, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.PublishesDistrictList(recording, services));
+        }
     }
 }
