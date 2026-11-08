@@ -24,7 +24,7 @@ resource:
 
 User decisions (2026-11-03): density is **another adjustment** on top of the vanilla rate (zone rate + education/product
 offset), capped at ±5 points (`DensityTaxTable.MaxOffset`); district adjustments are relative to the city rate, capped
-±10. So far they change **revenue only**, not demand or happiness (later slices). User decisions (2026-11-07): the mod
+±10. They change revenue and, through the [demand view](#demand), demand; happiness is a later slice. User decisions (2026-11-07): the mod
 charges tax with its own copy of vanilla's charge (copying decompiled game code is fine: minimal copies, each with a
 header naming the source class, method, line range and game version); on an unknown game version it falls back to
 vanilla with a warning unless the player forces it; a "Simulation changes" master switch turns every simulation change
@@ -93,6 +93,37 @@ and `1.6.3f1` (the copy's source); any other version stays blocked unless forced
 `Setting.EnableSimulationChanges` (default on, `FeatureGates.SimulationChangesDefault`) and
 `Setting.RunOnUntestedGameVersion` (default off) sit in Options > Features; `Mod.ApplyFeatureSwitches` calls
 `TaxEngineSystem.ApplyMode` on every change.
+
+## Demand
+
+Vanilla demand reads only city-level rates: Residential averages `10 − rate` over the five education levels
+(`ResidentialDemandSystem.cs:116-120`), Commercial and Industrial/Office use each resource's rate
+(`CommercialDemandSystem.cs:180`, `IndustrialDemandSystem.cs:402`). The demand systems are not copied; they are handed
+a second rate array, the **view**:
+
+- `DemandTaxViewSystem` (`Mod/Systems/`, every frame, `UpdateAfter<…, TaxEngineSystem>`) sums every payer's charged
+  adjustment (`DemandViewMath.PayerAdjustment`: the engine's keys and clamp, as a change from its stored rate) per rate
+  slot every **4096 frames** (a single-threaded job, read back the next update). **Each payer weighs 1** (provisional:
+  untaxed income is zeroed at every charge, so it is a noisy weight). Households count in all five education slots
+  (5..9), companies in their output resource's slot (10+r commercial, 51+r industrial, flagged Office when the output
+  weighs nothing); payers with no property count with adjustment 0.
+- `DemandViewMath.Compose` (`Mod/Logic/`, tested): view = vanilla's array with each leaf slot that has payers moved by
+  its payers' mean adjustment (halves to even, as `math.round`), the slot's full rate clamped like `EffectiveTaxRate`
+  (job-level limits for residential, resource limits otherwise; never past vanilla). Slots 0..4 and payer-less slots stay
+  vanilla, so **all-zero adjustments give vanilla's array**. It is recomposed every frame from the live vanilla rates and
+  written only when it changes, after completing the view's readers (vanilla's `AddReader` pattern).
+- **The swap**: each demand system's private `m_TaxSystem` is pointed (reflection) at a `DemandTaxView : TaxSystem`.
+  The demand systems call only the non-virtual `GetTaxRates()` (returns the instance's private `m_TaxRates`, set by
+  reflection to the view) and `AddReader()` on it. The view is built with `FormatterServices.GetUninitializedObject`,
+  never through the World: no constructor or `OnCreate`, never updated, and **never saved** — the game's
+  `SystemSerializerLibrary.Initialize` (Colossal.Core) serializes only systems in `World.Systems`, keyed by exact type.
+  On creation the system checks a sentinel written to the view reads back through `GetTaxRates()` and that the view is
+  not in `World.Systems`, and logs `DemandTaxView: structure ok`.
+- **Off**: whenever the engine's mode isn't `Engine` (Simulation changes off, guard blocked) the fields go back to
+  vanilla TaxSystem, live. `TaxEngineGuard.DemandStructureOk` checks the three demand systems still have
+  `m_TaxSystem : TaxSystem` and TaxSystem `m_TaxRates`; a mismatch leaves demand vanilla (the engine still charges). A
+  field another mod re-pointed is left alone (logged once).
+- Residential demand reacts through the five education slots; residential happiness is S4's.
 
 ## Classifying a building
 
@@ -178,4 +209,6 @@ both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTot
 - Check in game that all-zero adjustments match vanilla's monthly tax income within 1%, and that a non-zero density
   adjustment changes the zone's tax revenue.
 - Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.3f1` (the known-list format).
-- Demand/happiness reacting to adjusted rates: later slices (S3/S4).
+- Check in game that +5 on every residential density lowers the residential demand tax factor, and that all 0 or
+  Simulation changes off gives vanilla demand.
+- Happiness reacting to adjusted rates: a later slice (S4).

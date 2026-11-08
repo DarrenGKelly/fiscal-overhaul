@@ -43,6 +43,11 @@ namespace FiscalOverhaul
             s_TaxEngine = updateSystem.World.GetOrCreateSystemManaged<TaxEngineSystem>();
             s_TaxEngine.SetSettings(m_Setting);
 
+            // Demand reacts to the adjustments: points vanilla's three demand systems at a view of the rates (vanilla +
+            // the payers' mean adjustment per slot) while the engine charges; back at vanilla TaxSystem otherwise.
+            // Every frame (it writes the view only when it changes), after the engine so it sees this frame's mode.
+            updateSystem.UpdateAfter<DemandTaxViewSystem, TaxEngineSystem>(SystemUpdatePhase.GameSimulation);
+
             // District budget recording: a sample per 1/32 month, panel open or not, kept in the save. After TaxSystem
             // (and so after the engine); its own interval, so this orders only.
             updateSystem.UpdateAfter<DistrictBudgetSystem, TaxSystem>(SystemUpdatePhase.GameSimulation);
