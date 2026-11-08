@@ -74,10 +74,6 @@ namespace FiscalOverhaul
             Version++;
             return removed;
         }
-
-        /// <summary>Bumps <see cref="Version"/> so bindings that show values derived from vanilla's rates refresh.</summary>
-        public static void Touch() => Version++;
-
         public static int Set(TaxZone zone, Density density, int offset)
         {
             int stored = s_Table.Set(zone, density, offset);
