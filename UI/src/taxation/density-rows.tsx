@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { densityTaxes$, DensityTaxCell, setDensityTax } from "bindings";
 import { localize, Translate } from "l10n";
 import { TaxSlider } from "vanilla";
+import { densityIcon } from "./density-icons";
 import { cellsForArea, densityLabel, offsetSummary } from "./density";
 import styles from "./density-rows.module.scss";
 
@@ -45,8 +46,10 @@ export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
 const DensityRow = ({ cell, max, translate }: { cell: DensityTaxCell; max: number; translate: Translate }) => {
   // The C# trigger takes an int (and clamps it to ±maxOffset), so round whatever the slider reports.
   const onChange = useCallback((v: number) => setDensityTax(cell.zone, cell.density, Math.round(v)), [cell.zone, cell.density]);
+  const icon = densityIcon(cell.zone, cell.density);
   return (
     <div className={styles.row}>
+      {icon ? <img className={styles.icon} src={icon} /> : <div className={styles.icon} />}
       <div className={styles.rowTitle}>{densityLabel(cell.density, translate)}</div>
       <TaxSlider min={-max} max={max} rate={cell.offset} income={cell.estimate} className={styles.slider} onValueChanged={onChange} />
     </div>
