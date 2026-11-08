@@ -22,6 +22,8 @@ export interface ChartLine {
   label: string;
   color: string;
   values: number[];
+  /** The first point with data: the line starts there (a service split recorded only from then on). */
+  start?: number;
   /** Shown negated in the tooltip (expenses are plotted as positive amounts). */
   negateInTooltip?: boolean;
 }
@@ -170,25 +172,27 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
     // Lines: highlighted one last and thicker.
     const ordered = [...lines].sort((a, b) => (a.key === highlightKey ? 1 : 0) - (b.key === highlightKey ? 1 : 0));
     for (const line of ordered) {
-      if (line.values.length === 0) continue;
+      const first = line.start ?? 0;
+      if (line.values.length <= first) continue;
       const highlighted = line.key === highlightKey;
       ctx.strokeStyle = line.color;
       ctx.globalAlpha = highlightKey && !highlighted ? 0.55 : 1;
       ctx.lineWidth = Math.max(2, (highlighted ? 6 : 4) * rem);
       ctx.lineJoin = "round";
-      if (line.values.length === 1) {
+      if (line.values.length - first === 1) {
         // One point (a district with no samples yet, only its live Now): a dot, as a path of one point draws nothing.
         ctx.fillStyle = line.color;
         ctx.beginPath();
-        ctx.arc(px[0], y(line.values[0]), Math.max(3, (highlighted ? 7 : 5) * rem), 0, Math.PI * 2);
+        ctx.arc(px[first], y(line.values[first]), Math.max(3, (highlighted ? 7 : 5) * rem), 0, Math.PI * 2);
         ctx.fill();
         continue;
       }
       ctx.beginPath();
       line.values.forEach((v, i) => {
+        if (i < first) return;
         const lx = px[i];
         const ly = y(v);
-        if (i === 0) ctx.moveTo(lx, ly);
+        if (i === first) ctx.moveTo(lx, ly);
         else ctx.lineTo(lx, ly);
       });
       ctx.stroke();
@@ -199,7 +203,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
     if (hover) {
       const line = lines.find((l) => l.key === hover.key);
       const v = line?.values[hover.index];
-      if (line && v !== undefined) {
+      if (line && v !== undefined && hover.index >= (line.start ?? 0)) {
         const hx = px[hover.index];
         ctx.strokeStyle = "rgba(255,255,255,0.45)";
         ctx.lineWidth = gridWidth;
@@ -241,7 +245,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
   }, [onHoverLine]);
 
   const hoverLine = hover ? lines.find((l) => l.key === hover.key) : undefined;
-  const hoverValue = hover && hoverLine ? hoverLine.values[hover.index] : undefined;
+  const hoverValue = hover && hoverLine && hover.index >= (hoverLine.start ?? 0) ? hoverLine.values[hover.index] : undefined;
   const tooltipLeft = hover ? (hover.x > size.w - 280 * size.rem ? hover.x - 270 * size.rem : hover.x + 18 * size.rem) : 0;
 
   return (
