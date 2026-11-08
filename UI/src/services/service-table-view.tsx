@@ -1,7 +1,8 @@
 // The Services tab as a table like the Taxation tab's (with District service budgets on): Type | Budget / Fee |
 // Estimate, one row per service with its budget slider and NET, a sub-row per adjustable fee, and an estimated total.
-// The city view sets vanilla's budget and fees; a district view (the header's picker) sets the area's budget and
-// shows the city's fees read-only. Off: vanilla's page (service list, detail, info column), untouched.
+// Always the Services tab (a user decision). The city view sets vanilla's budget and fees; with District service
+// budgets (BETA) on, a district view (the header's picker) sets the area's budget and shows the city's fees
+// read-only. Off: the table, city-only.
 import { useEffect, useMemo, useState } from "react";
 import { useMapValue, useValue } from "cs2/api";
 import { service as serviceBindings } from "cs2/bindings";
@@ -50,6 +51,7 @@ import {
   serviceEstimate,
   ServiceLike,
   SliderReset,
+  tableDistrict,
 } from "./service-table";
 import styles from "./service-table.module.scss";
 
@@ -103,18 +105,16 @@ const slider = {
 const RowBox = ActiveFocusDiv ?? "div";
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
-/** ServicePage extension: our table with District service budgets on (and Simulation changes on), else vanilla's page. */
-export const withServiceTable = (ServicePage: any) => (props: any) => {
-  const enabled = useValue(districtServiceBudgetEnabled$);
-  return enabled ? <ServiceTable /> : <ServicePage {...props} />;
-};
+/** ServicePage override: our table always replaces vanilla's page (service list, detail, info column). */
+export const ServiceTablePage = () => <ServiceTable />;
 
 /** The header picker's choice (economy/economy-tab-bar.tsx) as the Services tab sees it: "" city, a district, "outside". */
 function useServiceDistrict(): string {
+  const enabled = useValue(districtServiceBudgetEnabled$);
   const districts = useValue(districts$);
   const options = useMemo(() => districtOptions(districts ?? []), [districts]);
   const [key] = useSelectedDistrict();
-  return effectiveKey(options, key);
+  return tableDistrict(enabled, effectiveKey(options, key));
 }
 
 const ServiceTable = () => {

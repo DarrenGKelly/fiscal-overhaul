@@ -16,7 +16,8 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// The Services tab table's data beyond vanilla's serviceBudget bindings (group "fiscalOverhaul"), built only while
-    /// the Economy panel is open and the table shows (<see cref="FeatureGates.ShowsDistrictServiceBudgets"/>):
+    /// the Economy panel is open (<see cref="FeatureGates.BuildsServiceTable"/>; the table is always the Services tab),
+    /// the district fee shares only while the district view is offered (<see cref="FeatureGates.BuildsDistrictServiceFees"/>):
     ///   serviceFeeDefaults   raw  [{ resource, fee }]: vanilla's default fee per PlayerResource
     ///                             (ServiceFeeParameterData m_Default, what resetService sets): a fee slider's reset target
     ///   districtServiceFees  raw  [{ service, district, resource, income }] (<see cref="DistrictServiceFees"/>): each
@@ -43,6 +44,7 @@ namespace FiscalOverhaul
         public void SetSettings(Setting setting) => m_Setting = setting;
 
         private bool Shows => m_Setting != null && FeatureGates.ShowsDistrictServiceBudgets(m_Setting.EnableSimulationChanges, m_Setting.EnableDistrictServiceBudget);
+        private bool m_LastOpen;
 
         [Preserve]
         protected override void OnCreate()
@@ -62,20 +64,24 @@ namespace FiscalOverhaul
         [Preserve]
         protected override void OnUpdate()
         {
+            bool open = m_PanelSystem.activePanel is EconomyPanel;
             bool shows = Shows;
-            if (!FeatureGates.BuildsPanelData(shows, m_PanelSystem.activePanel is EconomyPanel))
+            // Switched off: send the empty fee list once (the table is city-only now).
+            if (m_LastShows && !shows) m_FeesBinding.Update();
+            m_LastShows = shows;
+            if (!FeatureGates.BuildsServiceTable(open))
             {
-                if (m_LastShows && !shows) m_FeesBinding.Update();
-                m_LastShows = shows;
+                m_LastOpen = false;
                 m_Frames = kRefreshFrames; // at once when the panel opens again
                 return;
             }
-            if (!m_LastShows) m_DefaultsBinding.Update();
-            m_LastShows = true;
+            if (!m_LastOpen) m_DefaultsBinding.Update();
+            m_LastOpen = true;
             if (++m_Frames < kRefreshFrames) return;
             m_Frames = 0;
             m_DefaultsBinding.Update();
-            m_FeesBinding.Update();
+            if (FeatureGates.BuildsDistrictServiceFees(m_Setting != null && m_Setting.EnableSimulationChanges, m_Setting != null && m_Setting.EnableDistrictServiceBudget, open))
+                m_FeesBinding.Update();
         }
 
         private void WriteDefaults(IJsonWriter writer)

@@ -121,7 +121,7 @@ export function setTaxRate(type: number, zone: number, key: number, area: string
   trigger(GROUP, "setTaxRate", type, zone, area ? `${key}@${area}` : `${key}`, value);
 }
 
-/** Options > District service budgets (BETA) with Simulation changes on. Off: the Services tab is vanilla. */
+/** Options > District service budgets (BETA) with Simulation changes on. Off: the Services table is city-only (no picker, no district overrides). */
 export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
 
 /** Each (service, area) with buildings or an override: its override % (0 = city) and its upkeep. */

@@ -15,6 +15,7 @@ import {
   feeRows,
   feeToSlider,
   serviceEstimate,
+  tableDistrict,
 } from "./service-table";
 
 const POWER = "7:1";
@@ -145,5 +146,17 @@ describe("estimateTotal", () => {
   it("does not add the fee sub-rows again", () => {
     expect(estimateTotal(services, NORTH, data)).not.toBe(600 - 3000 + 400 - 1000 + 600 + 400);
     expect(estimateTotal([], NORTH, data)).toBe(0);
+  });
+});
+
+describe("tableDistrict", () => {
+  it("with District service budgets on, the picked district or Outside Districts is shown", () => {
+    expect(tableDistrict(true, NORTH)).toBe(NORTH);
+    expect(tableDistrict(true, OUTSIDE_KEY)).toBe(OUTSIDE_KEY);
+    expect(tableDistrict(true, CITY_KEY)).toBe(CITY_KEY);
+  });
+  it("off, the table is the city view whatever was picked: no district overrides", () => {
+    expect(tableDistrict(false, NORTH)).toBe(CITY_KEY);
+    expect(tableDistrict(false, OUTSIDE_KEY)).not.toBe(OUTSIDE_KEY);
   });
 });

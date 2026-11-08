@@ -117,8 +117,10 @@ children (same weights) still sum to the district slot.
 
 ## UI
 
-Shown while `FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding);
-off, the Services tab is vanilla, and the header's picker hides on it.
+**The table is always the Services tab** (a user decision): with District service budgets (BETA) off, or Simulation
+changes off, it is city-only: the header's picker hides on Services and no district overrides show or apply
+(`tableDistrict` in `service-table.ts` forces the city view). The district features show while
+`FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding).
 
 - **Bindings** (`DistrictListUISystem`, only while the Economy panel is open): `districts`, the selector's list, now
   shared by every tab and published while any district feature is on (`FeatureGates.PublishesDistrictList`; it moved
@@ -129,7 +131,7 @@ off, the Services tab is vanilla, and the header's picker hides on it.
 - **District picker:** the one picker in the Economy panel header (`economy/economy-tab-bar.tsx`,
   [budget-chart.md § District selector](budget-chart.md#district-selector)), shown on this tab while the feature is on;
   it drives the table below. One selection across tabs (`useSelectedDistrict`).
-- **The table** (`extend` of vanilla `ServicePage`, `services/service-table-view.tsx`; pure logic `service-table.ts`):
+- **The table** (`override` of vanilla `ServicePage`, always, `services/service-table-view.tsx`; pure logic `service-table.ts`):
   a user decision (playtest), replacing vanilla's left service list, centre detail and right info column with a table
   built like the Taxation tab, in its DOM and live classes (`taxationPageClasses`, `taxationGroupClasses`,
   `taxationItemClasses`, `taxSliderClasses`): columns **Type | Budget / Fee | Estimate**, one group per
@@ -156,7 +158,8 @@ off, the Services tab is vanilla, and the header's picker hides on it.
   a fee back to vanilla's default (`setServiceFee`, the default from `serviceFeeDefaults`); shown only while the slider
   is off it. District view, the glyph with the city mark: clears the area's override (budget 0), marker at the city's %;
   the read-only fee rows have neither.
-- **Bindings** (`ServiceTableUISystem`, while the panel is open and the table shows, every 30 frames):
+- **Bindings** (`ServiceTableUISystem`, every 30 frames while the panel is open, `FeatureGates.BuildsServiceTable`; the fee
+  shares only while the district view is offered, `BuildsDistrictServiceFees`):
   `serviceFeeDefaults` = `[{ resource, fee }]`, `ServiceFeeParameterData.GetFeeParameters(r).m_Default` (what
   `resetService` sets; vanilla's serviceDetails carries no default); `districtServiceFees` =
   `[{ service, district, resource, income }]`: each service's fee income per resource (vanilla's `incomeInternal`

@@ -3,6 +3,7 @@
 // so vitest runs it in Node.
 import { DistrictServiceBudget, isDistrictView, isOverridden, sliderValue, upkeepFor } from "./district-services";
 import { ResetKind } from "../common/slider-reset";
+import { CITY_KEY } from "../district/district-select";
 
 /** One service of vanilla's serviceBudget.services binding: `budget` is vanilla's NET (fee income − upkeep). */
 export interface ServiceLike {
@@ -144,4 +145,13 @@ export function feeEstimate(fee: FeeLike, service: string, district: string, fee
 /** The footer total: the sum of the service rows' Estimates (the fee sub-rows are parts of them, not added again). */
 export function estimateTotal(services: { key: string; budget: number }[], district: string, data: DistrictData): number {
   return services.reduce((sum, s) => sum + serviceEstimate(s, district, data), 0);
+}
+
+/**
+ * The area the Services table shows (a user decision: the table is always the Services tab). With District service
+ * budgets (BETA) on (and Simulation changes on), the header picker's choice; off, always the city view: no district
+ * overrides, and the header offers no picker on Services (economy/header-picker.ts).
+ */
+export function tableDistrict(districtBudgetsOn: boolean, selected: string): string {
+  return districtBudgetsOn ? selected ?? CITY_KEY : CITY_KEY;
 }
