@@ -42,7 +42,7 @@ namespace FiscalOverhaul
             Version++;
         }
 
-        /// <summary>Clears the loaded city's density offsets (Options > reset).</summary>
+        /// <summary>Clears the loaded city's density tax rates, city and district overrides (Options > reset).</summary>
         public static void ClearAll()
         {
             s_Table.Rates.Clear(TaxType.Density);
@@ -56,6 +56,24 @@ namespace FiscalOverhaul
             Version++;
         }
 
+        /// <summary>
+        /// Sets a district's value from what its slider shows (<see cref="TaxRateModel.SetDistrictValue"/>: clamped to
+        /// vanilla's limits; the value it would have without the override removes it). Returns false for a bad name.
+        /// </summary>
+        public static bool SetDistrictValue(TaxType type, TaxZone zone, int key, int area, int areaVersion, int value, int[] cityRates, TaxLimits limits)
+        {
+            bool ok = TaxRateModel.SetDistrictValue(s_Table.Rates, type, zone, key, area, areaVersion, value, cityRates, limits);
+            if (ok) Version++;
+            return ok;
+        }
+
+        /// <summary>Removes every override of one district ("Use city rates"). Returns how many.</summary>
+        public static int ClearDistrict(int area, int areaVersion)
+        {
+            int removed = s_Table.Rates.ClearArea(area, areaVersion);
+            Version++;
+            return removed;
+        }
         public static int Set(TaxZone zone, Density density, int offset)
         {
             int stored = s_Table.Set(zone, density, offset);

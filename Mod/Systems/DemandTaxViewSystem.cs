@@ -56,6 +56,7 @@ namespace FiscalOverhaul
         private TaxEngineSystem m_Engine;
         private SimulationSystem m_SimulationSystem;
         private ResourceSystem m_ResourceSystem;
+        private EntityQuery m_EconomyParameterQuery;
         private ComponentSystemBase[] m_DemandSystems;
         private FieldInfo[] m_DemandTaxSystemFields;
 
@@ -99,6 +100,7 @@ namespace FiscalOverhaul
             m_Engine = World.GetOrCreateSystemManaged<TaxEngineSystem>();
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
+            m_EconomyParameterQuery = GetEntityQuery(ComponentType.ReadOnly<EconomyParameterData>());
             // In TaxEngineGuard.DemandSystemTypes' order (CreateView checks each field against its instance).
             m_DemandSystems = new ComponentSystemBase[]
             {
@@ -323,21 +325,22 @@ namespace FiscalOverhaul
                 m_JobWeightless[i] = 0;
             }
             TaxParameterData parameters = m_TaxSystem.GetTaxParameterData();
-            var density = new NativeArray<int>(DensityTaxState.Snapshot(), Allocator.TempJob);
-            NativeParallelHashMap<Entity, int4> districts = TaxEngineSystem.BuildDistrictAdjustments();
+            // The jobs get their own copy of the rates (the resolver's arrays: the engine's computation), freed with them.
+            NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
+            TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, m_ResourceSystem.GetPrefabs(), wages, Allocator.TempJob);
 
             JobHandle handle = Dependency;
-            handle = Schedule(m_HouseholdQuery, 0, parameters.m_JobLevelTaxLimits, density, districts, handle);
-            handle = Schedule(m_CommercialQuery, 1, parameters.m_ResourceTaxLimits, density, districts, handle);
-            handle = Schedule(m_IndustrialQuery, 2, parameters.m_ResourceTaxLimits, density, districts, handle);
-            density.Dispose(handle);
-            districts.Dispose(handle);
+            handle = Schedule(m_HouseholdQuery, 0, parameters.m_JobLevelTaxLimits, rates, handle);
+            handle = Schedule(m_CommercialQuery, 1, parameters.m_ResourceTaxLimits, rates, handle);
+            handle = Schedule(m_IndustrialQuery, 2, parameters.m_ResourceTaxLimits, rates, handle);
+            rates.Dispose(handle);
+            wages.Dispose(handle);
             Dependency = handle;
             m_AggregateHandle = handle;
             m_AggregatePending = true;
         }
 
-        private JobHandle Schedule(EntityQuery query, int kind, int2 limits, NativeArray<int> density, NativeParallelHashMap<Entity, int4> districts, JobHandle deps)
+        private JobHandle Schedule(EntityQuery query, int kind, int2 limits, TaxRateResolver rates, JobHandle deps)
         {
             var job = new AggregateJob
             {
@@ -350,9 +353,7 @@ namespace FiscalOverhaul
                 m_ResourcePrefabs = m_ResourceSystem.GetPrefabs(),
                 m_Kind = kind,
                 m_Limits = limits,
-                m_DensityAdjustments = density,
-                m_DistrictAdjustments = districts,
-                m_Keys = TaxKeyResolver.Create(this),
+                m_Rates = rates,
                 m_Sums = m_JobSums,
                 m_Counts = m_JobCounts,
                 m_Weightless = m_JobWeightless,
@@ -361,9 +362,11 @@ namespace FiscalOverhaul
         }
 
         /// <summary>
-        /// Sums each payer's charged adjustment (<see cref="DemandViewMath.PayerAdjustment"/>, the engine's keys and
-        /// clamp) per rate slot. Single-threaded (Schedule): the sums are plain arrays.
-        /// Kind 0: households (all five education slots); 1: commercial companies (their output's commercial slot);
+        /// Sums each payer's charged adjustment (<see cref="DemandViewMath.PayerAdjustment"/> of what
+        /// <see cref="TaxRateResolver"/> adds, the engine's computation) per rate slot. Single-threaded (Schedule): the
+        /// sums are plain arrays.
+        /// Kind 0: households (each of the five education slots, at the home's rate for that level:
+        /// <see cref="TaxRateResolver.ResidentRate(int, int, int, int, int2)"/>); 1: commercial companies (their output's commercial slot);
         /// 2: processing companies (their output's industrial slot, flagged weightless when vanilla books it as Office).
         /// </summary>
         [BurstCompile]
@@ -378,9 +381,7 @@ namespace FiscalOverhaul
             [ReadOnly] public ResourcePrefabs m_ResourcePrefabs;
             public int m_Kind;
             public int2 m_Limits;
-            [ReadOnly] public NativeArray<int> m_DensityAdjustments;
-            [ReadOnly] public NativeParallelHashMap<Entity, int4> m_DistrictAdjustments;
-            public TaxKeyResolver m_Keys;
+            public TaxRateResolver m_Rates;
             public NativeArray<long> m_Sums;
             public NativeArray<int> m_Counts;
             public NativeArray<byte> m_Weightless;
@@ -412,17 +413,29 @@ namespace FiscalOverhaul
                         }
                     }
 
-                    int adjustment = Adjustment(payers[i].m_AverageTaxRate, entity, hasRenter ? renters[i].m_Property : Entity.Null, isHousehold, weightless);
+                    Entity property = hasRenter ? renters[i].m_Property : Entity.Null;
                     if (isHousehold)
                     {
+                        // Each education slot moves by what a resident of that level pays in this home over the city's
+                        // rate for the level: a district's override for one level moves only that slot.
+                        bool adjusts = m_Rates.Locate(property, true, out int block, out int densityTax);
                         for (int k = 0; k < 5; k++)
                         {
-                            m_Sums[DemandViewMath.ResidentialFirst + k] += adjustment;
+                            int levelAdjustment = 0;
+                            if (adjusts)
+                            {
+                                int cityRate = m_Rates.CityResidentRate(k);
+                                levelAdjustment = m_Rates.ResidentRate(block, densityTax, k, cityRate, m_Limits) - cityRate;
+                            }
+                            m_Sums[DemandViewMath.ResidentialFirst + k] += levelAdjustment;
                             m_Counts[DemandViewMath.ResidentialFirst + k] += 1;
                         }
                     }
                     else
                     {
+                        TaxPayerKind kind = m_Kind == 1 ? TaxPayerKind.Commercial : TaxPayerKind.Industrial;
+                        m_Rates.Adjustments(entity, property, kind, out int incomeDelta, out int densityTax);
+                        int adjustment = DemandViewMath.PayerAdjustment(payers[i].m_AverageTaxRate, densityTax, incomeDelta, m_Limits.x, m_Limits.y);
                         m_Sums[slot] += adjustment;
                         m_Counts[slot] += 1;
                         if (weightless) m_Weightless[slot] = 1;
@@ -430,24 +443,6 @@ namespace FiscalOverhaul
                 }
             }
 
-            /// <summary>The engine's adjustment for this payer (TaxEngineSystem.PayTaxJob.ChargedRate, as a change).</summary>
-            private int Adjustment(int baseRate, Entity entity, Entity property, bool isHousehold, bool weightless)
-            {
-                if (property == Entity.Null) return 0;
-                int density = 0;
-                if (m_Keys.TryDensityCell(property, isHousehold, out int cell)) density = m_DensityAdjustments[cell];
-                int district = 0;
-                if (!m_DistrictAdjustments.IsEmpty)
-                {
-                    Entity districtEntity = m_Keys.District(property);
-                    if (districtEntity != Entity.Null && m_DistrictAdjustments.TryGetValue(districtEntity, out int4 adjustments))
-                    {
-                        TaxZone zone = TaxPayerZone.Of(isHousehold, m_Kind == 1, weightless);
-                        district = adjustments[(int)zone];
-                    }
-                }
-                return DemandViewMath.PayerAdjustment(baseRate, density, district, m_Limits.x, m_Limits.y);
-            }
         }
     }
 }

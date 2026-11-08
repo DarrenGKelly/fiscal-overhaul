@@ -24,12 +24,6 @@ export function densityLabel(density: number, translate: Translate | null): stri
   return key ? localize(translate, key) : localize(translate, "DensityOther", { NUMBER: density });
 }
 
-/** The collapsed rows' summary: "no offsets", "1 offset set", "3 offsets set". */
-export function offsetSummary(active: number, translate: Translate | null): string {
-  if (active <= 0) return localize(translate, "NoOffsets");
-  return localize(translate, active === 1 ? "OneOffsetSet" : "OffsetsSet", { COUNT: active });
-}
-
 /**
  * The expand/collapse arrow, as the vanilla foldout draws it: a Media/Glyphs icon (the game's font, Overpass, has no
  * arrow glyphs and shows a tofu box).

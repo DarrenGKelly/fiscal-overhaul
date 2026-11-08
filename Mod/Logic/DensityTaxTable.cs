@@ -22,9 +22,10 @@ namespace FiscalOverhaul.Logic
     }
 
     /// <summary>
-    /// The density tax offsets, in percentage points added on top of the vanilla rate a building already pays
-    /// (zone rate + education/product offset): a view of a <see cref="TaxRateTable"/>'s <see cref="TaxType.Density"/>
-    /// entries (key = <see cref="Density"/>), which holds the storage. Pure data: the game systems copy it into a
+    /// The city's density tax rates: density tax is its own tax per (zone, density), in percentage points charged on
+    /// top of income tax (the zone and education/resource rates); negative is a tax break. A view of a
+    /// <see cref="TaxRateTable"/>'s city <see cref="TaxType.Density"/> entries (key = <see cref="Density"/>), which
+    /// holds the storage (a district may override a cell: <see cref="TaxRateModel.DistrictDensityRate"/>). Pure data: the game systems copy it into a
     /// native array for the tax engine. The comma-separated text form is the Options template new cities are seeded from.
     /// </summary>
     public sealed class DensityTaxTable
@@ -32,11 +33,9 @@ namespace FiscalOverhaul.Logic
         public const int ZoneCount = 4;
         public const int DensityCount = 3;
 
-        /// <summary>
-        /// Offsets only change revenue, not demand or happiness (those read vanilla rates inside game code),
-        /// so they're capped to keep that from being a free money lever.
-        /// </summary>
-        public const int MaxOffset = TaxRateTable.DensityCap;
+        /// <summary>The density tax's own rate range (<see cref="TaxRateTable.DensityMin"/>..<see cref="TaxRateTable.DensityMax"/>).</summary>
+        public const int MinRate = TaxRateTable.DensityMin;
+        public const int MaxRate = TaxRateTable.DensityMax;
 
         private readonly TaxRateTable m_Rates;
 
@@ -69,7 +68,7 @@ namespace FiscalOverhaul.Logic
 
         public int Get(TaxZone zone, Density density) => m_Rates.Get(TaxType.Density, (int)zone, (int)density);
 
-        /// <summary>Sets an offset, clamped to ±<see cref="MaxOffset"/>. Unsupported cells stay 0. Returns the stored value.</summary>
+        /// <summary>Sets the city's rate for a cell, clamped to <see cref="MinRate"/>..<see cref="MaxRate"/>. Unsupported cells stay 0. Returns the stored value.</summary>
         public int Set(TaxZone zone, Density density, int offset)
         {
             if (!IsSupported(zone, density)) return 0;
@@ -105,6 +104,32 @@ namespace FiscalOverhaul.Logic
         /// over that charged rate, not over the stored one (which would overstate the estimate by (rate + offset) / rate).
         /// Right after the offset changes, the paid amounts still reflect the old one until each payer's next payment
         /// (1/32 of a month).
+        /// </summary>
+        /// <summary>
+        /// One payer's monthly taxable base: what it paid (TaxPayer.m_AverageTaxPaid) over the rate it was charged at
+        /// (its own resolved rate, <c>TaxRateResolver</c>: vanilla rate, district difference, its own density tax).
+        /// 0 when nothing was paid or charged. Burst-safe: the Taxation tab's sum job calls it per payer.
+        /// </summary>
+        public static double TaxableBase(long monthlyTaxPaid, int chargedRate)
+        {
+            if (monthlyTaxPaid <= 0 || chargedRate <= 0) return 0;
+            return monthlyTaxPaid * 100.0 / chargedRate;
+        }
+
+        /// <summary>
+        /// A cell's estimate from its payers' summed <see cref="TaxableBase"/>: the extra (or lost) monthly revenue of
+        /// <paramref name="offset"/> on that base. Each payer's base is taken at its own charged rate, so a district's
+        /// density override (charging some of the cell's payers another rate) doesn't skew the city's estimate.
+        /// </summary>
+        public static long EstimateFromBase(double taxableBase, int offset)
+        {
+            if (offset == 0 || taxableBase <= 0) return 0;
+            return (long)Math.Round(taxableBase * offset / 100.0, MidpointRounding.AwayFromZero);
+        }
+
+        /// <summary>
+        /// The older cell-wide form (every payer assumed charged the cell's average stored rate plus
+        /// <paramref name="offset"/>); kept for the tests that pin its maths. The tab uses <see cref="TaxableBase"/>.
         /// </summary>
         public static long EstimateExtraRevenue(long monthlyTaxPaid, double averageRate, int offset)
         {

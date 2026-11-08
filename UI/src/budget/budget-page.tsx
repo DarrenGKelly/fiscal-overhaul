@@ -2,7 +2,7 @@ import { useValue } from "cs2/api";
 import { economyBudget } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { districtBudgetEnabled$, districts$, history$, playSound, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
+import { districts$, history$, playSound, setDistrict as sendDistrict, setSpan as sendSpan } from "bindings";
 import { SOUNDS, soundForPick } from "sounds";
 import {
   BALANCE,
@@ -27,8 +27,7 @@ import { buildSourceSeries, childRows, expandArrow, hasExpander, itemKey, subIte
 import { buildServiceSeries, hasServiceRows, serviceLocaleId, serviceRows } from "./service-rows";
 import styles from "./budget-page.module.scss";
 import { BudgetKind, isCityOnlyItem, isDistrictView, rowValue } from "./budget-district";
-import { districtOptions, effectiveKey, showsDistrictSelector } from "district/district-select";
-import { DistrictSelector } from "district/district-selector";
+import { districtOptions, effectiveKey } from "district/district-select";
 import { useSelectedDistrict } from "district/selection";
 
 /**
@@ -58,11 +57,11 @@ export const BudgetPage = () => {
   const totalExpenses = useValue(economyBudget.totalExpenses$);
   const history = useValue(history$);
   const districts = useValue(districts$);
-  const districtsOn = useValue(districtBudgetEnabled$);
 
   const [enabled, setEnabled] = useState(rememberedEnabled);
   const [span, setSpanState] = useState(rememberedSpan);
-  const [district, setDistrict] = useSelectedDistrict();
+  // The header's district picker (economy/economy-tab-bar.tsx) sets the shared choice; this tab follows it.
+  const [district] = useSelectedDistrict();
   const [expanded, setExpanded] = useState(rememberedExpanded);
   const [rowHover, setRowHover] = useState<string | null>(null);
   const [lineHover, setLineHover] = useState<string | null>(null);
@@ -229,13 +228,6 @@ export const BudgetPage = () => {
 
   return (
     <div className={styles.budgetPage}>
-      {showsDistrictSelector(districtsOn, districtChoices) && (
-        <DistrictSelector
-          options={districtChoices}
-          selected={selectedDistrict}
-          onSelect={setDistrict}
-        />
-      )}
       <div className={styles.budgetBody}>
         <div className={styles.listColumn}>
           <Scrollable className={styles.listScroll} trackVisibility="scrollable">

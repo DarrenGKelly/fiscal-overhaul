@@ -13,6 +13,9 @@ describe("TAX_SECTIONS", () => {
   it("puts Density first", () => {
     expect(TAX_SECTIONS[0].id).toBe("density");
     expect(TAX_SECTIONS.map((s) => s.id)).toEqual(["density", "vanilla"]);
+    // The old ±adjustment District section is gone: a district view shows these same sections with its own values.
+    expect(TAX_SECTIONS.map((s) => s.id)).not.toContain("district");
+    expect(Object.keys(EN_US)).not.toContain("FiscalOverhaul.UI.SectionDistrict");
   });
 
   it("has an English title for every section in every zone", () => {
@@ -24,8 +27,8 @@ describe("TAX_SECTIONS", () => {
 describe("sectionsForArea", () => {
   it("gives Density then Education for Residential", () => {
     expect(sectionsForArea(RESIDENTIAL, false, { density: 3, vanilla: 5 })).toEqual([
-      { id: "density", title: "SectionDensity" },
-      { id: "vanilla", title: "SectionEducation" },
+      { id: "density", title: "SectionDensity", startsOpen: false },
+      { id: "vanilla", title: "SectionEducation", startsOpen: false },
     ]);
     expect(english("SectionDensity")).toBe("Density tax");
     expect(english("SectionEducation")).toBe("Education");
@@ -73,6 +76,15 @@ describe("SectionExpandState", () => {
     expect(state.isOpen("Commercial", "density")).toBe(false);
     expect(state.toggle("Residential", "density")).toBe(false);
     expect(state.isOpen("Residential", "density")).toBe(false);
+  });
+
+  it("starts a startsOpen section open and remembers it collapsed", () => {
+    const state = new SectionExpandState();
+    expect(state.isOpen("Residential", "vanilla", true)).toBe(true);
+    expect(state.toggle("Residential", "vanilla", true)).toBe(false);
+    expect(state.isOpen("Residential", "vanilla", true)).toBe(false);
+    expect(state.isOpen("Commercial", "vanilla", true)).toBe(true);
+    expect(state.toggle("Residential", "vanilla", true)).toBe(true);
   });
 });
 

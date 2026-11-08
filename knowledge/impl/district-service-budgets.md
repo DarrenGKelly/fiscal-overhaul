@@ -115,7 +115,7 @@ children (same weights) still sum to the district slot.
 ## UI
 
 Shown while `FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding);
-off, the Services tab is vanilla, with no selector.
+off, the Services tab is vanilla, and the header's picker hides on it.
 
 - **Bindings** (`DistrictListUISystem`, only while the Economy panel is open): `districts`, the selector's list, now
   shared by every tab and published while any district feature is on (`FeatureGates.PublishesDistrictList`; it moved
@@ -123,8 +123,9 @@ off, the Services tab is vanilla, with no selector.
   override: `{ service: "index:version" of the service prefab entity (vanilla serviceDetails' entity), district,
   budget: override % or 0, upkeep: the area's money upkeep at its effective % }` (`DistrictServiceBudgetRows`; a Burst
   job over the upkeep group with `ServiceUpkeepCost.MoneyFullCost`, every 30 frames and at once after an override changes).
-- **ServicePage** (`extend`): the shared `DistrictSelector` above the vanilla page. The vanilla page is `height: 100%`,
-  so it sits in an absolutely placed box under the selector. One selection across tabs (`useSelectedDistrict`).
+- **District picker:** the one picker in the Economy panel header (`economy/economy-tab-bar.tsx`,
+  [budget-chart.md § District selector](budget-chart.md#district-selector)), shown on this tab while the feature is on;
+  the vanilla ServicePage is no longer extended. One selection across tabs (`useSelectedDistrict`).
 - **ServiceDetail** (`extend`): Entire City is vanilla's detail, Reset and fees included. In a district view (a district
   or Outside Districts) the mod draws its own detail from vanilla's pieces (`Section`, `Scrollable`, `SliderItem`,
   `BudgetItem`, `Button`, the detail's classes, BudgetSliderItem's two gradients copied): the service's title; **Use city

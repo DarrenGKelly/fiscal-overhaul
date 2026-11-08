@@ -55,7 +55,7 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
   (`budgetChartEnabled`, `history`, `setSpan`, `districtBudgetEnabled`, `districts`, `setDistrict`, `densityTaxesEnabled`, `densityTaxes`,
-  `setDensityTax`, `districtServiceBudgetEnabled`, `districtServiceBudgets`, `setDistrictServiceBudget`, `taxEngineWarning`) and compute
+  `setDensityTax`, `districtServiceBudgetEnabled`, `districtServiceBudgets`, `setDistrictServiceBudget`, `taxEngineWarning`, `taxRates`, `setTaxRate`, `resetDistrictTaxRates`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
 - **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
@@ -69,15 +69,16 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   expense. The Services tab (`UI/src/services/`) adds the shared district selector and, in a district view, the area's
   own slider and upkeep. [impl/district-service-budgets.md](knowledge/impl/district-service-budgets.md)
 - **Budget tab:** `BudgetHistoryUISystem` turns the game's saved per-source income/expense statistics into per-month
-  series (per district too: `DistrictBudgetSystem` records them, and a selector above the tab picks one);
+  series (per district too: `DistrictBudgetSystem` records them, and one picker in the Economy panel header, left of the tabs, picks one for Budget, Taxation and Services);
   `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
   while the chart is off) and draws `UI/src/chart/line-chart.tsx` (canvas).
   [impl/budget-chart.md](knowledge/impl/budget-chart.md)
 - **Tax engine (density taxes):** `TaxEngineSystem`, a copy of vanilla `TaxSystem`'s charge, runs in its place
-  (`TaxSystem.Enabled = false`; vanilla stays the rate store) and charges each payer its vanilla rate plus its density
-  and district adjustments, clamped to the vanilla limits. A guard keeps vanilla on an untested game version (unless
+  (`TaxSystem.Enabled = false`; vanilla stays the rate store) and charges each payer income tax (vanilla's rate) plus
+  its density tax (its own rate, −5..+10), with a district's own rates (any zone, education, resource or density rate it
+  overrides) in place of the city's; one shared computation, `TaxRateResolver`, clamped to the vanilla limits. A guard keeps vanilla on an untested game version (unless
   Options > Run on untested game version), on a structure mismatch, and while Options > Simulation changes
-  (`Setting.EnableSimulationChanges`) is off. Adjustments are per save (`TaxRatesSystem`, density seeded once from the
+  (`Setting.EnableSimulationChanges`) is off. Rates are per save (`TaxRatesSystem`, density seeded once from the
   `Setting.DensityTaxOffsets` template); the Taxation tab extends vanilla `TaxationGroup`.
   [impl/tax-engine.md](knowledge/impl/tax-engine.md)
 - **Pure logic** (`Mod/Logic/`, `UI/src/chart/chart-math.ts`, `UI/src/taxation/density.ts`) carries the maths and is

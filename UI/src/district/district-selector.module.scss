@@ -64,6 +64,23 @@ $value-field-radius: 8rem;
   border-radius: $value-field-radius;
 }
 
+// In the Economy panel's header, beside the tabs: left-aligned, no gap under it, the name about a tab's size and
+// clipped (with an ellipsis) so a long city or district name keeps inside the picker's slot.
+.compact {
+  justify-content: flex-start;
+  margin-bottom: 0;
+}
+
+.compact .district-selector .district-name {
+  // With the arrows about 300rem in all: the header row is tight (economy-tab-bar.module.scss $picker-width).
+  min-width: 180rem;
+  max-width: 190rem;
+  font-size: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .district-arrow {
   width: 20rem;
   height: 20rem;
@@ -73,7 +90,10 @@ $value-field-radius: 8rem;
   transform: scaleX(-1);
 }
 
+// Drawn through vanilla's Portal (the tooltip layer, which lets clicks through): pointer-events back on, or a click on
+// an item falls through to the panel underneath.
 .district-list {
+  pointer-events: auto;
   position: absolute;
   top: 100%;
   left: 50%;

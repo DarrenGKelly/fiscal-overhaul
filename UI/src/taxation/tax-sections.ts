@@ -6,13 +6,20 @@ import { UiKey } from "../l10n";
 /** A section's id: also its key in the expand state and in tax-sections-view.tsx's renderers. */
 export type TaxSectionId = "density" | "vanilla";
 
+
 export interface TaxSectionDef {
   id: TaxSectionId;
   /** The header's text for a tax area (vanilla TaxAreaType index: Residential = 1, Commercial = 2, ...). */
   title: (areaIndex: number) => UiKey;
+
+  /** Open until the player collapses it (default: collapsed until opened). */
+  startsOpen?: boolean;
 }
 
-/** Every section type, top to bottom. Density is always first. */
+/**
+ * Every section type, top to bottom. Density is always first. A district view shows the same sections as Entire City,
+ * with the district's own values in them (district-tax-view.tsx).
+ */
 export const TAX_SECTIONS: readonly TaxSectionDef[] = [
   { id: "density", title: () => "SectionDensity" },
   // Vanilla's own sub-rows (TaxationItem): education levels for Residential, resources for the other zones.
@@ -22,6 +29,7 @@ export const TAX_SECTIONS: readonly TaxSectionDef[] = [
 export interface TaxSection {
   id: TaxSectionId;
   title: UiKey;
+  startsOpen: boolean;
 }
 
 /**
@@ -35,29 +43,31 @@ export function sectionsForArea(
   sections: readonly TaxSectionDef[] = TAX_SECTIONS,
 ): TaxSection[] {
   if (locked) return [];
-  return sections.filter((s) => (rowCounts[s.id] ?? 0) > 0).map((s) => ({ id: s.id, title: s.title(areaIndex) }));
+  return sections
+    .filter((s) => (rowCounts[s.id] ?? 0) > 0)
+    .map((s) => ({ id: s.id, title: s.title(areaIndex), startsOpen: s.startsOpen ?? false }));
 }
 
-// Expand state. Every section starts collapsed; a section the player opens stays open while the UI lives (switching
-// tab or closing the Economy panel unmounts the groups, so React state alone would forget it).
+// Expand state. A section starts collapsed (or open: startsOpen); one the player flips stays flipped while the UI
+// lives (switching tab or closing the Economy panel unmounts the groups, so React state alone would forget it).
 
 export class SectionExpandState {
-  private readonly open = new Set<string>();
+  /** The sections flipped away from how they start. */
+  private readonly flipped = new Set<string>();
 
   private static key(areaId: string, section: TaxSectionId): string {
     return `${areaId}/${section}`;
   }
 
-  isOpen(areaId: string, section: TaxSectionId): boolean {
-    return this.open.has(SectionExpandState.key(areaId, section));
+  isOpen(areaId: string, section: TaxSectionId, startsOpen = false): boolean {
+    return this.flipped.has(SectionExpandState.key(areaId, section)) !== startsOpen;
   }
 
   /** Flips the section and returns its new state. */
-  toggle(areaId: string, section: TaxSectionId): boolean {
+  toggle(areaId: string, section: TaxSectionId, startsOpen = false): boolean {
     const key = SectionExpandState.key(areaId, section);
-    if (this.open.delete(key)) return false;
-    this.open.add(key);
-    return true;
+    if (!this.flipped.delete(key)) this.flipped.add(key);
+    return this.isOpen(areaId, section, startsOpen);
   }
 }
 

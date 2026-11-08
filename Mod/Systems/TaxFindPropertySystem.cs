@@ -376,11 +376,9 @@ namespace FiscalOverhaul
 
 
 
-                // ADDED: the home's adjustments (the tax engine's, TaxEngineSystem.PayTaxJob.ChargedRate for a household),
+                // ADDED: the shared rate computation (TaxRateResolver, as the tax engine charges a household),
             // the job-level limits, and counters for Mod.log (scores, scores the tax term moved, their summed delta).
-            [ReadOnly] public NativeArray<int> m_DensityAdjustments;
-            [ReadOnly] public NativeParallelHashMap<Entity, int4> m_DistrictAdjustments;
-            public TaxKeyResolver m_Keys;
+            public TaxRateResolver m_Rates;
             public int2 m_RateLimits;
             public NativeArray<int> m_Stats;
 
@@ -395,16 +393,9 @@ namespace FiscalOverhaul
                 m_Stats[0]++;
                 if (float.IsNegativeInfinity(score) || BuildingUtils.IsHomelessShelterBuilding(property, ref m_Parks, ref m_Abandoneds)) return score;
 
-                int density = 0;
-                if (m_Keys.TryDensityCell(property, true, out int cell)) density = m_DensityAdjustments[cell];
-                int district = 0;
-                if (!m_DistrictAdjustments.IsEmpty)
-                {
-                    Entity districtEntity = m_Keys.District(property);
-                    if (districtEntity != Entity.Null && m_DistrictAdjustments.TryGetValue(districtEntity, out int4 adjustments))
-                        district = adjustments[(int)TaxZone.Residential];
-                }
-                if (density == 0 && district == 0) return score;
+                // The home's district block and density tax (TaxRateResolver, the tax engine's computation); nothing to
+                // add: vanilla's score.
+                if (!m_Rates.Locate(property, true, out int block, out int densityTax)) return score;
 
                 // The adults' tax bonuses (PropertyUtils.cs:512-525), at the city rate and at this home's rate.
                 DynamicBuffer<CityModifier> cityModifiers = m_CityModifiers[m_City];
@@ -417,7 +408,7 @@ namespace FiscalOverhaul
                     int educationLevel = citizen.GetEducationLevel();
                     int vanillaBonus = CitizenHappinessSystem.GetTaxBonuses(educationLevel, m_TaxRates, cityModifiers, in m_CitizenHappinessParameterData).y;
                     int vanillaRate = TaxSystem.GetResidentialTaxRate(educationLevel, m_TaxRates);
-                    int homeRate = TaxHappinessMath.ResidentRate(vanillaRate, density, district, m_RateLimits.x, m_RateLimits.y);
+                    int homeRate = m_Rates.ResidentRate(block, densityTax, educationLevel, vanillaRate, m_RateLimits);
                     int homeBonus = homeRate == vanillaRate
                         ? vanillaBonus
                         : TaxHappinessMath.Bonus(homeRate, educationLevel, m_CitizenHappinessParameterData.m_TaxUneducatedMultiplier, m_CitizenHappinessParameterData.m_TaxPoorlyEducatedMultiplier, m_CitizenHappinessParameterData.m_TaxEducatedMultiplier, m_CitizenHappinessParameterData.m_TaxWellEducatedMultiplier, m_CitizenHappinessParameterData.m_TaxHighlyEducatedMultiplier, modifier.x, modifier.y);
@@ -713,6 +704,7 @@ namespace FiscalOverhaul
         private EndFrameBarrier m_EndFrameBarrier;
         private PathfindSetupSystem m_PathfindSetupSystem;
         private TaxSystem m_TaxSystem;
+        private ResourceSystem m_ResourceSystem; // ADDED: the resolver's resource prefabs
         private TriggerSystem m_TriggerSystem;
         private GroundPollutionSystem m_GroundPollutionSystem;
         private AirPollutionSystem m_AirPollutionSystem;
@@ -768,6 +760,7 @@ namespace FiscalOverhaul
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_CityStatisticsSystem = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
             m_TaxSystem = World.GetOrCreateSystemManaged<TaxSystem>();
+            m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>(); // ADDED
             m_TriggerSystem = World.GetOrCreateSystemManaged<TriggerSystem>();
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_PropertyProcessingSystem = World.GetOrCreateSystemManaged<PropertyProcessingSystem>();
@@ -958,9 +951,9 @@ namespace FiscalOverhaul
                 m_City = m_CitySystem.City,
                 m_PropertyData = cachedPropertyInfo.AsParallelWriter()
             };
-            // ADDED: the job gets its own copies of the adjustments, freed with it (as the tax engine).
-            var density = new NativeArray<int>(DensityTaxState.Snapshot(), Allocator.TempJob);
-            NativeParallelHashMap<Entity, int4> districts = TaxEngineSystem.BuildDistrictAdjustments();
+            // ADDED: the job gets its own copy of the rates (the resolver's arrays), freed with it (as the tax engine).
+            NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
+            TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, m_ResourceSystem.GetPrefabs(), wages, Allocator.TempJob);
             FindPropertyJob jobData2 = new FindPropertyJob
             {
                 m_HomelessHouseholdEntities = m_HomelessHouseholdQuery.ToEntityListAsync(World.UpdateAllocator.ToAllocator, out var outJobHandle),
@@ -1019,9 +1012,7 @@ namespace FiscalOverhaul
                 m_PathfindQueue = m_PathfindSetupSystem.GetQueue(this, 80, 16).AsParallelWriter(),
                 m_CommandBuffer = m_EndFrameBarrier.CreateCommandBuffer(),
                 // ADDED
-                m_DensityAdjustments = density,
-                m_DistrictAdjustments = districts,
-                m_Keys = TaxKeyResolver.Create(this),
+                m_Rates = rates,
                 m_RateLimits = m_TaxSystem.GetTaxParameterData().m_JobLevelTaxLimits,
                 m_Stats = m_Stats,
             };
@@ -1040,8 +1031,8 @@ namespace FiscalOverhaul
             m_TaxSystem.AddReader(Dependency);
             cachedPropertyInfo.Dispose(Dependency);
             // ADDED
-            density.Dispose(Dependency);
-            districts.Dispose(Dependency);
+            rates.Dispose(Dependency);
+            wages.Dispose(Dependency);
         }
     }
 }

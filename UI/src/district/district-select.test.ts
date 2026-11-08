@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   CITY_KEY,
+  cityLabel,
   cycle,
   districtLabel,
   districtOptions,
   dividerBefore,
   effectiveKey,
+  listAnchor,
   OUTSIDE_KEY,
   showsDistrictSelector,
 } from "./district-select";
@@ -81,6 +83,31 @@ describe("districtOptions order", () => {
   it("with no districts, only Entire City (no Outside: the selector hides)", () => {
     expect(districtOptions([])).toEqual([{ key: CITY_KEY, label: "Entire City" }]);
   });
+
+  it("puts the city first, labelled with the city's name", () => {
+    const options = districtOptions(DISTRICTS, null, "Odiham");
+    expect(options[0]).toEqual({ key: CITY_KEY, label: "Odiham" });
+    expect(options.map((o) => o.label)).not.toContain("Entire City");
+  });
+});
+
+describe("cityLabel", () => {
+  it("is the city's name", () => {
+    expect(cityLabel("Odiham")).toBe("Odiham");
+    expect(cityLabel("  Odiham ")).toBe("Odiham");
+  });
+
+  it("falls back to Entire City while the name is blank", () => {
+    expect(cityLabel("")).toBe("Entire City");
+    expect(cityLabel("   ")).toBe("Entire City");
+    expect(cityLabel(null)).toBe("Entire City");
+  });
+
+  it("falls back to the translated Entire City", () => {
+    const translate = (id: string) => (id === "FiscalOverhaul.UI.EntireCity" ? "Toute la ville" : null);
+    expect(cityLabel("", translate)).toBe("Toute la ville");
+    expect(cityLabel("Odiham", translate)).toBe("Odiham");
+  });
 });
 
 describe("dividerBefore", () => {
@@ -114,5 +141,16 @@ describe("districtLabel", () => {
     expect(districtLabel("Assets.DISTRICT_NAME[4]", 1, translate)).toBe("Riverside");
     expect(districtLabel("Assets.DISTRICT_NAME[9]", 5, translate)).toBe("District 5");
     expect(districtLabel("Assets.DISTRICT_NAME[9]", 5, null)).toBe("District 5");
+  });
+});
+
+describe("listAnchor", () => {
+  it("puts the list's top centre under the name, in the container's coordinates", () => {
+    const name = { left: 300, top: 140, width: 200, height: 40 };
+    expect(listAnchor(name, { left: 100, top: 20, width: 2000, height: 1000 })).toEqual({ left: 300, top: 160 });
+  });
+
+  it("uses screen coordinates without a container", () => {
+    expect(listAnchor({ left: 300, top: 140, width: 200, height: 40 }, null)).toEqual({ left: 400, top: 180 });
   });
 });

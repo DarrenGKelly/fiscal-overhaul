@@ -42,7 +42,11 @@ export const taxationPageClasses: { totalValue?: string } | undefined = getModul
  */
 export const Scrollable: any = getModule("game-ui/common/scrolling/scrollable.tsx", "Scrollable");
 
-/** Extended to reorder the Economy panel's tabs (TabBar draws `<div class=tabBar>{children}</div>`; EconomyPanel passes children keyed by `tab`). */
+/**
+ * Extended for the Economy panel's header (economy/economy-tab-bar.tsx): our tab order, the district picker and the
+ * group divider. TabBar draws `<div class=tabBar {className}>{children}</div>`; EconomyPanel passes children keyed by
+ * `tab`, each with props { tab, selectedTab, feature, uiTag, onSelect }.
+ */
 export const TAB_BAR_PATH = "game-ui/common/tabs/tabs.tsx";
 export const BUDGET_PAGE_PATH =`${ECONOMY}/budget-page/budget-page.tsx`;
 export const TAXATION_GROUP_PATH = `${ECONOMY}/taxation-page/taxation-group.tsx`;
@@ -54,8 +58,6 @@ export const MONEY_FIELD_PATH = `${ECONOMY}/components/money-field/money-field.t
 
 // Services tab (UI/src/services/service-page.tsx).
 const SERVICE_DETAIL = `${ECONOMY}/service-page/service-detail`;
-/** Extended: the district selector above the vanilla page (no props). */
-export const SERVICE_PAGE_PATH = `${ECONOMY}/service-page/service-page.tsx`;
 /** Extended: props { service: Entity, className? }; in a district view our own detail is drawn instead. */
 export const SERVICE_DETAIL_PATH = `${SERVICE_DETAIL}/service-detail.tsx`;
 
@@ -79,3 +81,8 @@ export const Button: any = getModule("game-ui/common/input/button/button.tsx", "
 
 /** Whether the legacy interface style is on: vanilla BudgetSliderItem picks its slider gradient by it. */
 export const useLegacyInterfaceActive: () => boolean = getModule("game-ui/common/hooks/use-legacy-interface.tsx", "useLegacyInterfaceActive");
+
+/** Vanilla's portal (`game-ui/common/portal/portal.tsx`): draws children in the screen-wide portal container, above every panel; tooltips use it. */
+export const Portal: any = getModule("game-ui/common/portal/portal.tsx", "Portal");
+/** The portal container Portal draws into (document.body unless a provider sets one). */
+export const usePortalContainer: (() => HTMLElement | null) | undefined = getModule("game-ui/common/portal/portal.tsx", "usePortalContainer");

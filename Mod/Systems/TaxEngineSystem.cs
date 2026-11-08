@@ -24,7 +24,7 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// The tax engine: charges every tax payer in place of vanilla TaxSystem's update, at the payer's vanilla rate plus
-    /// the city's adjustments (<see cref="TaxRateTable"/>: density, district), kept inside the vanilla limits
+    /// its density tax and its district's own rates (<see cref="TaxRateResolver"/>), kept inside the vanilla limits
     /// (<see cref="EffectiveTaxRate"/>).
     ///
     /// Vanilla TaxSystem stays the data store (its rate array, saved by vanilla and read by the other systems and the
@@ -51,6 +51,7 @@ namespace FiscalOverhaul
         private EntityQuery m_IndustrialTaxPayerGroup;
         private EntityQuery m_TaxParameterGroup;
         private EntityQuery m_GameModeSettingQuery;
+        private EntityQuery m_EconomyParameterQuery;
         private float3 m_TaxPaidMultiplier;
 
         private string m_GameVersion;
@@ -89,6 +90,7 @@ namespace FiscalOverhaul
             m_IndustrialTaxPayerGroup = GetEntityQuery(ComponentType.ReadWrite<TaxPayer>(), ComponentType.ReadOnly<UpdateFrame>(), ComponentType.ReadWrite<Resources>(), ComponentType.ReadOnly<Game.Companies.ProcessingCompany>(), ComponentType.Exclude<Deleted>(), ComponentType.Exclude<Temp>(), ComponentType.Exclude<Game.Companies.StorageCompany>(), ComponentType.Exclude<ServiceAvailable>());
             m_TaxParameterGroup = GetEntityQuery(ComponentType.ReadOnly<TaxParameterData>());
             m_GameModeSettingQuery = GetEntityQuery(ComponentType.ReadOnly<ModeSettingData>());
+            m_EconomyParameterQuery = GetEntityQuery(ComponentType.ReadOnly<EconomyParameterData>());
             m_TaxPaidMultiplier = new float3(1f, 1f, 1f);
             RequireForUpdate(m_TaxParameterGroup);
 
@@ -185,20 +187,21 @@ namespace FiscalOverhaul
             uint updateFrame = SimulationUtils.GetUpdateFrame(m_SimulationSystem.frameIndex, TaxSystem.kUpdatesPerDay, 16);
             ResourcePrefabs prefabs = m_ResourceSystem.GetPrefabs();
 
-            // The jobs get their own copies of the adjustments, freed with them: the main thread can change the table
-            // (a slider, Options) while they run.
-            var density = new NativeArray<int>(DensityTaxState.Snapshot(), Allocator.TempJob);
-            NativeParallelHashMap<Entity, int4> districts = BuildDistrictAdjustments();
+            // The jobs get their own copies of the rates (the resolver's arrays), freed with them: the main thread can
+            // change the table (a slider, Options) while they run.
+            NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
 
-            JobHandle residential = Schedule(m_ResidentialTaxPayerGroup, IncomeSource.TaxResidential, m_TaxPaidMultiplier.x, parameters.m_JobLevelTaxLimits, updateFrame, prefabs, density, districts);
-            JobHandle commercial = Schedule(m_CommercialTaxPayerGroup, IncomeSource.TaxCommercial, m_TaxPaidMultiplier.y, parameters.m_ResourceTaxLimits, updateFrame, prefabs, density, districts);
-            JobHandle industrial = Schedule(m_IndustrialTaxPayerGroup, IncomeSource.TaxIndustrial, m_TaxPaidMultiplier.z, parameters.m_ResourceTaxLimits, updateFrame, prefabs, density, districts);
+            TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, prefabs, wages, Allocator.TempJob);
+
+            JobHandle residential = Schedule(m_ResidentialTaxPayerGroup, IncomeSource.TaxResidential, m_TaxPaidMultiplier.x, parameters.m_JobLevelTaxLimits, updateFrame, prefabs, rates);
+            JobHandle commercial = Schedule(m_CommercialTaxPayerGroup, IncomeSource.TaxCommercial, m_TaxPaidMultiplier.y, parameters.m_ResourceTaxLimits, updateFrame, prefabs, rates);
+            JobHandle industrial = Schedule(m_IndustrialTaxPayerGroup, IncomeSource.TaxIndustrial, m_TaxPaidMultiplier.z, parameters.m_ResourceTaxLimits, updateFrame, prefabs, rates);
             Dependency = JobHandle.CombineDependencies(residential, commercial, industrial);
-            density.Dispose(Dependency);
-            districts.Dispose(Dependency);
+            rates.Dispose(Dependency);
+            wages.Dispose(Dependency);
         }
 
-        private JobHandle Schedule(EntityQuery query, IncomeSource type, float paidMultiplier, int2 rateLimits, uint updateFrame, ResourcePrefabs prefabs, NativeArray<int> density, NativeParallelHashMap<Entity, int4> districts)
+        private JobHandle Schedule(EntityQuery query, IncomeSource type, float paidMultiplier, int2 rateLimits, uint updateFrame, ResourcePrefabs prefabs, TaxRateResolver rates)
         {
             var job = new PayTaxJob
             {
@@ -217,36 +220,17 @@ namespace FiscalOverhaul
                 m_UpdateFrameIndex = updateFrame,
                 m_PaidMultiplier = paidMultiplier,
                 m_RateLimits = rateLimits,
-                m_DensityAdjustments = density,
-                m_DistrictAdjustments = districts,
-                m_Keys = TaxKeyResolver.Create(this),
+                m_Rates = rates,
                 m_StatisticsEventQueue = m_CityStatisticsSystem.GetStatisticsEventQueue(out JobHandle deps).AsParallelWriter(),
             };
             JobHandle handle = job.ScheduleParallel(query, JobHandle.CombineDependencies(Dependency, deps));
             m_CityStatisticsSystem.AddWriter(handle);
             return handle;
         }
-
-        /// <summary>The district adjustments by district entity: x..w = Residential, Commercial, Industrial, Office (<see cref="TaxZone"/>).</summary>
-        internal static NativeParallelHashMap<Entity, int4> BuildDistrictAdjustments()
-        {
-            var entries = DensityTaxState.Table.Rates.Entries();
-            var map = new NativeParallelHashMap<Entity, int4>(math.max(1, entries.Count), Allocator.TempJob);
-            foreach (TaxRateEntry e in entries)
-            {
-                if (e.Type != TaxType.District || e.Zone < 0 || e.Zone >= DensityTaxTable.ZoneCount) continue;
-                var district = new Entity { Index = e.Key, Version = e.KeyVersion };
-                map.TryGetValue(district, out int4 adjustments);
-                adjustments[e.Zone] = e.Value;
-                map[district] = adjustments;
-            }
-            return map;
-        }
-
         /// <summary>
         /// Copied from Game.Simulation.TaxSystem.PayTaxJob (TaxSystem.cs:30-150), game version 1.6.3f1. Changes: the
-        /// tax is charged at <see cref="EffectiveTaxRate.Compute"/>'s rate (the payer's vanilla rate plus its density
-        /// and district adjustments) instead of the payer's stored rate, which is left as it is; everything else
+        /// tax is charged at <see cref="TaxRateResolver.ChargedRate"/> (the payer's vanilla rate plus its density tax
+        /// and its district's income-tax difference) instead of the payer's stored rate, which is left as it is; everything else
         /// (paid multiplier, statistics, office detection, zeroing the untaxed income, the average paid) is vanilla's.
         /// </summary>
         [BurstCompile]
@@ -268,42 +252,18 @@ namespace FiscalOverhaul
             public float m_PaidMultiplier;
             /// <summary>The vanilla limits for this payer kind's full rate (TaxParameterData).</summary>
             public int2 m_RateLimits;
-            [ReadOnly] public NativeArray<int> m_DensityAdjustments;
-            [ReadOnly] public NativeParallelHashMap<Entity, int4> m_DistrictAdjustments;
-            public TaxKeyResolver m_Keys;
+            /// <summary>The shared effective-rate computation: city values and district overrides.</summary>
+            public TaxRateResolver m_Rates;
             public NativeQueue<StatisticsEvent>.ParallelWriter m_StatisticsEventQueue;
 
-            /// <summary>Whether an industrial payer's output weighs nothing, so vanilla books its tax as Office (PayTax).</summary>
-            private bool IsWeightless(Entity entity)
-            {
-                if (!m_Prefabs.HasComponent(entity)) return false;
-                Entity prefab = m_Prefabs[entity].m_Prefab;
-                if (!m_ProcessDatas.HasComponent(prefab)) return false;
-                Resource resource = m_ProcessDatas[prefab].m_Output.m_Resource;
-                return m_ResourceDatas[m_ResourcePrefabs[resource]].m_Weight == 0f;
-            }
-
-            /// <summary>The rate this payer is charged: its vanilla rate plus its adjustments, inside the limits.</summary>
+            /// <summary>The rate this payer is charged (<see cref="TaxRateResolver.ChargedRate"/>); the vanilla rate with no property.</summary>
             private int ChargedRate(TaxPayer taxPayer, Entity entity, bool hasProperty, Entity property)
             {
                 if (!hasProperty) return taxPayer.m_AverageTaxRate;
-                bool isHousehold = m_Type == IncomeSource.TaxResidential;
-                int density = 0;
-                if (m_Keys.TryDensityCell(property, isHousehold, out int cell)) density = m_DensityAdjustments[cell];
-                int district = 0;
-                if (!m_DistrictAdjustments.IsEmpty)
-                {
-                    Entity districtEntity = m_Keys.District(property);
-                    if (districtEntity != Entity.Null && m_DistrictAdjustments.TryGetValue(districtEntity, out int4 adjustments))
-                    {
-                        bool weightless = m_Type == IncomeSource.TaxIndustrial && IsWeightless(entity);
-                        TaxZone zone = TaxPayerZone.Of(isHousehold, m_Type == IncomeSource.TaxCommercial, weightless);
-                        district = adjustments[(int)zone];
-                    }
-                }
-                return EffectiveTaxRate.Compute(taxPayer.m_AverageTaxRate, density, district, m_RateLimits.x, m_RateLimits.y, taxPayer.m_UntaxedIncome);
+                TaxPayerKind kind = m_Type == IncomeSource.TaxResidential ? TaxPayerKind.Household
+                    : m_Type == IncomeSource.TaxCommercial ? TaxPayerKind.Commercial : TaxPayerKind.Industrial;
+                return m_Rates.ChargedRate(taxPayer, entity, property, kind, m_RateLimits);
             }
-
             private void PayTax(ref TaxPayer taxPayer, Entity entity, int chargedRate, DynamicBuffer<Resources> resources, IncomeSource taxType, NativeQueue<StatisticsEvent>.ParallelWriter statisticsEventQueue)
             {
                 // Vanilla: int tax = GetTax(taxPayer); here at the charged rate. The stored rate is not changed.

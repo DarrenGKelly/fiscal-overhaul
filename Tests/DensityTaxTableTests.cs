@@ -7,12 +7,12 @@ namespace FiscalOverhaul.Tests
     public class DensityTaxTableTests
     {
         [Fact]
-        public void Set_ClampsToTheCap()
+        public void Set_ClampsToMinus5Plus10()
         {
             var table = new DensityTaxTable();
 
-            Assert.Equal(DensityTaxTable.MaxOffset, table.Set(TaxZone.Residential, Density.High, 50));
-            Assert.Equal(-DensityTaxTable.MaxOffset, table.Set(TaxZone.Residential, Density.Low, -50));
+            Assert.Equal(10, table.Set(TaxZone.Residential, Density.High, 50));
+            Assert.Equal(-5, table.Set(TaxZone.Residential, Density.Low, -50));
             Assert.Equal(3, table.Set(TaxZone.Residential, Density.Medium, 3));
         }
 
@@ -33,6 +33,57 @@ namespace FiscalOverhaul.Tests
             Assert.True(DensityTaxTable.IsSupported(TaxZone.Office, Density.High));
             Assert.False(DensityTaxTable.IsSupported(TaxZone.Office, Density.Medium));
             Assert.False(DensityTaxTable.IsSupported(TaxZone.Industrial, Density.High));
+        }
+
+        /// <summary>
+        /// The city cell's estimate as the Taxation tab sums it: each payer's base at the rate it was charged
+        /// (TaxRateModel.HouseholdChargedRate, the resolver's twin), times the city's density rate.
+        /// </summary>
+        private static long CityCellEstimate(TaxRateTable table, int cityRate)
+        {
+            const int A = 42, AV = 1, Stored = 10;
+            var rates = new int[TaxRateModel.VanillaRateCount];
+            rates[0] = 10;
+            var limits = TaxLimits.Wide();
+            int cell = DensityTaxTable.Index(TaxZone.Residential, Density.High);
+            double sum = 0;
+            // Two households in the High cell, each with a 1000 base: one outside districts, one in district A.
+            foreach ((int area, int version) in new[] { (TaxRateTable.CityArea, 0), (A, AV) })
+            {
+                int charged = TaxRateModel.HouseholdChargedRate(table, area, version, rates, limits, true, cell, Stored, new int[0], null, 1);
+                long paid = 1000L * charged / 100; // what the engine charged on a 1000 base
+                sum += DensityTaxTable.TaxableBase(paid, charged);
+            }
+            return DensityTaxTable.EstimateFromBase(sum, cityRate);
+        }
+
+        [Fact]
+        public void CityEstimate_ADistrictDensityOverrideNoLongerChangesIt()
+        {
+            var table = new TaxRateTable();
+            table.Set(TaxType.Density, (int)TaxZone.Residential, (int)Density.High, 3);
+            long without = CityCellEstimate(table, 3);
+            table.Set(TaxType.Density, (int)TaxZone.Residential, (int)Density.High, 42, 1, 8); // district A: 8
+            long with = CityCellEstimate(table, 3);
+
+            Assert.Equal(60, without); // 2000 base × 3 %
+            Assert.Equal(without, with);
+
+            // Fail case: the old cell-wide form (every payer at the average stored rate + the city's 3) is skewed by
+            // district A's payer paying 18 % instead of 13 %.
+            long paidWith = 130 + 180;
+            Assert.NotEqual(without, DensityTaxTable.EstimateExtraRevenue(paidWith, 10, 3));
+        }
+
+        [Fact]
+        public void TaxableBase_IsPaidOverTheChargedRate()
+        {
+            Assert.Equal(1000.0, DensityTaxTable.TaxableBase(130, 13), 6);
+            Assert.Equal(0.0, DensityTaxTable.TaxableBase(0, 13));
+            Assert.Equal(0.0, DensityTaxTable.TaxableBase(130, 0));
+            Assert.Equal(30, DensityTaxTable.EstimateFromBase(1000, 3));
+            Assert.Equal(-50, DensityTaxTable.EstimateFromBase(1000, -5));
+            Assert.Equal(0, DensityTaxTable.EstimateFromBase(1000, 0));
         }
 
         [Fact]
@@ -91,7 +142,7 @@ namespace FiscalOverhaul.Tests
         public void Parse_ClampsOutOfRangeValues()
         {
             var table = DensityTaxTable.Parse("99,0,0,0,0,0,0,0,0,0,0,0");
-            Assert.Equal(DensityTaxTable.MaxOffset, table.Get(TaxZone.Residential, Density.Low));
+            Assert.Equal(DensityTaxTable.MaxRate, table.Get(TaxZone.Residential, Density.Low));
         }
 
         [Fact]

@@ -45,7 +45,8 @@ export interface DensityTaxCell {
 }
 
 export interface DensityTaxes {
-  maxOffset: number;
+  minRate: number;
+  maxRate: number;
   cells: DensityTaxCell[];
 }
 
@@ -64,6 +65,45 @@ export function setDensityTax(zone: number, density: number, offset: number) {
  */
 export const taxEngineWarning$ = bindValue<number>(GROUP, "taxEngineWarning", 0);
 
+/**
+ * One district override (C# TaxRatesUISystem): the district's own value for a (type, zone, key), as stored: a full
+ * zone rate (TAX_TYPE_ZONE_RATE), an offset from the zone rate (TAX_TYPE_RESOURCE_RATE, like vanilla), a density tax
+ * rate (TAX_TYPE_DENSITY). A value with no row follows the city.
+ */
+export interface DistrictTaxRate {
+  /** The district's key ("index:version"). It changes on every load: compare with districts$ keys, never cache it. */
+  area: string;
+  type: number;
+  /** 0 Residential .. 3 Office. */
+  zone: number;
+  /** Density 0..2, education level 0..4 (Residential), resource index (other zones); 0 for a zone rate. */
+  key: number;
+  value: number;
+}
+
+export interface TaxRates {
+  /** The tax engine charges (Simulation changes on, guard happy): district rates take effect. */
+  engineOn: boolean;
+  /** Every stored district override. */
+  districts: DistrictTaxRate[];
+}
+
+export const taxRates$ = bindValue<TaxRates | null>(GROUP, "taxRates", null);
+
+/** C# TaxType: Density = 0 (1 = the retired ±adjustment), ZoneRate = 2, ResourceRate = 3 (education level or resource). */
+export const TAX_TYPE_DENSITY = 0;
+export const TAX_TYPE_ZONE_RATE = 2;
+export const TAX_TYPE_RESOURCE_RATE = 3;
+
+/**
+ * Sets a value as its slider shows it: type (TAX_TYPE_*), zone (0..3), key, area ("" = the city: density only; else a
+ * district key), value (a full rate; clamped, and turned into vanilla's offset form, in C#). Setting a district's value
+ * back to the city's makes it follow the city again. The trigger takes key and area as one "key@area" string.
+ */
+export function setTaxRate(type: number, zone: number, key: number, area: string, value: number) {
+  trigger(GROUP, "setTaxRate", type, zone, area ? `${key}@${area}` : `${key}`, value);
+}
+
 /** Options > District service budgets (BETA) with Simulation changes on. Off: the Services tab is vanilla. */
 export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
 
@@ -73,4 +113,9 @@ export const districtServiceBudgets$ = bindValue<DistrictServiceBudget[]>(GROUP,
 /** Sets an area's % for a service (50-150), or 0 to follow the city slider again. districtKey: a district key or "outside". */
 export function setDistrictServiceBudget(serviceKey: string, districtKey: string, budget: number) {
   trigger(GROUP, "setDistrictServiceBudget", serviceKey, districtKey, budget);
+}
+
+/** "Use city rates": removes every override of the district. */
+export function resetDistrictTaxRates(area: string) {
+  trigger(GROUP, "resetDistrictTaxRates", area);
 }

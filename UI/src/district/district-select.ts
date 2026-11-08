@@ -32,12 +32,18 @@ function looksLikeId(text: string): boolean {
   return text !== "" && !/\s/.test(text) && /[.[\]]/.test(text) && /^[A-Za-z0-9_.:[\]-]+$/.test(text);
 }
 
+/** The city option's label: the city's name (vanilla toolbarBottom.cityName), or "Entire City" while it is blank. */
+export function cityLabel(cityName: string | null | undefined, translate: Translate | null = null): string {
+  const name = (cityName ?? "").trim();
+  return name !== "" ? name : localize(translate, "EntireCity");
+}
+
 /**
- * Every selector choice in cycle order: Entire City, each district (the binding's order, by name), Outside Districts.
- * No districts: only Entire City (the selector still shows, its arrows and list staying on Entire City).
+ * Every selector choice in cycle order: the city (labelled with its name, cityLabel), each district (the binding's
+ * order, by name), Outside Districts. No districts: only the city (its arrows and list staying on the city).
  */
-export function districtOptions(districts: DistrictLike[], translate: Translate | null = null): DistrictOption[] {
-  const city: DistrictOption = { key: CITY_KEY, label: localize(translate, "EntireCity") };
+export function districtOptions(districts: DistrictLike[], translate: Translate | null = null, cityName = ""): DistrictOption[] {
+  const city: DistrictOption = { key: CITY_KEY, label: cityLabel(cityName, translate) };
   if (districts.length === 0) return [city];
   return [
     city,
@@ -78,4 +84,23 @@ export function cycle(options: { key: string }[], currentKey: string, dir: 1 | -
 /** The selected key if it is still a choice, else Entire City (a district deleted, or recording switched off). */
 export function effectiveKey(options: { key: string }[], key: string): string {
   return options.some((o) => o.key === key) ? key : CITY_KEY;
+}
+
+/** A box on screen: what getBoundingClientRect gives. */
+export interface BoxLike {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where the picker's list goes inside the portal container (vanilla Portal): its top centre under the anchor (the
+ * picker's name), in the container's coordinates. The list draws in the portal, not in the panel header, because the
+ * header's stacking context sits under the panel content, which would cover the list.
+ */
+export function listAnchor(anchor: BoxLike, container: BoxLike | null): { left: number; top: number } {
+  const ox = container?.left ?? 0;
+  const oy = container?.top ?? 0;
+  return { left: anchor.left + anchor.width / 2 - ox, top: anchor.top + anchor.height - oy };
 }

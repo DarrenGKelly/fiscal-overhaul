@@ -217,26 +217,10 @@ namespace FiscalOverhaul
 
             public NativeQueue<StatisticsEvent>.ParallelWriter m_StatisticsEventQueue;
 
-            // ADDED: the home's adjustments (the tax engine's, TaxEngineSystem.PayTaxJob.ChargedRate for a household).
-            [ReadOnly] public NativeArray<int> m_DensityAdjustments;
-            [ReadOnly] public NativeParallelHashMap<Entity, int4> m_DistrictAdjustments;
-            public TaxKeyResolver m_Keys;
+            // ADDED: the shared rate computation (TaxRateResolver: the home district's rate for the citizen's level and
+            // the home's density tax, as the tax engine charges) and the job-level limits.
+            public TaxRateResolver m_Rates;
             public int2 m_RateLimits;
-
-            /// <summary>ADDED: the residential rate <paramref name="property"/> is charged at <paramref name="vanillaRate"/>.</summary>
-            private int HomeRate(Entity property, int vanillaRate)
-            {
-                int density = 0;
-                if (m_Keys.TryDensityCell(property, true, out int cell)) density = m_DensityAdjustments[cell];
-                int district = 0;
-                if (!m_DistrictAdjustments.IsEmpty)
-                {
-                    Entity districtEntity = m_Keys.District(property);
-                    if (districtEntity != Entity.Null && m_DistrictAdjustments.TryGetValue(districtEntity, out int4 adjustments))
-                        district = adjustments[(int)TaxZone.Residential];
-                }
-                return TaxHappinessMath.ResidentRate(vanillaRate, density, district, m_RateLimits.x, m_RateLimits.y);
-            }
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -534,7 +518,7 @@ namespace FiscalOverhaul
                         if (flag)
                         {
                             int vanillaRate = TaxSystem.GetResidentialTaxRate(educationLevel, m_TaxRates);
-                            int homeRate = HomeRate(entity, vanillaRate);
+                            int homeRate = m_Rates.ResidentRate(entity, educationLevel, vanillaRate, m_RateLimits);
                             if (homeRate != vanillaRate)
                             {
                                 float2 modifier = CityUtils.GetModifier(cityModifiers, CityModifierType.TaxHappiness);
@@ -896,6 +880,8 @@ namespace FiscalOverhaul
         private CitySystem m_CitySystem;
         private TriggerSystem m_TriggerSystem;
         private TaxSystem m_TaxSystem;
+        private ResourceSystem m_ResourceSystem; // ADDED: the resolver's resource prefabs
+        private EntityQuery m_EconomyParameterQuery; // ADDED: the resolver's wages
         private CityStatisticsSystem m_CityStatisticsSystem;
         private EntityQuery m_HealthcareParameterQuery;
         private EntityQuery m_ParkParameterQuery;
@@ -945,6 +931,8 @@ namespace FiscalOverhaul
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_TriggerSystem = World.GetOrCreateSystemManaged<TriggerSystem>();
             m_TaxSystem = World.GetOrCreateSystemManaged<TaxSystem>();
+            m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>(); // ADDED
+            m_EconomyParameterQuery = GetEntityQuery(ComponentType.ReadOnly<EconomyParameterData>()); // ADDED
             m_CityStatisticsSystem = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
             m_FactorQueue = new NativeQueue<FactorItem>(Allocator.Persistent);
             m_HealthcareParameterQuery = GetEntityQuery(ComponentType.ReadOnly<HealthcareParameterData>());
@@ -1055,9 +1043,9 @@ namespace FiscalOverhaul
             m_CitizenQuery.ResetFilter();
             m_CitizenQuery.AddSharedComponentFilter(new UpdateFrame(updateFrameWithInterval));
 
-            // ADDED: the jobs get their own copies of the adjustments, freed with them (as the tax engine).
-            var density = new NativeArray<int>(DensityTaxState.Snapshot(), Allocator.TempJob);
-            NativeParallelHashMap<Entity, int4> districts = TaxEngineSystem.BuildDistrictAdjustments();
+            // ADDED: the job gets its own copy of the rates (the resolver's arrays), freed with it (as the tax engine).
+            NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
+            TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, m_ResourceSystem.GetPrefabs(), wages, Allocator.TempJob);
 
             JobHandle jobHandle = new CitizenHappinessJob
             {
@@ -1116,9 +1104,7 @@ namespace FiscalOverhaul
                 m_FactorQueue = m_FactorQueue.AsParallelWriter(),
                 m_StatisticsEventQueue = m_CityStatisticsSystem.GetStatisticsEventQueue(out var deps2).AsParallelWriter(),
                 // ADDED
-                m_DensityAdjustments = density,
-                m_DistrictAdjustments = districts,
-                m_Keys = TaxKeyResolver.Create(this),
+                m_Rates = rates,
                 m_RateLimits = m_TaxSystem.GetTaxParameterData().m_JobLevelTaxLimits,
             }.ScheduleParallel(m_CitizenQuery, JobHandle.CombineDependencies(dependencies5, dependencies4, JobHandle.CombineDependencies(dependencies2, dependencies3, JobHandle.CombineDependencies(Dependency, dependencies, deps2))));
             // ADDED: after vanilla's last write to the factor array (the update before the switch to this system).
@@ -1130,8 +1116,8 @@ namespace FiscalOverhaul
             m_LocalEffectSystem.AddLocalEffectReader(jobHandle);
             m_TaxSystem.AddReader(jobHandle);
             m_CityStatisticsSystem.AddWriter(jobHandle);
-            density.Dispose(jobHandle);
-            districts.Dispose(jobHandle);
+            rates.Dispose(jobHandle);
+            wages.Dispose(jobHandle);
             HappinessFactorJob jobData = new HappinessFactorJob
             {
                 m_FactorQueue = m_FactorQueue,

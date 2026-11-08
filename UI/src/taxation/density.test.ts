@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import EN_US from "../../../l10n/en-US.json";
 import { Translate } from "../l10n";
+import * as density from "./density";
 import {
   arrowFor,
   cellsForArea,
@@ -7,7 +9,6 @@ import {
   densityExtraTotal,
   densityLabel,
   estimatedTotalValue,
-  offsetSummary,
   zoneForAreaIndex,
   zoneTotalIncome,
 } from "./density";
@@ -16,7 +17,6 @@ const french: Translate = (id, fallback) =>
   ({
     "FiscalOverhaul.UI.DensityLow": "Faible densité",
     "FiscalOverhaul.UI.DensityOther": "Densité {NUMBER}",
-    "FiscalOverhaul.UI.OffsetsSet": "{COUNT} ajustements",
   })[id] ??
   fallback ??
   null;
@@ -51,19 +51,18 @@ describe("densityLabel", () => {
   });
 });
 
-describe("offsetSummary", () => {
-  it("reads as before in English", () => {
-    expect(offsetSummary(0, null)).toBe("no offsets");
-    expect(offsetSummary(1, null)).toBe("1 offset set");
-    expect(offsetSummary(3, null)).toBe("3 offsets set");
+describe("the Density tax header", () => {
+  it("has no count summary: no helper and no summary text (removed by request)", () => {
+    expect("rateSummary" in density).toBe(false);
+    expect("offsetSummary" in density).toBe(false);
+    for (const key of ["NoOffsets", "OneOffsetSet", "OffsetsSet", "OneRateSet", "RatesSet", "OneOverride", "Overrides"])
+      expect(Object.keys(EN_US)).not.toContain(`FiscalOverhaul.UI.${key}`);
   });
 
-  it("fills the count into the translation", () => {
-    expect(offsetSummary(3, french)).toBe("3 ajustements");
-    expect(offsetSummary(0, french)).toBe("no offsets");
+  it("still has its title", () => {
+    expect(EN_US["FiscalOverhaul.UI.SectionDensity"]).toBe("Density tax");
   });
 });
-
 describe("cellsForArea", () => {
   const cells = [
     { zone: 0, density: 0 },
