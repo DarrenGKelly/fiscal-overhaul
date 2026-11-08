@@ -23,105 +23,37 @@ $value-field-radius: 8rem;
   min-height: 0;
 }
 
-// District selector: `< name >` centred above both columns; the name opens a list. The name and the arrows are span
-// buttons on the value fields' dark box, so they read as controls.
-.district-bar {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  flex: 0 0 auto;
-  margin-bottom: 4rem;
-}
-
-.district-selector {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  position: relative;
-}
-
-// The panel's header: bold and larger than the rows' bold 18rem category titles (.header-row). Scoped under the
-// selector so it outranks .span-button (same element, defined later in this file), which would set 14rem.
-.district-selector .district-name {
-  min-width: 320rem;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-  text-align: center;
-  font-size: 24rem;
-  font-weight: bold;
-  color: white;
-  background-color: $value-field-bg;
-  border-radius: $value-field-radius;
-}
-
-// The arrows' buttons: scoped like .district-name, to outrank .span-button's faint background.
-.district-selector .district-arrow-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: stretch;
-  padding-left: 10rem;
-  padding-right: 10rem;
-  background-color: $value-field-bg;
-  border-radius: $value-field-radius;
-}
-
-.district-arrow {
-  width: 20rem;
-  height: 20rem;
-}
-
-.district-arrow-left {
-  transform: scaleX(-1);
-}
-
-.district-list {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: 4rem;
-  min-width: 300rem;
-  z-index: 10;
-  background-color: rgba(14, 20, 32, 0.97);
-  border: 1rem solid rgba(255, 255, 255, 0.15);
-  border-radius: 4rem;
-  padding: 4rem 0;
-}
-
-// The list's items scroll inside vanilla's Scrollable (its scroll bar shows only when they overflow). A fixed rem
-// max-height: a percentage one doesn't constrain an absolute box in Gameface. About 14 items fit, and it stays
-// inside the panel under the selector.
-.district-scroll {
-  max-height: 520rem;
-}
-
-.district-item {
-  padding: 6rem 16rem;
-  font-size: 15rem;
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  white-space: nowrap;
-
-  &:hover {
-    background-color: $row-hover;
-  }
-}
-
-// A line between the list's groups: Entire City | the districts | Outside Districts (dividerBefore).
-.district-divider {
-  border-top: 2rem solid rgba(255, 255, 255, 0.2);
-  margin-top: 4rem;
-  padding-top: 10rem;
-}
-
+// The rows' column: as tall as the body (the flex chain from .budget-page down has min-height: 0, so it is never taller),
+// with the rows in vanilla's Scrollable, which draws the game's scroll bar when expanded categories overflow it
+// (Gameface draws none for plain overflow: auto, and a percentage max-height wouldn't constrain it).
 .list-column {
   display: flex;
   flex-direction: column;
   width: 400rem;
   flex: 0 0 auto;
+  min-height: 0;
   margin-right: 12rem;
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+.list-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+// A category's expand arrow, or an empty box of its size for a category without subcategories, so the titles line up.
+.expander {
+  width: 16rem;
+  height: 16rem;
+  margin-right: 6rem;
+  flex: 0 0 auto;
+}
+
+// A subcategory row: indented under its category, in smaller, fainter text.
+.row.child-row {
+  padding-left: 46rem;
+  font-size: 14rem;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .section {
