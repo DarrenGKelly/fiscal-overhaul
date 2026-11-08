@@ -134,7 +134,7 @@ namespace FiscalOverhaul.Tests
                 en["FiscalOverhaul.Options.Desc.EnableBudgetChart"]);
             Assert.Equal("A beta feature, off by default. Adds per-density tax offsets (set in Economy > Taxation) to what buildings pay; income only, demand and happiness are unchanged. Off: buildings pay the vanilla rates and the Taxation tab hides the density rows; your offsets are kept for when you switch it back on.",
                 en["FiscalOverhaul.Options.Desc.EnableDensityTaxes"]);
-            Assert.Equal("Sets every density offset (set in Economy > Taxation) back to 0, so buildings pay the vanilla rates again.",
+            Assert.Equal("Sets the loaded city's density offsets (set in Economy > Taxation) and the starting offsets for new cities back to 0, so buildings pay the vanilla rates again.",
                 en["FiscalOverhaul.Options.Desc.ResetDensityTaxes"]);
             Assert.Equal("Record district budgets", en["FiscalOverhaul.Options.Label.EnableDistrictBudget"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictBudget"));
