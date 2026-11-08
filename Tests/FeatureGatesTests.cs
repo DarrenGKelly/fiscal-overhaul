@@ -54,5 +54,39 @@ namespace FiscalOverhaul.Tests
         {
             Assert.False(FeatureGates.BuildsPanelData(featureEnabled, economyPanelOpen));
         }
+
+        [Fact]
+        public void SimulationChanges_IsOnByDefault_DistrictServiceBudgets_OffAsBeta()
+        {
+            Assert.True(FeatureGates.SimulationChangesDefault);
+            Assert.False(FeatureGates.DistrictServiceBudgetDefault);
+        }
+
+        [Theory]
+        [InlineData(true, true, true, true)]
+        [InlineData(false, true, true, false)]  // master "Simulation changes" off: vanilla
+        [InlineData(true, false, true, false)]  // feature off
+        [InlineData(true, true, false, false)]  // no override stored: nothing to do
+        [InlineData(false, false, false, false)]
+        public void AppliesDistrictServiceBudgets_OnlyWithMasterFeatureAndAnOverride(bool master, bool feature, bool hasAny, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.AppliesDistrictServiceBudgets(master, feature, hasAny));
+        }
+
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(false, true, false)]  // master off: density taxes run vanilla too
+        [InlineData(true, false, false)]
+        public void AppliesDensityTaxes_NeedsTheMasterSwitch(bool master, bool feature, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.AppliesDensityTaxes(master, feature));
+        }
+
+        [Fact]
+        public void MasterOff_NothingApplies()
+        {
+            Assert.False(FeatureGates.AppliesDistrictServiceBudgets(simulationChanges: false, featureEnabled: true, hasAnyOverride: true));
+            Assert.False(FeatureGates.AppliesDensityTaxes(simulationChanges: false, densityTaxesEnabled: true));
+        }
     }
 }
