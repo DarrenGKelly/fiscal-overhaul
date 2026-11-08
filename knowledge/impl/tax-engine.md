@@ -52,7 +52,7 @@ UI, and its setters (which clamp with `TaxParameterData`). Only its **update** i
   live: the engine decides every update and whenever Options change, before TaxSystem on the same frame, so switching
   back to vanilla charges that very tick.
 - The copy: `PayTaxJob` and `OnUpdate` (`TaxSystem.cs:30-150`, `:373-436`), the queries from `OnCreate` and the
-  `m_TaxPaidMultiplier` load from `OnGameLoaded` (`:242-258`, `ModeSettingData`), game version 1.6.0f1; each copied
+  `m_TaxPaidMultiplier` load from `OnGameLoaded` (`:242-258`, `ModeSettingData`), game version 1.6.3f1; each copied
   block has a header naming its source. `TaxSystem.GetTaxParameterData()` is called each tick (runs vanilla's
   `EnsureTaxParameterData`).
 - **The one change**: the tax is `TaxSystem.GetTax` at the **charged rate**, `EffectiveTaxRate.Compute` (`Mod/Logic/`):
@@ -89,8 +89,8 @@ Mod.log carries the version, the structure result and every decision change (`Ta
 incompatible game. None while the master switch is off.
 
 **A new game version**: compare vanilla `TaxSystem` (PayTaxJob, OnUpdate, OnGameLoaded) with the copy, update the
-copy and its headers, then add the version to `KnownGameVersions`. The known list is `1.6.0f1` (the copy's source)
-and `1.6.3f1`; any other version stays blocked unless forced.
+copy and its headers, then add the version to `KnownGameVersions`. The known list is `1.6.0f1`
+and `1.6.3f1` (the copy's source); any other version stays blocked unless forced.
 
 `Setting.EnableSimulationChanges` (default on, `FeatureGates.SimulationChangesDefault`) and
 `Setting.RunOnUntestedGameVersion` (default off) sit in Options > Features; `Mod.ApplyFeatureSwitches` calls
@@ -173,7 +173,7 @@ rate for the education level, `(10 - rate)`, the city's `TaxHappiness` modifier,
 `CitizenHappinessParameterData.m_Tax*Multiplier`.
 
 - `TaxHappinessSystem` (`Mod/Systems/`) is a copy of its update: `CitizenHappinessJob`, `HappinessFactorJob`, `OnCreate`
-  and `OnUpdate` and three private helpers (headers name each source range, game version 1.6.0f1; changes are marked
+  and `OnUpdate` and three private helpers (headers name each source range, game version 1.6.3f1; changes are marked
   `CHANGED`/`ADDED`; vanilla's debug distribution is left out). The public static `Get*Bonuses` helpers are called, not
   copied. `UpdateBefore<…, CitizenHappinessSystem>` with its interval (16), so it inherits its offset.
 - **The one change**: the tax bonus is at the citizen's **home rate**, the vanilla rate for their education level plus
@@ -202,7 +202,7 @@ bonuses, so it moves with the share of citizens under an adjustment.
 
 - Check in game that all-zero adjustments match vanilla's monthly tax income within 1%, and that a non-zero density
   adjustment changes the zone's tax revenue.
-- Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.0f1` (the known-list format).
+- Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.3f1` (the known-list format).
 - Demand reacting to adjusted rates: a later slice (S3).
 - Check in game that the happiness Taxes factor with all-zero adjustments equals vanilla's, and that +5 in one district
   lowers its residents' wellbeing over a couple of in-game days.
