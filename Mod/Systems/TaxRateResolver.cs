@@ -227,6 +227,58 @@ namespace FiscalOverhaul
         /// <summary>The city's residential rate for an education level, as vanilla computes it from the resolver's rates.</summary>
         public int CityResidentRate(int level) => TaxSystem.GetResidentialTaxRate(level, m_CityRates);
 
+        /// <summary>
+        /// A company's Taxation tab row: its zone (<see cref="TaxPayerZone"/>: Office for a weightless industrial output)
+        /// and its output resource's index. False for a household or a company with no output.
+        /// </summary>
+        public bool TryCompanyRow(Entity payer, TaxPayerKind kind, out TaxZone zone, out int key)
+        {
+            zone = TaxZone.Commercial;
+            key = -1;
+            if (kind == TaxPayerKind.Household || !TryOutput(payer, out Resource resource, out bool weightless)) return false;
+            zone = TaxPayerZone.Of(false, kind == TaxPayerKind.Commercial, weightless);
+            key = EconomyUtils.GetResourceIndex(resource);
+            return key >= 0 && key < TaxRateModel.ResourceCount;
+        }
+
+        /// <summary>
+        /// Books a household's taxable base to its workers' education-level rows by wage
+        /// (<see cref="DistrictTaxEstimate.AddHousehold"/>'s loop; no worker: level 0), indexed by
+        /// <see cref="TaxRateModel.DeltaIndex"/>.
+        /// </summary>
+        public void AddHouseholdBase(Entity household, double taxableBase, NativeArray<double> itemBases)
+        {
+            long total = 0;
+            DynamicBuffer<HouseholdCitizen> citizens = default;
+            bool has = m_HouseholdCitizens.HasBuffer(household);
+            if (has)
+            {
+                citizens = m_HouseholdCitizens[household];
+                for (int i = 0; i < citizens.Length; i++)
+                    if (m_Workers.HasComponent(citizens[i].m_Citizen)) total += LevelWeight(WorkerLevel(citizens[i].m_Citizen));
+            }
+            if (total == 0)
+            {
+                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)] += taxableBase;
+                return;
+            }
+            for (int i = 0; i < citizens.Length; i++)
+            {
+                Entity citizen = citizens[i].m_Citizen;
+                if (!m_Workers.HasComponent(citizen)) continue;
+                int level = WorkerLevel(citizen);
+                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, level)] += DistrictTaxEstimate.Share(taxableBase, LevelWeight(level), total);
+            }
+        }
+
+        private int WorkerLevel(Entity citizen) => math.clamp((int)m_Workers[citizen].m_Level, 0, TaxRateModel.JobLevels - 1);
+
+        private long LevelWeight(int level)
+        {
+            int wage = m_WageByLevel.IsCreated && level < m_WageByLevel.Length ? m_WageByLevel[level] : 0;
+            return wage > 0 ? wage : 1;
+        }
+
         /// <summary>Whether an industrial payer's output weighs nothing, so vanilla books its tax as Office.</summary>
         public bool IsWeightless(Entity payer) => TryOutput(payer, out _, out bool weightless) && weightless;
 

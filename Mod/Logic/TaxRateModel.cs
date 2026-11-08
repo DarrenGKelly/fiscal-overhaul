@@ -172,6 +172,36 @@ namespace FiscalOverhaul.Logic
         }
 
         /// <summary>
+        /// Removes one district override (a row's reset button in a district view), so that row follows the city again
+        /// (a level/resource row: the district's zone rate plus the city's offset). False for a bad type, zone or key,
+        /// the city, or a row with no override.
+        /// </summary>
+        public static bool ClearDistrictValue(TaxRateTable table, TaxType type, TaxZone zone, int key, int area, int areaVersion)
+        {
+            if ((int)zone < 0 || (int)zone >= DensityTaxTable.ZoneCount || (area == TaxRateTable.CityArea && areaVersion == 0)) return false;
+            switch (type)
+            {
+                case TaxType.ZoneRate:
+                    return table.Remove(TaxType.ZoneRate, (int)zone, 0, area, areaVersion);
+                case TaxType.ResourceRate:
+                    return IsValidKey(zone, key) && table.Remove(TaxType.ResourceRate, (int)zone, key, area, areaVersion);
+                case TaxType.Density:
+                    return key >= 0 && key < DensityTaxTable.DensityCount && table.Remove(TaxType.Density, (int)zone, key, area, areaVersion);
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Vanilla's default rates (TaxSystem.SetDefaults: the base rate 10, every zone and level/resource offset 0): a
+        /// zone row's reset target in the city view. A level/resource row resets to offset 0 (its zone's rate), a
+        /// density row to 0.
+        /// </summary>
+        public const int DefaultZoneRate = 10;
+        public const int DefaultItemOffset = 0;
+        public const int DefaultDensityRate = 0;
+
+        /// <summary>
         /// The weighted mean of per-worker deltas, rounded half away from zero: Σ(weight × delta) / Σweight. 0 with no
         /// weight. Burst-safe (integers only): the engine accumulates the sums over a household's workers and calls this.
         /// </summary>
