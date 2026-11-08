@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { markerFraction, markerLeft, relativeBox, resetClickable, resetVisibility } from "./slider-reset";
+import { keepMeasuring, markerFraction, markerLeft, MAX_MEASURE_FRAMES, relativeBox, resetClickable, resetVisibility, SETTLE_FRAMES } from "./slider-reset";
 
 describe("resetVisibility", () => {
   it("shows the button while the row differs from its target", () => {
@@ -53,5 +53,20 @@ describe("markerLeft", () => {
 
   it("measures the track relative to the frame", () => {
     expect(relativeBox({ left: 50, top: 10, width: 600, height: 48 }, { left: 150, top: 14, width: 300, height: 20 })).toEqual(track);
+  });
+});
+
+describe("keepMeasuring (regression: no reset button or marker on load until a slider was touched)", () => {
+  it("keeps measuring while the track or the slot is not found yet", () => {
+    expect(keepMeasuring(1, 0, false)).toBe(true);
+    expect(keepMeasuring(1, 5, false)).toBe(true);
+  });
+  it("keeps measuring until a found layout has held for SETTLE_FRAMES frames", () => {
+    expect(keepMeasuring(2, SETTLE_FRAMES - 1, true)).toBe(true);
+    expect(keepMeasuring(5, SETTLE_FRAMES, true)).toBe(false);
+  });
+  it("stops after MAX_MEASURE_FRAMES whatever it found", () => {
+    expect(keepMeasuring(MAX_MEASURE_FRAMES, 0, false)).toBe(false);
+    expect(keepMeasuring(MAX_MEASURE_FRAMES - 1, 0, false)).toBe(true);
   });
 });

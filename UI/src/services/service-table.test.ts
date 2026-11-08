@@ -9,7 +9,8 @@ import {
   estimateTotal,
   FeeLike,
   feeDefault,
-  feeEstimate,
+  feeRowEstimate,
+  visibleEstimates,
   feeFromSlider,
   feeReset,
   feeRows,
@@ -119,14 +120,13 @@ describe("serviceEstimate", () => {
   });
 });
 
-describe("feeEstimate and districtFeeIncome", () => {
-  it("city view: the fee's income; district view: the area's share", () => {
-    expect(feeEstimate(fee(), POWER, CITY_KEY, fees)).toBe(900);
-    expect(feeEstimate(fee(), POWER, NORTH, fees)).toBe(600);
+describe("districtFeeIncome", () => {
+  it("is the area's share of one fee", () => {
+    expect(districtFeeIncome(fees, POWER, NORTH, 0)).toBe(600);
     expect(districtFeeIncome(fees, WATER, NORTH, 11)).toBe(150);
   });
   it("is 0 for an area or resource with no share", () => {
-    expect(feeEstimate(fee(), WATER, OUTSIDE_KEY, fees)).toBe(0);
+    expect(districtFeeIncome(fees, WATER, OUTSIDE_KEY, 6)).toBe(0);
     expect(districtFeeIncome(fees, POWER, NORTH, 6)).toBe(0);
     expect(districtFeeIncome(null, POWER, NORTH, 0)).toBe(0);
   });
@@ -158,5 +158,22 @@ describe("tableDistrict", () => {
   it("off, the table is the city view whatever was picked: no district overrides", () => {
     expect(tableDistrict(false, NORTH)).toBe(CITY_KEY);
     expect(tableDistrict(false, OUTSIDE_KEY)).not.toBe(OUTSIDE_KEY);
+  });
+});
+
+describe("visibleEstimates (regression: the fee sub-rows' figures were not in the total)", () => {
+  const services = [
+    { key: POWER, budget: -31191, fees: [fee({ incomeInternal: 14104 })] },
+    { key: WATER, budget: -6766, fees: [fee({ resource: 6, incomeInternal: 6207 }), fee({ resource: 11, adjustable: false })] },
+  ];
+  const sum = (column: (number | null)[]) => column.reduce<number>((t, v) => t + (v ?? 0), 0);
+  it("the visible column adds up to the footer, city and district view", () => {
+    expect(sum(visibleEstimates(services, CITY_KEY, data))).toBe(estimateTotal(services, CITY_KEY, data));
+    expect(sum(visibleEstimates(services, NORTH, data))).toBe(estimateTotal(services, NORTH, data));
+  });
+  it("draws each service's NET and a blank per adjustable fee row, never the fee income", () => {
+    expect(visibleEstimates(services, CITY_KEY, data)).toEqual([-31191, null, -6766, null]);
+    expect(visibleEstimates(services, CITY_KEY, data)).not.toContain(14104);
+    expect(feeRowEstimate()).toBeNull();
   });
 });

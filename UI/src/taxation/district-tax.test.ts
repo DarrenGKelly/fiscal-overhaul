@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CITY_KEY, OUTSIDE_KEY } from "../district/district-select";
 import {
+  districtHeaderRange,
   districtItemRate,
   districtOverride,
   districtRowEstimate,
@@ -163,5 +164,37 @@ describe("a district view's estimates", () => {
     expect(districtTotalEstimate(DATA, "40:2")).toBe(0);
     expect(districtTotalEstimate(DATA, CITY_KEY)).toBe(0);
     expect(districtTotalEstimate(null, "12:1")).toBe(0);
+  });
+});
+
+describe("a zone header's % label in a district view (C4)", () => {
+  // Commercial (zone 1): the city's zone rate 10, its resources all at 10 (vanilla's range 10..10, read "10 %").
+  const CITY_RANGE = { min: 10, max: 10 };
+  const COMMERCIAL_15 = [{ area: "12:1", type: TYPE_ZONE_RATE, zone: 1, key: 0, value: 15 }];
+  const OUTSIDE_15 = [{ area: OUTSIDE_KEY, type: TYPE_ZONE_RATE, zone: 1, key: 0, value: 15 }];
+
+  it("reads the district's zone rate, not the city's, once the district sets it", () => {
+    expect(districtHeaderRange(CITY_RANGE, COMMERCIAL_15, "12:1", 1, 10, 0, 30)).toEqual({ min: 15, max: 15 });
+    expect(districtHeaderRange(CITY_RANGE, OUTSIDE_15, OUTSIDE_KEY, 1, 10, 0, 30)).toEqual({ min: 15, max: 15 });
+    expect(districtHeaderRange(CITY_RANGE, COMMERCIAL_15, "12:1", 1, 10, 0, 30)).not.toEqual(CITY_RANGE);
+  });
+
+  it("moves a spread by the district's zone rate and keeps it in the limits", () => {
+    const spread = { min: 8, max: 14 };
+    expect(districtHeaderRange(spread, COMMERCIAL_15, "12:1", 1, 10, 0, 30)).toEqual({ min: 13, max: 19 });
+    expect(districtHeaderRange(spread, COMMERCIAL_15, "12:1", 1, 10, 0, 16)).toEqual({ min: 13, max: 16 });
+  });
+
+  it("widens to a resource rate the district sets itself", () => {
+    const item = [{ area: "12:1", type: TYPE_RESOURCE_RATE, zone: 1, key: 3, value: 6 }];
+    expect(districtHeaderRange(CITY_RANGE, item, "12:1", 1, 10, 0, 30)).toEqual({ min: 10, max: 16 });
+    expect(districtHeaderRange(CITY_RANGE, [...COMMERCIAL_15, ...item], "12:1", 1, 10, 0, 30)).toEqual({ min: 15, max: 21 });
+  });
+
+  it("keeps the city's span where the district sets nothing in the zone, in Entire City, and with no span", () => {
+    expect(districtHeaderRange(CITY_RANGE, COMMERCIAL_15, "40:2", 1, 10, 0, 30)).toBe(CITY_RANGE);
+    expect(districtHeaderRange(CITY_RANGE, COMMERCIAL_15, "12:1", 2, 10, 0, 30)).toBe(CITY_RANGE);
+    expect(districtHeaderRange(CITY_RANGE, COMMERCIAL_15, CITY_KEY, 1, 10, 0, 30)).toBe(CITY_RANGE);
+    expect(districtHeaderRange(undefined, COMMERCIAL_15, "12:1", 1, 10, 0, 30)).toBeUndefined();
   });
 });

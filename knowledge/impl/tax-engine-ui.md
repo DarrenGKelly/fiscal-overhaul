@@ -8,6 +8,7 @@ resource:
   - Mod/Systems/DistrictTaxEstimateUISystem.cs
   - Mod/Logic/DistrictTaxEstimate.cs
   - Mod/Logic/PayerTaxParts.cs
+  - Mod/Logic/PaymentRate.cs
   - Mod/Systems/DistrictListUISystem.cs
   - Mod/Logic/TaxRateRows.cs
   - Mod/Logic/DensityTaxTable.cs
@@ -32,9 +33,14 @@ booking: a positive density part is tax income, a negative one the zone's subsid
 part, `PayerTaxParts.DensityPart` = (charged rate − rate without density) × base / 100, summed per cell. Both rates are
 `EffectiveTaxRate.Compute`'s with the payer's resolver adjustments ([tax-engine.md § The rate model](tax-engine.md#the-rate-model)),
 so a payer under a district's density override counts at that district's rate, and one near the limit only for the
-part the clamp lets through. The base is what it paid (`TaxPayer.m_AverageTaxPaid`, the last payment × 32) over its
-charged rate; a payer the density tax took to a 0 rate paid nothing, so its base is its untaxed income × 32 and the
-subsidy still shows. A negative estimate is drawn as vanilla draws a negative amount. While the engine doesn't
+part the clamp lets through. The base is what it paid (`TaxPayer.m_AverageTaxPaid`, the last payment × 32) over the
+rate **that payment was charged at**, so a moved slider moves the estimate at once (within the 10-frame refresh, sim
+paused or not) and the next charge, up to 1/32 month later, leaves it where it is. The engine doesn't store that rate:
+each estimate system keeps a per-payer memo (paid amount seen, its rate; `PaymentRate.Of`): the same paid amount is
+the same payment at the remembered rate, a new amount a new payment at the rate now. The memo is cleared while the
+panel is closed (rates change only from it, so a first sighting is at the current rate). Dividing by the rate charged
+now pinned every total to what was paid until the payer paid again. A payment at 0 says nothing of the base, so a
+payer the density tax took to 0 has its untaxed income × 32 as its base and the subsidy still shows. A negative estimate is drawn as vanilla draws a negative amount. While the engine doesn't
 charge, every estimate is 0. Recomputed every ~2 s while the panel is open and density taxes are on, and within 10
 frames of a rate change (a dragged slider changes it every frame). The older forms (`EstimateFromBase`,
 `EstimateExtraRevenue`, the city's rate on every payer's base) are kept only for their tests.
@@ -87,7 +93,9 @@ city's value, or for a level/resource row under a district zone override, the di
 offset). The button shows only while the row differs from its target (city view) or stores an override (district
 view); `RESET_WHEN_UNCHANGED` in `common/slider-reset.ts` switches that to dimmed (provisional, pending the in-game
 look). The pieces are shared for the Services tab: `UI/src/common/reset-button.tsx`, `slider-marker.tsx` and
-`slider-reset-frame.tsx` (a vanilla slider takes no children, so the frame wraps it, takes its layout class, measures
+`slider-reset-frame.tsx` (re-measuring every frame after a render until the track and the button slot are found and
+have held for 3 frames, at most 120: `keepMeasuring`; the panel's layout takes several frames and a paused game may
+not render the row again, so measuring once left rows with no button or marker until a slider was touched) (a vanilla slider takes no children, so the frame wraps it, takes its layout class, measures
 the track and the slot with `getBoundingClientRect` after each render and on the next frame, and draws both on top);
 the maths is `common/slider-reset.ts` (`resetVisibility`, `markerFraction`, `markerLeft`) and `rowReset` in
 `taxation/district-tax.ts`; the Taxation glue is `taxation/tax-row-slider.tsx` (it widens vanilla's 22rem padding to
@@ -156,7 +164,10 @@ density taxes are on). Each slider says which rate it is through `TaxRowTarget` 
 rate, for the `primary` header; each re-hosted `TaxationItem`: its level or resource), and the extended `TaxSlider`
 swaps in the district's value and setter (`useRowSlider`, `rowRate`: district value else city; a level/resource is the
 district zone rate + the district's offset else the city's, as in C#) and adds `overridden` (an accent bar down the
-slider's left edge) where it differs from the city's. Density rows do the same themselves. Entire City is unchanged.
+slider's left edge) where it differs from the city's. A zone header's % label reads vanilla's `range` (the zone's
+resources' rates, `areaResourceTaxRanges`) over `rate`, so the district view passes the district's span too
+(`districtHeaderRange`: the city's span moved by the district's zone rate, widened to the resources it sets itself).
+Density rows do the same themselves. Entire City is unchanged.
 
 **District estimates.** A user decision: a district (or
 Outside) view shows its own row estimates, zone totals and ESTIMATED TOTAL. `DistrictTaxEstimateUISystem` publishes

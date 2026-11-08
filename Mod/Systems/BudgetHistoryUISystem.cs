@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Colossal.UI.Binding;
 using FiscalOverhaul.Logic;
 using Game.City;
@@ -31,6 +32,7 @@ namespace FiscalOverhaul
     ///   history.services    [{ name, start, values: number[] }] the Service Upkeep row split per service (prefab name,
     ///                       Services.NAME[name] in vanilla's locale) at the same points, summing to the row from start on
     ///                       (ServiceUpkeepSystem for Entire City, DistrictBudgetSystem for a district); empty without data
+    ///   logTiming           trigger(string)  the UI's load timings (first data, first draw), written to Mod.log
     /// Expense values are positive amounts (the UI decides the sign). With the chart disabled no history is built.
     /// </summary>
     public partial class BudgetHistoryUISystem : UISystemBase
@@ -44,6 +46,9 @@ namespace FiscalOverhaul
         private CityServiceBudgetSystem m_BudgetSystem;
         private GamePanelUISystem m_PanelSystem;
         private RawValueBinding m_HistoryBinding;
+        /// <summary>Set true for a Mod.log timing line on every build (else only the first builds after the tab mounts).</summary>
+        private const bool kLogEveryBuild = false;
+        private readonly BudgetLoadTiming m_Timing = new BudgetLoadTiming { LogEveryBuild = kLogEveryBuild };
         private ValueBinding<bool> m_EnabledBinding;
         private ValueBinding<bool> m_DistrictsEnabledBinding;
         private DistrictBudgetSystem m_DistrictBudgetSystem;
@@ -77,7 +82,8 @@ namespace FiscalOverhaul
             AddBinding(m_DistrictsEnabledBinding = new ValueBinding<bool>(kGroup, "districtBudgetEnabled", false));
             AddBinding(new TriggerBinding<string>(kGroup, "setDistrict", key => m_DistrictKey = key ?? DistrictKey.City));
             AddBinding(m_EnabledBinding = new ValueBinding<bool>(kGroup, "budgetChartEnabled", true));
-            AddBinding(m_HistoryBinding = new RawValueBinding(kGroup, "history", WriteHistory));
+            AddBinding(m_HistoryBinding = new SubscribeAwareBinding(kGroup, "history", WriteHistory, m_Timing.Subscribed));
+            AddBinding(new TriggerBinding<string>(kGroup, "logTiming", text => Mod.log.Info(BudgetLoadTiming.UiLine(text))));
             AddBinding(new TriggerBinding<int>(kGroup, "setSpan", months => m_SpanMonths = months));
         }
 
@@ -115,6 +121,8 @@ namespace FiscalOverhaul
 
         private void WriteHistory(IJsonWriter writer)
         {
+            bool timed = m_Timing.TakeBuild();
+            Stopwatch watch = timed ? Stopwatch.StartNew() : null;
             // The statistics buffers are written by CityStatisticsSystem's jobs; finish them before reading here.
             m_StatisticsSystem.CompleteWriters();
 
@@ -155,6 +163,8 @@ namespace FiscalOverhaul
             // unknown or deleted district) writes null live sums.
             bool districtView = nowIncome != null;
             List<ServiceRow> services = BuildServiceRows(expense[ServiceUpkeepSplit.ServiceUpkeepSource], length, picked, districtView, district);
+            double computeMs = watch?.Elapsed.TotalMilliseconds ?? 0;
+            watch?.Restart();
             writer.TypeBegin(BudgetHistoryPayload.TypeName);
             foreach (string property in BudgetHistoryPayload.Properties(districtView))
             {
@@ -183,6 +193,26 @@ namespace FiscalOverhaul
                 }
             }
             writer.TypeEnd();
+            if (timed)
+                Mod.log.Info(BudgetLoadTiming.Line(m_Timing.Build, computeMs, watch.Elapsed.TotalMilliseconds, length, picked.Length,
+                    kIncomeSources + kExpenseSources, services.Count, districtView ? m_DistrictKey : DistrictKey.City));
+        }
+
+        /// <summary>A RawValueBinding that tells its owner when the UI subscribes (the Budget tab mounting), before the first write.</summary>
+        private sealed class SubscribeAwareBinding : RawValueBinding
+        {
+            private readonly Action m_OnSubscribe;
+
+            public SubscribeAwareBinding(string group, string name, Action<IJsonWriter> writer, Action onSubscribe) : base(group, name, writer)
+            {
+                m_OnSubscribe = onSubscribe;
+            }
+
+            protected override void OnSubscribe()
+            {
+                m_OnSubscribe();
+                base.OnSubscribe();
+            }
         }
 
         /// <summary>

@@ -148,7 +148,9 @@ changes off, it is city-only: the header's picker hides on Services and no distr
   `taxationItemClasses`, `taxSliderClasses`): columns **Type | Budget / Fee | Estimate**, one group per
   `serviceBudget.services` row (icon and name as a zone header; a locked service is shown disabled), then a sub-row
   per adjustable fee (`serviceDetails(entity).fees[].adjustable`, read, never hard-coded; always shown, not
-  collapsible), and an **ESTIMATED TOTAL** footer (vanilla's label). The right info column (description, image) is
+  collapsible; vanilla's own detail filters the same way). In game 1.6.3 only **Electricity and Water** have one: the
+  Garbage, Healthcare and Education fees are not adjustable in the game's `ServiceFeeParameterPrefab` data (the flag
+  is asset data, `FeeParameters.m_Adjustable`, not code), so vanilla shows no slider for them either; and an **ESTIMATED TOTAL** footer (vanilla's label). The right info column (description, image) is
   dropped: the table takes the width. Vanilla `TaxSlider` is not reused: its gradient is the tax colours by rate, so the
   rows draw TaxSlider's DOM (`[slider column > [rate, track], estimate column]`) with vanilla `GradientSlider`
   (`economyGradientSliderClasses` theme, `intTransformer`) and the service gradients (BudgetSliderItem's, and
@@ -156,12 +158,15 @@ changes off, it is city-only: the header's picker hides on Services and no distr
   (`feeToSlider`/`feeFromSlider`: 200 × (fee − min) / (max − min)).
 - **City view:** the sliders call vanilla's `setServiceBudget` / `setServiceFee`. Estimate: a service row is vanilla's
   NET (`services[].budget`: fee income + exports − imports − upkeep, `ServiceBudgetUISystem.GetTotalBudget`), a fee row
-  its `incomeInternal` (a part of the NET above it, not added again); the total is the sum of the service rows.
+  **no figure** (a user request: its income is already in the NET above it, and a figure there made the visible column
+  not add up to the footer; `feeRowEstimate`, `visibleEstimates`); the total is the sum of the service rows.
 - **District view** (a district or Outside Districts, the header's picker): the budget slider shows and sets the area's %
   (`setDistrictServiceBudget`, as above). **Fees are city-wide** (per-district fees deferred by the user): a fee row
   shows the city's fee read-only, disabled (`DISTRICT_FEE_ROWS = "disabled"` in `service-table.ts`, provisional; "hidden"
   drops the rows). Estimate: the area's fee income share minus its upkeep at its effective % (`districtServiceBudgets`
-  upkeep); the total is the sum of the rows. The fee share is `districtServiceFees` (below); exports, imports and the
+  upkeep); the total is the sum of the rows. Upkeep belongs to the area holding the service's buildings
+  (`districtServiceBudgets` has a row only where there are some), so a district with consumers but no power plant
+  shows Electricity as its fee share alone, and the district with the plant carries its whole upkeep. The fee share is `districtServiceFees` (below); exports, imports and the
   network base cost (roads) stay city-only, so a district's rows don't add up to vanilla's city NET.
 - **Reset buttons and markers** (the shared `common/` pieces, [tax-engine-ui.md § Reset buttons and markers](tax-engine-ui.md#reset-buttons-and-markers)):
   each slider has a marker at its reset target and a button at the right of its slider column, left of the Estimate
