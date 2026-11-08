@@ -3,11 +3,11 @@ import { CITY_KEY, districtOptions, DistrictLike, DistrictOption, effectiveKey, 
 import { Translate } from "../l10n";
 
 /**
- * The Taxation tab's selector choices: Entire City, then each district. No Outside Districts (an adjustment is per
- * district; the area outside every district pays the city rate). No districts: only Entire City.
+ * The Taxation tab's selector choices: the city (cityLabel), then each district. No Outside Districts (an adjustment
+ * is per district; the area outside every district pays the city rate). No districts: only the city.
  */
-export function taxDistrictOptions(districts: DistrictLike[], translate: Translate | null = null): DistrictOption[] {
-  return districtOptions(districts, translate).filter((o) => o.key !== OUTSIDE_KEY);
+export function taxDistrictOptions(districts: DistrictLike[], translate: Translate | null = null, cityName = ""): DistrictOption[] {
+  return districtOptions(districts, translate, cityName).filter((o) => o.key !== OUTSIDE_KEY);
 }
 
 /**

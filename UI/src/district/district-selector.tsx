@@ -9,17 +9,19 @@ import { SOUNDS, soundForPick } from "sounds";
 const ARROW = "Media/Glyphs/ThickStrokeArrowRight.svg";
 
 /**
- * `‹ [name] ›` centred above a tab: the arrows step through the options (wrapping), the name opens a list of
- * every option. Shown whenever district recording is on (showsDistrictSelector), even with Entire City the only option.
+ * `‹ [name] ›`: the arrows step through the options (wrapping), the name opens a list of every option. Drawn once, in
+ * the Economy panel's header at the left of the tabs (economy/economy-tab-bar.tsx); `compact` sizes it for the header.
  */
 export const DistrictSelector = ({
   options,
   selected,
   onSelect,
+  compact = false,
 }: {
   options: DistrictOption[];
   selected: string;
   onSelect: (key: string) => void;
+  compact?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.key === selected) ?? options[0];
@@ -33,7 +35,7 @@ export const DistrictSelector = ({
   };
 
   return (
-    <div className={styles.districtBar}>
+    <div className={`${styles.districtBar} ${compact ? styles.compact : ""}`}>
       <div className={styles.districtSelector}>
         <div className={`${styles.spanButton} ${styles.districtArrowButton}`} onClick={() => step(-1)}>
           <img className={`${styles.districtArrow} ${styles.districtArrowLeft}`} src={ARROW} />

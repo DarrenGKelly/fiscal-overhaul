@@ -64,6 +64,22 @@ $value-field-radius: 8rem;
   border-radius: $value-field-radius;
 }
 
+// In the Economy panel's header, beside the tabs: left-aligned, no gap under it, the name about a tab's size and
+// clipped (with an ellipsis) so a long city or district name keeps inside the picker's slot.
+.compact {
+  justify-content: flex-start;
+  margin-bottom: 0;
+}
+
+.compact .district-selector .district-name {
+  min-width: 240rem;
+  max-width: 260rem;
+  font-size: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .district-arrow {
   width: 20rem;
   height: 20rem;

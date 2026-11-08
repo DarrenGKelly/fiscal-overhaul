@@ -1,0 +1,26 @@
+// The Economy panel's tab bar with the district picker (economy-tab-bar.tsx).
+
+// Vanilla centres the tabs (.tab-bar: justify-content: center); with the picker's slot they start at the left, after it.
+.with-picker {
+  justify-content: flex-start;
+}
+
+// The picker's place at the left of the tabs: a fixed width, kept empty where the picker hides (Production, Loans), so
+// the tabs never move when switching tabs. Wide enough for the compact picker (district-selector.module.scss .compact).
+.picker-slot {
+  flex: 0 0 auto;
+  width: 380rem;
+  margin-right: 16rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+// The gap between [Budget | Taxation | Services] and [Production | Loans]: a thin upright line with space each side.
+.tab-divider {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 32rem;
+  margin: 0 24rem;
+  background-color: rgba(255, 255, 255, 0.3);
+}

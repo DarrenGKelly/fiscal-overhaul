@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orderEconomyTabs } from "./tab-order";
+import { isEconomyTabSet, orderEconomyTabs } from "./tab-order";
 
 const FEATURES = ["City Budget", "Loan", "Taxation", "Service Budgets", "Production Panel"];
 const tab = (id: number) => ({ props: { tab: id, feature: FEATURES[id] } });
@@ -19,6 +19,15 @@ describe("orderEconomyTabs", () => {
     expect(orderEconomyTabs(foreign)).toBe(foreign);
     const noTab = [{ props: {} }, { props: {} }];
     expect(orderEconomyTabs(noTab)).toBe(noTab);
+  });
+
+  it("recognises the economy tab set, Loan-less too, and nothing else", () => {
+    expect(isEconomyTabSet([0, 1, 2, 3, 4].map(tab))).toBe(true);
+    expect(isEconomyTabSet([0, 2, 3, 4].map(tab))).toBe(true);
+    expect(isEconomyTabSet([{ props: { tab: 1, feature: "Other" } }])).toBe(false);
+    expect(isEconomyTabSet([tab(0), tab(0)])).toBe(false);
+    expect(isEconomyTabSet([])).toBe(false);
+    expect(isEconomyTabSet("text")).toBe(false);
   });
 
   it("does not mutate the input", () => {

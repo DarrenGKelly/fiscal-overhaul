@@ -32,12 +32,18 @@ function looksLikeId(text: string): boolean {
   return text !== "" && !/\s/.test(text) && /[.[\]]/.test(text) && /^[A-Za-z0-9_.:[\]-]+$/.test(text);
 }
 
+/** The city option's label: the city's name (vanilla toolbarBottom.cityName), or "Entire City" while it is blank. */
+export function cityLabel(cityName: string | null | undefined, translate: Translate | null = null): string {
+  const name = (cityName ?? "").trim();
+  return name !== "" ? name : localize(translate, "EntireCity");
+}
+
 /**
- * Every selector choice in cycle order: Entire City, each district (the binding's order, by name), Outside Districts.
- * No districts: only Entire City (the selector still shows, its arrows and list staying on Entire City).
+ * Every selector choice in cycle order: the city (labelled with its name, cityLabel), each district (the binding's
+ * order, by name), Outside Districts. No districts: only the city (its arrows and list staying on the city).
  */
-export function districtOptions(districts: DistrictLike[], translate: Translate | null = null): DistrictOption[] {
-  const city: DistrictOption = { key: CITY_KEY, label: localize(translate, "EntireCity") };
+export function districtOptions(districts: DistrictLike[], translate: Translate | null = null, cityName = ""): DistrictOption[] {
+  const city: DistrictOption = { key: CITY_KEY, label: cityLabel(cityName, translate) };
   if (districts.length === 0) return [city];
   return [
     city,

@@ -15,12 +15,18 @@ const FEATURES: Record<number, string> = { 0: "City Budget", 1: "Loan", 2: "Taxa
  * features by enum value, so only the render order changes. Vanilla drops Loan in some modes; that set still orders.
  */
 export function orderEconomyTabs<T extends { props?: any }>(children: T[]): T[] {
-  if (!Array.isArray(children) || children.length === 0) return children;
+  if (!isEconomyTabSet(children)) return children;
+  return [...children].sort((a, b) => ORDER[a.props.tab] - ORDER[b.props.tab]);
+}
+
+/** True when `children` are the Economy panel's tabs: each carries a numeric props.tab, once, with its props.feature. */
+export function isEconomyTabSet(children: unknown): children is { props: any }[] {
+  if (!Array.isArray(children) || children.length === 0) return false;
   const seen = new Set<number>();
   for (const c of children) {
     const tab = c?.props?.tab;
-    if (typeof tab !== "number" || FEATURES[tab] !== c.props.feature || seen.has(tab)) return children;
+    if (typeof tab !== "number" || FEATURES[tab] !== c.props.feature || seen.has(tab)) return false;
     seen.add(tab);
   }
-  return [...children].sort((a, b) => ORDER[a.props.tab] - ORDER[b.props.tab]);
+  return true;
 }

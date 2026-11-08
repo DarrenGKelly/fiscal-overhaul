@@ -1,13 +1,12 @@
-// The Services tab's per-district budgets (BETA): the shared district selector above the vanilla page, and in a
-// district view our own service detail (the area's slider, "Use city budget", the area's upkeep) in place of vanilla's,
+// The Services tab's per-district budgets (BETA): in a district view (the Economy panel header's picker) our own
+// service detail (the area's slider, "Use city budget", the area's upkeep) in place of vanilla's,
 // which has the city-wide slider, fees and Reset. Feature off (or Simulation changes off): the vanilla tab, untouched.
 import { useEffect, useMemo, useState } from "react";
 import { useMapValue, useValue } from "cs2/api";
 import { service as serviceBindings } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
 import { districts$, districtServiceBudgetEnabled$, districtServiceBudgets$, setDistrictServiceBudget } from "bindings";
-import { districtOptions, effectiveKey, showsDistrictSelector } from "district/district-select";
-import { DistrictSelector } from "district/district-selector";
+import { districtOptions, effectiveKey } from "district/district-select";
 import { useSelectedDistrict } from "district/selection";
 import { localize, localizeVanilla } from "l10n";
 import { BudgetItem, Button, Scrollable, Section, serviceDetailClasses, SliderItem, useLegacyInterfaceActive } from "vanilla";
@@ -35,32 +34,17 @@ const GRADIENT = {
   ],
 };
 
-/** The Services tab's view of the shared district choice: on/off, the choices, and the effective selection. */
+/**
+ * The Services tab's view of the shared district choice (set by the header's picker, economy/economy-tab-bar.tsx):
+ * on/off and the effective selection.
+ */
 function useServiceDistrict() {
   const enabled = useValue(districtServiceBudgetEnabled$);
   const districts = useValue(districts$);
-  const { translate } = useLocalization();
-  const options = useMemo(() => districtOptions(districts ?? [], translate), [districts, translate]);
-  const [key, setKey] = useSelectedDistrict();
-  return { enabled, options, selected: effectiveKey(options, key), setSelected: setKey };
+  const options = useMemo(() => districtOptions(districts ?? []), [districts]);
+  const [key] = useSelectedDistrict();
+  return { enabled, selected: effectiveKey(options, key) };
 }
-
-/** ServicePage extension: the district selector above the vanilla page while the feature is on. */
-export const withServicePageDistricts = (ServicePage: any) => (props: any) => {
-  const { enabled, options, selected, setSelected } = useServiceDistrict();
-  if (!enabled) return <ServicePage {...props} />;
-  return (
-    <div className={styles.servicePage}>
-      {showsDistrictSelector(enabled, options) && <DistrictSelector options={options} selected={selected} onSelect={setSelected} />}
-      {/* The vanilla page is height: 100%; an absolutely placed box under the selector gives it a definite height. */}
-      <div className={styles.pageArea}>
-        <div className={styles.pageFill}>
-          <ServicePage {...props} />
-        </div>
-      </div>
-    </div>
-  );
-};
 
 /** ServiceDetail extension: in a district view, the district's detail; otherwise (and feature off) vanilla's. */
 export const withServiceDetailDistricts = (ServiceDetail: any) => (props: any) => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CITY_KEY,
+  cityLabel,
   cycle,
   districtLabel,
   districtOptions,
@@ -80,6 +81,31 @@ describe("districtOptions order", () => {
 
   it("with no districts, only Entire City (no Outside: the selector hides)", () => {
     expect(districtOptions([])).toEqual([{ key: CITY_KEY, label: "Entire City" }]);
+  });
+
+  it("puts the city first, labelled with the city's name", () => {
+    const options = districtOptions(DISTRICTS, null, "Odiham");
+    expect(options[0]).toEqual({ key: CITY_KEY, label: "Odiham" });
+    expect(options.map((o) => o.label)).not.toContain("Entire City");
+  });
+});
+
+describe("cityLabel", () => {
+  it("is the city's name", () => {
+    expect(cityLabel("Odiham")).toBe("Odiham");
+    expect(cityLabel("  Odiham ")).toBe("Odiham");
+  });
+
+  it("falls back to Entire City while the name is blank", () => {
+    expect(cityLabel("")).toBe("Entire City");
+    expect(cityLabel("   ")).toBe("Entire City");
+    expect(cityLabel(null)).toBe("Entire City");
+  });
+
+  it("falls back to the translated Entire City", () => {
+    const translate = (id: string) => (id === "FiscalOverhaul.UI.EntireCity" ? "Toute la ville" : null);
+    expect(cityLabel("", translate)).toBe("Toute la ville");
+    expect(cityLabel("Odiham", translate)).toBe("Odiham");
   });
 });
 
