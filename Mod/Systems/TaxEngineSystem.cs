@@ -228,7 +228,7 @@ namespace FiscalOverhaul
         }
 
         /// <summary>The district adjustments by district entity: x..w = Residential, Commercial, Industrial, Office (<see cref="TaxZone"/>).</summary>
-        private static NativeParallelHashMap<Entity, int4> BuildDistrictAdjustments()
+        internal static NativeParallelHashMap<Entity, int4> BuildDistrictAdjustments()
         {
             var entries = DensityTaxState.Table.Rates.Entries();
             var map = new NativeParallelHashMap<Entity, int4>(math.max(1, entries.Count), Allocator.TempJob);

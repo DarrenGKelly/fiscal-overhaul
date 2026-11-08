@@ -66,6 +66,46 @@ namespace FiscalOverhaul
             }
         }
 
+        /// <summary>
+        /// The vanilla demand systems whose private <c>m_TaxSystem</c> field <see cref="DemandTaxViewSystem"/> points at
+        /// its view. Each reads only GetTaxRates() and AddReader() through it (game version 1.6.0f1:
+        /// ResidentialDemandSystem.cs:487/502, CommercialDemandSystem.cs:610/630, IndustrialDemandSystem.cs:1173/1204).
+        /// </summary>
+        public static readonly Type[] DemandSystemTypes =
+        {
+            typeof(ResidentialDemandSystem), typeof(CommercialDemandSystem), typeof(IndustrialDemandSystem),
+        };
+
+        /// <summary>
+        /// Whether the demand view's swap still fits the game: each <see cref="DemandSystemTypes"/> has a private
+        /// <c>m_TaxSystem</c> field of type TaxSystem, and TaxSystem keeps its rates in <c>m_TaxRates</c>
+        /// (<c>NativeArray&lt;int&gt;</c>), the field the view sets. <paramref name="problem"/> names the first mismatch.
+        /// </summary>
+        public static bool DemandStructureOk(out string problem)
+        {
+            problem = null;
+            try
+            {
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+                if (!HasField(typeof(TaxSystem), "m_TaxRates", typeof(NativeArray<int>), flags, ref problem)) return false;
+                foreach (Type demand in DemandSystemTypes)
+                {
+                    FieldInfo field = demand.GetField("m_TaxSystem", flags);
+                    if (field == null || field.FieldType != typeof(TaxSystem))
+                    {
+                        problem = $"{demand.Name}.m_TaxSystem is {(field == null ? "missing" : field.FieldType.Name + ", expected TaxSystem")}";
+                        return false;
+                    }
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                problem = $"demand structure check threw: {e.Message}";
+                return false;
+            }
+        }
+
         private static bool HasField(Type type, string name, Type expected, BindingFlags flags, ref string problem)
         {
             FieldInfo field = type.GetField(name, flags);
