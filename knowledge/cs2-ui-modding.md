@@ -107,7 +107,8 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   id, never by position (vanilla indexes features by enum value). The picker and the divider are zero-width, zero-basis
   markers that draw their content absolutely; the room after each is the next tab's margin (`marker + button`). The
   picker's list draws through vanilla's `Portal` (`game-ui/common/portal/portal.tsx`, the tooltip layer), placed under
-  the name with `listAnchor`: in the header it would sit under the panel content. The selected tab is read from a
+  the name with `listAnchor`: in the header it would sit under the panel content. The portal layer lets clicks through,
+  so the list sets `pointer-events: auto`, or clicks on its items reach the panel underneath. The selected tab is read from a
   child's `selectedTab`. Other tab bars pass through. The Switch Tab key/gamepad cycle keeps the vanilla order: an
   accepted limitation.
 - **Trap: never style vanilla's `.tab-bar` itself.** Any style of ours on the tab bar element (`justify-content:

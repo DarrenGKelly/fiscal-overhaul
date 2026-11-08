@@ -13,10 +13,13 @@
   font-size: var(--fontSizeS);
 }
 
-// A slider whose district value differs from the city's: a bar in the accent colour down its left edge (an inset
-// shadow, so the row's layout doesn't move).
+// A slider whose district value differs from the city's: a bar in the accent colour down its left edge. A left border
+// and a faint tint (the inset box-shadow this was first drew nothing in Gameface); the slider moves 4rem right.
 .overridden {
-  box-shadow: inset 4rem 0 0 0 var(--accentColorNormal, rgba(255, 196, 0, 0.9));
+  border-left-style: solid;
+  border-left-width: 4rem;
+  border-left-color: rgba(255, 196, 0, 0.9);
+  background-color: rgba(255, 196, 0, 0.08);
 }
 
 // Vanilla TaxSlider: [slider column][estimate column]. A district view has no revenue estimate, so the estimate column

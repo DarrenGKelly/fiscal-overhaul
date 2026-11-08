@@ -90,7 +90,10 @@ $value-field-radius: 8rem;
   transform: scaleX(-1);
 }
 
+// Drawn through vanilla's Portal (the tooltip layer, which lets clicks through): pointer-events back on, or a click on
+// an item falls through to the panel underneath.
 .district-list {
+  pointer-events: auto;
   position: absolute;
   top: 100%;
   left: 50%;
