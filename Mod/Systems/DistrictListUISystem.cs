@@ -25,7 +25,7 @@ namespace FiscalOverhaul
     /// <summary>
     /// The district data the Economy panel's tabs share (group "fiscalOverhaul"), built only while the panel is open:
     ///   districts                     raw   [{ key, name }] the city's districts by name; published while any district
-    ///                                       feature is on (<see cref="FeatureGates.PublishesDistrictList"/>), else []
+    ///                                       feature is on, the tax engine's district rates included (<see cref="FeatureGates.PublishesDistrictList"/>), else []
     ///   districtServiceBudgetEnabled  bool  the Services tab shows the selector and per-district sliders
     ///                                       (<see cref="FeatureGates.ShowsDistrictServiceBudgets"/>); false = vanilla tab
     ///   districtServiceBudgets        raw   [{ service, district, budget, upkeep }] (<see cref="DistrictServiceBudgetRows"/>):
@@ -43,6 +43,7 @@ namespace FiscalOverhaul
         private DistrictServiceBudgetSystem m_Store;
         private ResourceSystem m_ResourceSystem;
         private CitySystem m_CitySystem;
+        private TaxEngineSystem m_TaxEngine;
 
         private EntityQuery m_DistrictQuery;
         private EntityQuery m_UpkeepGroup;
@@ -62,6 +63,8 @@ namespace FiscalOverhaul
 
         private bool RecordsDistrictBudget => m_Setting != null && FeatureGates.RecordsDistrictBudget(m_Setting.EnableBudgetChart, m_Setting.EnableDistrictBudget);
         private bool ShowsServiceBudgets => m_Setting != null && FeatureGates.ShowsDistrictServiceBudgets(m_Setting.EnableSimulationChanges, m_Setting.EnableDistrictServiceBudget);
+        // The Taxation tab's district rates: usable while the engine charges (the master switch and the guard included).
+        private bool TaxEngineCharges => m_TaxEngine != null && m_TaxEngine.Mode == TaxEngineMode.Engine;
 
         [Preserve]
         protected override void OnCreate()
@@ -72,6 +75,7 @@ namespace FiscalOverhaul
             m_Store = World.GetOrCreateSystemManaged<DistrictServiceBudgetSystem>();
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
+            m_TaxEngine = World.GetOrCreateSystemManaged<TaxEngineSystem>();
             m_DistrictQuery = GetEntityQuery(ComponentType.ReadOnly<District>(), ComponentType.Exclude<Temp>());
             // As CityServiceBudgetSystem's upkeep group (DistrictServiceUpkeepSystem uses the same).
             m_UpkeepGroup = GetEntityQuery(ComponentType.ReadOnly<CityServiceUpkeep>(), ComponentType.ReadOnly<PrefabRef>(), ComponentType.Exclude<Deleted>(), ComponentType.Exclude<Temp>());
@@ -87,7 +91,7 @@ namespace FiscalOverhaul
         {
             bool services = ShowsServiceBudgets;
             m_ServiceEnabledBinding.Update(services);
-            bool publishes = FeatureGates.PublishesDistrictList(RecordsDistrictBudget, services);
+            bool publishes = FeatureGates.PublishesDistrictList(RecordsDistrictBudget, services, TaxEngineCharges);
             if (!FeatureGates.BuildsPanelData(publishes, m_PanelSystem.activePanel is EconomyPanel))
             {
                 // Switched off: send the empty list once; closed: rebuild as soon as the panel opens again.
@@ -114,7 +118,7 @@ namespace FiscalOverhaul
         private void WriteDistricts(IJsonWriter writer)
         {
             var choices = new List<KeyValuePair<string, string>>();
-            if (FeatureGates.PublishesDistrictList(RecordsDistrictBudget, ShowsServiceBudgets))
+            if (FeatureGates.PublishesDistrictList(RecordsDistrictBudget, ShowsServiceBudgets, TaxEngineCharges))
             {
                 using (NativeArray<Entity> entities = m_DistrictQuery.ToEntityArray(Allocator.Temp))
                 {
