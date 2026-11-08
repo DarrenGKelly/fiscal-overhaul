@@ -3,6 +3,7 @@ import { ModRegistrar } from "cs2/modding";
 import { budgetChartEnabled$ } from "bindings";
 import { BudgetPage } from "budget/budget-page";
 import { withEstimatedTotalDensityExtra, withTotalDensityExtra, withZoneDensityExtra } from "taxation/density-totals";
+import { withTaxDistrictSelector } from "taxation/district-tax-view";
 import { withTaxSections } from "taxation/tax-sections-view";
 import { BUDGET_PAGE_PATH, MONEY_FIELD_PATH, TAX_SLIDER_PATH, TAXATION_GROUP_PATH, TAXATION_PAGE_PATH } from "vanilla";
 
@@ -21,7 +22,9 @@ const register: ModRegistrar = (moduleRegistry) => {
 
   // Taxation tab totals: ESTIMATED TOTAL and each zone's total include the density offsets' extra revenue
   // (taxation/density-totals.tsx). Both pass through unchanged outside the Taxation page.
-  moduleRegistry.extend(TAXATION_PAGE_PATH, "TaxationPage", withTotalDensityExtra);
+  // Above it, the district selector while the tax engine charges and the city has a district; a picked district's view
+  // shows its adjustment per zone (taxation/district-tax-view.tsx).
+  moduleRegistry.extend(TAXATION_PAGE_PATH, "TaxationPage", (TaxationPage: any) => withTaxDistrictSelector(withTotalDensityExtra(TaxationPage)));
   moduleRegistry.extend(TAX_SLIDER_PATH, "TaxSlider", withZoneDensityExtra);
   moduleRegistry.extend(MONEY_FIELD_PATH, "NumberField", withEstimatedTotalDensityExtra);
 };

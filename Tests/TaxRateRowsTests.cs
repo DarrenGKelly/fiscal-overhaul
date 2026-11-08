@@ -54,6 +54,7 @@ namespace FiscalOverhaul.Tests
         [InlineData(1, -1, "12:3")]
         [InlineData(0, 0, "3")]         // Density: no such density
         [InlineData(0, 0, "low")]
+        [InlineData(0, 2, "2")]         // Density: Industrial has no high density
         [InlineData(7, 0, "12:3")]      // unknown type
         public void RejectsWhatTheTableCannotStore(int type, int zone, string key)
         {

@@ -1,0 +1,24 @@
+// The District section's row, laid out like the density rows (density-rows.module.scss).
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 4rem 20rem 4rem 76rem;
+}
+
+.row-title {
+  width: 216rem;
+  flex: 0 0 auto;
+  font-size: 18rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+// Vanilla TaxSlider: [slider column][estimate column]. The district slider has no revenue estimate, so its estimate
+// column (the last child) is hidden, keeping its place so the slider lines up with the others.
+.slider {
+  flex: 1 1 auto;
+}
+
+.slider > div:last-child {
+  visibility: hidden;
+}
