@@ -36,14 +36,6 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
-        public void AppliedDelta_NeverTakesTheRateBelowZero()
-        {
-            Assert.Equal(3, DensityTaxTable.AppliedDelta(10, 3));
-            Assert.Equal(-2, DensityTaxTable.AppliedDelta(2, -5));
-            Assert.Equal(0, DensityTaxTable.AppliedDelta(0, -5));
-        }
-
-        [Fact]
         public void EstimateExtraRevenue_ScalesTheTaxableBase()
         {
             // A 10,000 base at a stored 10%: +2 points charges 12%, so 1,200 paid, of which +200 is the offset;
@@ -66,7 +58,7 @@ namespace FiscalOverhaul.Tests
         [Fact]
         public void EstimateExtraRevenue_IsZeroWhenTheOffsetTakesTheRateToZero()
         {
-            // 3% - 5 charges nothing (AppliedDelta stops at 0), so there's no paid amount to scale back from.
+            // 3% - 5 charges nothing (EffectiveTaxRate stops at 0), so there's no paid amount to scale back from.
             Assert.Equal(0, DensityTaxTable.EstimateExtraRevenue(100, 3, -5));
             Assert.Equal(-500, DensityTaxTable.EstimateExtraRevenue(100, 6, -5)); // 1% charged: base 10,000
         }

@@ -2,7 +2,7 @@ import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
 import { useCallback } from "react";
 import { densityTaxes$, DensityTaxCell, setDensityTax } from "bindings";
-import { localize, Translate } from "l10n";
+import { Translate } from "l10n";
 import { TaxSlider } from "vanilla";
 import { densityIcon } from "./density-icons";
 import { cellsForArea, densityLabel, offsetSummary } from "./density";
@@ -38,7 +38,6 @@ export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
       {cells.map((cell) => (
         <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={max} translate={translate} />
       ))}
-      <div className={styles.note}>{localize(translate, "DensityNote")}</div>
     </>
   );
 };
