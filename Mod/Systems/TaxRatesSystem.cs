@@ -55,9 +55,11 @@ namespace FiscalOverhaul
                 writer.Write((int)e.Type);
                 writer.Write(e.Zone);
                 writer.Write(e.Key);
-                // The area is an entity (Entity.Null = the city), written as such so the game remaps it on load:
-                // district entity indexes change from load to load.
-                writer.Write(new Entity { Index = e.Area, Version = e.AreaVersion });
+                // The area's kind, then its entity (a district's, written as such so the game remaps it on load:
+                // district entity indexes change from load to load; Entity.Null for the city and Outside Districts).
+                TaxRateTable.AreaKind kind = TaxRateTable.KindOf(e.Area, e.AreaVersion);
+                writer.Write((int)kind);
+                writer.Write(kind == TaxRateTable.AreaKind.District ? new Entity { Index = e.Area, Version = e.AreaVersion } : Entity.Null);
                 writer.Write(e.Value);
             }
         }
@@ -74,13 +76,24 @@ namespace FiscalOverhaul
                     reader.Read(out int type);
                     reader.Read(out int zone);
                     reader.Read(out int key);
+                    reader.Read(out int kind);
                     reader.Read(out Entity area);
                     reader.Read(out int value);
-                    // A district deleted before the save comes back as Entity.Null: its overrides are dropped, never
-                    // read as the city's (only density has a city value in the table).
-                    bool city = area == Entity.Null;
-                    if (city && !TaxRateTable.HasCityValue((TaxType)type)) continue;
-                    m_Rates.Set((TaxType)type, zone, key, area.Index, area.Version, value);
+                    TaxRateTable.LoadSavedEntry(m_Rates, (TaxRateTable.AreaKind)kind, (TaxType)type, zone, key, area == Entity.Null, area.Index, area.Version, value);
+                }
+            }
+            else if (version == 2)
+            {
+                // Format 2: no area kind, the city as Entity.Null, no Outside Districts.
+                reader.Read(out int count);
+                for (int i = 0; i < count; i++)
+                {
+                    reader.Read(out int type);
+                    reader.Read(out int zone);
+                    reader.Read(out int key);
+                    reader.Read(out Entity area);
+                    reader.Read(out int value);
+                    TaxRateTable.LoadSavedEntry(m_Rates, null, (TaxType)type, zone, key, area == Entity.Null, area.Index, area.Version, value);
                 }
             }
             else if (version == 1)

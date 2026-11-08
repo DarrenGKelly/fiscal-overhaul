@@ -15,7 +15,8 @@ namespace FiscalOverhaul
     ///   taxRates     raw      { engineOn, defaults: { zoneRate, itemOffset, density }, districts: [{ area, type, zone, key, value }] }:
     ///                         vanilla's default rates (<see cref="TaxRateModel.DefaultZoneRate"/>: a city row's reset
     ///                         target) and every stored district
-    ///                         override (a missing one follows the city), keyed by <see cref="DistrictKey"/>, value as
+    ///                         override (a missing one follows the city), keyed by <see cref="TaxRateRows.AreaKey"/>
+    ///                         (a district's <see cref="DistrictKey"/>, or "outside" for Outside Districts), value as
     ///                         stored (<see cref="TaxType"/>: a full zone rate, a level/resource offset from the zone
     ///                         rate, a density tax rate); engineOn = the tax engine charges (<see cref="TaxEngineMode.Engine"/>)
     ///   setTaxRate   trigger(int type, int zone, string target, int value)  target = "key@area" (<see cref="TaxRateRows.SplitTarget"/>;
@@ -73,7 +74,7 @@ namespace FiscalOverhaul
                 DensityTaxState.Set((TaxZone)zone, (Density)keyIndex, value);
                 return;
             }
-            if (!DistrictExists(areaIndex, areaVersion)) return;
+            if (!TaxRateTable.IsOutside(areaIndex, areaVersion) && !DistrictExists(areaIndex, areaVersion)) return;
             int[] cityRates = TaxRateResolver.CityRates(m_TaxSystem);
             TaxLimits limits = TaxRateResolver.LimitsFrom(m_TaxSystem.GetTaxParameterData());
             DensityTaxState.SetDistrictValue(taxType, (TaxZone)zone, keyIndex, areaIndex, areaVersion, value, cityRates, limits);
@@ -90,7 +91,7 @@ namespace FiscalOverhaul
 
         private void ResetDistrict(string area)
         {
-            if (!DistrictKey.TryParse(area, out int index, out int version)) return;
+            if (!TaxRateRows.TryArea(area, out int index, out int version)) return;
             DensityTaxState.ClearDistrict(index, version);
         }
 

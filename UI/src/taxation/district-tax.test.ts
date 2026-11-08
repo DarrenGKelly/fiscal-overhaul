@@ -22,9 +22,9 @@ const DISTRICTS = [
 ];
 
 describe("taxDistrictOptions", () => {
-  it("gives Entire City then each district, without Outside Districts", () => {
-    expect(taxDistrictOptions(DISTRICTS).map((o) => o.key)).toEqual([CITY_KEY, "12:1", "40:2"]);
-    expect(taxDistrictOptions(DISTRICTS).map((o) => o.key)).not.toContain(OUTSIDE_KEY);
+  it("gives Entire City, each district, then Outside Districts", () => {
+    expect(taxDistrictOptions(DISTRICTS).map((o) => o.key)).toEqual([CITY_KEY, "12:1", "40:2", OUTSIDE_KEY]);
+    expect(taxDistrictOptions(DISTRICTS).map((o) => o.key)).not.toEqual([CITY_KEY, "12:1", "40:2"]);
     expect(taxDistrictOptions(DISTRICTS)[0].label).toBe("Entire City");
   });
 
@@ -51,9 +51,13 @@ describe("taxViewKey", () => {
     expect(taxViewKey(true, options, "40:2")).toBe("40:2");
   });
 
-  it("is Entire City with the engine off, for Outside Districts, or for a deleted district", () => {
+  it("is Outside Districts when picked", () => {
+    expect(taxViewKey(true, options, OUTSIDE_KEY)).toBe(OUTSIDE_KEY);
+    expect(taxViewKey(false, options, OUTSIDE_KEY)).toBe(CITY_KEY);
+  });
+
+  it("is Entire City with the engine off or for a deleted district", () => {
     expect(taxViewKey(false, options, "40:2")).toBe(CITY_KEY);
-    expect(taxViewKey(true, options, OUTSIDE_KEY)).toBe(CITY_KEY);
     expect(taxViewKey(true, options, "99:1")).toBe(CITY_KEY);
     expect(taxViewKey(true, taxDistrictOptions([]), "40:2")).toBe(CITY_KEY);
   });

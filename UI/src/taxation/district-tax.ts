@@ -1,13 +1,13 @@
 // Pure logic for per-district tax rates on the Taxation tab. No game imports, so vitest runs it in Node.
-import { CITY_KEY, districtOptions, DistrictLike, DistrictOption, effectiveKey, OUTSIDE_KEY } from "../district/district-select";
+import { CITY_KEY, districtOptions, DistrictLike, DistrictOption, effectiveKey } from "../district/district-select";
 import { Translate } from "../l10n";
 
 /**
- * The Taxation tab's selector choices: the city (cityLabel), then each district. No Outside Districts (an adjustment
- * is per district; the area outside every district pays the city rate). No districts: only the city.
+ * The Taxation tab's selector choices, as Budget's and Services': the city (cityLabel), each district, then Outside
+ * Districts (the buildings in no district, which set their own rates like a district). No districts: only the city.
  */
 export function taxDistrictOptions(districts: DistrictLike[], translate: Translate | null = null, cityName = ""): DistrictOption[] {
-  return districtOptions(districts, translate, cityName).filter((o) => o.key !== OUTSIDE_KEY);
+  return districtOptions(districts, translate, cityName);
 }
 
 /**
@@ -20,7 +20,7 @@ export function showsTaxDistrictSelector(engineOn: boolean, options: { key: stri
 
 /**
  * The district the tab shows: the shared choice when it is one of this tab's districts and the selector shows, else
- * Entire City ("" = the city view, today's layout). Outside Districts picked on the Budget tab reads as Entire City here.
+ * Entire City ("" = the city view, today's layout). Outside Districts is a view like a district's.
  */
 export function taxViewKey(engineOn: boolean, options: { key: string }[], selected: string): string {
   if (!showsTaxDistrictSelector(engineOn, options)) return CITY_KEY;

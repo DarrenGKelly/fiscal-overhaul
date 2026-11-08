@@ -172,6 +172,13 @@ namespace FiscalOverhaul.Logic
         }
 
         /// <summary>
+        /// Which override block a building's payers pay (the resolver's Locate): its district's when it stands in one
+        /// (<paramref name="districtBlock"/>, -1: that district has no override), Outside Districts' when it stands in
+        /// none (<paramref name="outsideBlock"/>, -1: none). -1 = the city's values. Burst-safe.
+        /// </summary>
+        public static int AreaBlock(bool inDistrict, int districtBlock, int outsideBlock) => inDistrict ? districtBlock : outsideBlock;
+
+        /// <summary>
         /// Removes one district override (a row's reset button in a district view), so that row follows the city again
         /// (a level/resource row: the district's zone rate plus the city's offset). False for a bad type, zone or key,
         /// the city, or a row with no override.
