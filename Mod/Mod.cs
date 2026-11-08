@@ -42,6 +42,10 @@ namespace FiscalOverhaul
             updateSystem.UpdateAfter<DistrictBudgetSystem, DensityTaxRestoreSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.World.GetOrCreateSystemManaged<DistrictBudgetSystem>().SetSettings(m_Setting);
 
+            // The city's Service Upkeep split per service: a weight sample per vanilla statistics sample, kept in the save.
+            updateSystem.UpdateAt<ServiceUpkeepSystem>(SystemUpdatePhase.GameSimulation);
+            updateSystem.World.GetOrCreateSystemManaged<ServiceUpkeepSystem>().SetSettings(m_Setting);
+
             // UI bindings for the Economy panel. UIUpdate runs every rendered frame, paused or not; the systems gate
             // their own work on the panel being open (FeatureGates).
             updateSystem.UpdateAt<BudgetHistoryUISystem>(SystemUpdatePhase.UIUpdate);

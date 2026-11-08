@@ -128,6 +128,25 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void Rows_FollowTheOrder_LeaveOutAllZeroServices_AndSumToTheParent()
+        {
+            var parent = new long[] { 100, 200, 300 };
+            var weights = new float[][] { null, new[] { 1f, 0f, 3f }, new[] { 1f, 0f, 1f } };
+            var names = new[] { "Police", "Fire", "Water" };
+            List<ServiceRow> rows = ServiceRows.Build(parent, weights, names, new[] { 2, 1, 0, 7 });
+            Assert.Equal(new[] { "Water", "Police" }, rows.Select(r => r.Name)); // Fire is 0 throughout; 7 is no column
+            Assert.All(rows, r => Assert.Equal(1, r.Start));
+            Assert.Equal(new long[] { 0, 150, 150 }, rows[0].Values);
+            for (int i = 1; i < parent.Length; i++) Assert.Equal(parent[i], rows.Sum(r => r.Values[i]));
+        }
+
+        [Fact]
+        public void Rows_NothingRecorded_NoRows()
+        {
+            Assert.Empty(ServiceRows.Build(new long[] { 100 }, new float[][] { null }, new[] { "Police" }, new[] { 0 }));
+        }
+
+        [Fact]
         public void CityTag_LastPointIsTheSampleFillingNow()
         {
             Assert.Equal(100, ServiceUpkeepSplit.CityTag(100, 10, 9));

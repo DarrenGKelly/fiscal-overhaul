@@ -126,6 +126,41 @@ namespace FiscalOverhaul.Logic
         }
     }
 
+    /// <summary>One service's child row under Service Upkeep: its prefab name, first point with data, and values.</summary>
+    public class ServiceRow
+    {
+        public string Name;
+        /// <summary>The first chart point with a recorded split; the values before it are 0 and not drawn.</summary>
+        public int Start;
+        public long[] Values;
+    }
+
+    public static class ServiceRows
+    {
+        /// <summary>
+        /// The services' rows for the chart points: <paramref name="parent"/> (the Service Upkeep row per point, as
+        /// written) split per service (<see cref="ServiceUpkeepSplit.SplitSeries"/>), in <paramref name="order"/> (column
+        /// indices; ones out of range are skipped), leaving out the services that are 0 at every point with data (not
+        /// built yet, or no data at all).
+        /// </summary>
+        public static List<ServiceRow> Build(IReadOnlyList<long> parent, IReadOnlyList<float[]> weightsPerPoint, IReadOnlyList<string> names, IReadOnlyList<int> order)
+        {
+            if (names == null) throw new ArgumentNullException(nameof(names));
+            if (order == null) throw new ArgumentNullException(nameof(order));
+            long[][] series = ServiceUpkeepSplit.SplitSeries(parent, weightsPerPoint, names.Count, out int start);
+            var rows = new List<ServiceRow>();
+            foreach (int column in order)
+            {
+                if (column < 0 || column >= names.Count) continue;
+                long[] values = series[column];
+                bool any = false;
+                for (int i = start; i < values.Length && !any; i++) any = values[i] != 0;
+                if (any) rows.Add(new ServiceRow { Name = names[column], Start = start, Values = values });
+            }
+            return rows;
+        }
+    }
+
     /// <summary>The services weights are recorded for, by prefab name; a name keeps its column for good.</summary>
     public class ServiceColumns
     {
@@ -136,6 +171,9 @@ namespace FiscalOverhaul.Logic
         public string this[int column] => _names[column];
 
         public int IndexOf(string name) => _names.IndexOf(name);
+
+        /// <summary>The names, by column.</summary>
+        public IReadOnlyList<string> Names => _names;
 
         /// <summary>The name's column, added at the end the first time the name is seen.</summary>
         public int GetOrAdd(string name)

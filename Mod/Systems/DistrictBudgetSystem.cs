@@ -35,7 +35,9 @@ namespace FiscalOverhaul
     /// so a district tax discount stays in its district); electricity / water by fulfilled consumption; healthcare /
     /// education by patients / students; garbage by garbage produced; parking by parked cars x their lane's fee;
     /// public transport by residents; service upkeep by each service building's upkeep (the road / network part stays
-    /// city-only, it is not apportioned).
+    /// city-only, it is not apportioned). The upkeep is also weighed per service (each building's upkeep under its
+    /// service), so the Budget tab can split a district's Service Upkeep per service
+    /// (<see cref="ServiceUpkeepSplit.SplitSeries"/>); those weights are kept beside each district's history.
     /// </summary>
     public partial class DistrictBudgetSystem : GameSystemBase, IDefaultSerializable, ISerializable
     {
@@ -66,6 +68,11 @@ namespace FiscalOverhaul
         private EntityQuery m_EconomyParameterQuery;
 
         private readonly Dictionary<Entity, DistrictHistory> m_Histories = new Dictionary<Entity, DistrictHistory>();
+        // Per area, the per-service upkeep weights of each sample (by m_ServiceColumns), aligned with the newest of its
+        // history (a district loaded from a format 1 save has fewer, or none).
+        private readonly Dictionary<Entity, ServiceWeightHistory> m_ServiceWeights = new Dictionary<Entity, ServiceWeightHistory>();
+        private readonly ServiceColumns m_ServiceColumns = new ServiceColumns();
+        private PrefabSystem m_PrefabSystem;
 
         // The latest sample's inputs, for LiveValues.
         private readonly Dictionary<Entity, int> m_LatestAreas = new Dictionary<Entity, int>();
@@ -82,6 +89,12 @@ namespace FiscalOverhaul
 
         /// <summary>Every area with a history: the districts, and Entity.Null for outside.</summary>
         public IEnumerable<Entity> Areas => m_Histories.Keys;
+
+        /// <summary>The district's per-service upkeep weights, by <see cref="ServiceColumns"/>; false when none were recorded.</summary>
+        public bool TryGetServiceWeights(Entity district, out ServiceWeightHistory weights) => m_ServiceWeights.TryGetValue(district, out weights);
+
+        /// <summary>The service names of the weight columns.</summary>
+        public ServiceColumns ServiceColumns => m_ServiceColumns;
 
         /// <summary>
         /// The district's values now (SourceCount wide, slot order of <see cref="DistrictBudgetMath"/>): the latest
@@ -103,6 +116,7 @@ namespace FiscalOverhaul
             m_TaxSystem = World.GetOrCreateSystemManaged<TaxSystem>();
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
+            m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
             // As Game.UI.InGame.DistrictsSection.
             m_DistrictQuery = GetEntityQuery(ComponentType.ReadOnly<Game.Areas.District>(), ComponentType.Exclude<Temp>());
@@ -153,8 +167,13 @@ namespace FiscalOverhaul
             var areaOf = new NativeHashMap<Entity, int>(districts.Length, Allocator.TempJob);
             var weights = new NativeArray<double>(areaCount * S, Allocator.TempJob);
             var atCityRate = new NativeArray<double>(DistrictBudgetMath.TaxRowCount, Allocator.TempJob);
+            List<KeyValuePair<Entity, int>> services = ServiceUpkeepSystem.ServiceColumnsOf(EntityManager, m_PrefabSystem, m_ServiceQuery, m_ServiceColumns);
+            int columnCount = m_ServiceColumns.Count;
+            var serviceColumn = new NativeHashMap<Entity, int>(services.Count, Allocator.TempJob);
+            var serviceWeights = new NativeArray<double>(areaCount * columnCount, Allocator.TempJob);
             try
             {
+                foreach (KeyValuePair<Entity, int> service in services) serviceColumn[service.Key] = service.Value;
                 for (int i = 0; i < districts.Length; i++) areaOf[districts[i]] = i;
                 int outside = districts.Length;
 
@@ -209,6 +228,9 @@ namespace FiscalOverhaul
                     m_AreaOf = areaOf,
                     m_Outside = outside,
                     m_Weights = weights,
+                    m_ServiceColumn = serviceColumn,
+                    m_ServiceWeights = serviceWeights,
+                    m_ColumnCount = columnCount,
                 };
                 handle = upkeepJob.Schedule(m_UpkeepQuery, handle);
 
@@ -262,12 +284,23 @@ namespace FiscalOverhaul
                     if (!m_Histories.TryGetValue(area, out DistrictHistory history))
                         m_Histories[area] = history = new DistrictHistory();
                     history.Add(samples[a]);
+
+                    var areaWeights = new float[columnCount];
+                    for (int c = 0; c < columnCount; c++) areaWeights[c] = (float)serviceWeights[a * columnCount + c];
+                    if (!m_ServiceWeights.TryGetValue(area, out ServiceWeightHistory perService))
+                        m_ServiceWeights[area] = perService = new ServiceWeightHistory();
+                    // Tags only order a district's samples; they line up with its history by position (newest last).
+                    perService.Add(perService.Count > 0 ? perService.TagAt(perService.Count - 1) + 1 : 0, areaWeights);
                 }
                 // Districts gone since the last sample.
                 var gone = new List<Entity>();
                 foreach (Entity key in m_Histories.Keys)
                     if (!current.Contains(key)) gone.Add(key);
-                foreach (Entity key in gone) m_Histories.Remove(key);
+                foreach (Entity key in gone)
+                {
+                    m_Histories.Remove(key);
+                    m_ServiceWeights.Remove(key);
+                }
 
                 m_LatestWeights = weightsCopy;
                 System.Array.Copy(atCity, m_LatestAtCityRate, atCity.Length);
@@ -281,6 +314,8 @@ namespace FiscalOverhaul
                 areaOf.Dispose();
                 weights.Dispose();
                 atCityRate.Dispose();
+                serviceColumn.Dispose();
+                serviceWeights.Dispose();
             }
         }
 
@@ -337,32 +372,23 @@ namespace FiscalOverhaul
 
         public void Serialize<TWriter>(TWriter writer) where TWriter : IWriter
         {
-            writer.Write(DistrictHistory.FormatVersion);
-            writer.Write(m_Histories.Count);
-            foreach (KeyValuePair<Entity, DistrictHistory> pair in m_Histories)
-            {
-                writer.Write(pair.Key);
-                writer.Write(pair.Value.Count);
-                float[] flat = pair.Value.ToFlat();
-                for (int i = 0; i < flat.Length; i++) writer.Write(flat[i]);
-            }
+            var save = new SaveWriter<TWriter>(writer);
+            ServiceUpkeepSave.WriteDistricts<Entity>(save, save.WriteEntity, m_ServiceColumns, new List<KeyValuePair<Entity, DistrictHistory>>(m_Histories),
+                district => m_ServiceWeights.TryGetValue(district, out ServiceWeightHistory weights) ? weights : null);
         }
 
         public void Deserialize<TReader>(TReader reader) where TReader : IReader
         {
             ClearAll();
-            reader.Read(out int version);
-            if (version != DistrictHistory.FormatVersion) return; // a format this build doesn't know: start empty
-            reader.Read(out int districtCount);
-            for (int d = 0; d < districtCount; d++)
+            var save = new SaveReader<TReader>(reader);
+            // A format this build doesn't know starts empty; format 1 (before the per-service weights) loads without them.
+            ServiceUpkeepSave.ReadDistricts<Entity>(save, save.ReadEntity, m_ServiceColumns, (district, history, weights) =>
             {
-                reader.Read(out Entity district);
-                reader.Read(out int count);
-                var flat = new float[count * S];
-                for (int i = 0; i < flat.Length; i++) reader.Read(out flat[i]);
                 // A district deleted before the save may come back as Entity.Null; outside's own entry wins.
-                if (!m_Histories.ContainsKey(district)) m_Histories[district] = DistrictHistory.FromFlat(count, flat);
-            }
+                if (m_Histories.ContainsKey(district)) return;
+                m_Histories[district] = history;
+                if (weights != null) m_ServiceWeights[district] = weights;
+            });
         }
 
         public void SetDefaults(Context context) => ClearAll();
@@ -370,6 +396,8 @@ namespace FiscalOverhaul
         private void ClearAll()
         {
             m_Histories.Clear();
+            m_ServiceWeights.Clear();
+            m_ServiceColumns.Clear();
             m_LatestAreas.Clear();
             m_LatestWeights = new double[0];
             System.Array.Clear(m_LatestAtCityRate, 0, m_LatestAtCityRate.Length);
@@ -538,6 +566,9 @@ namespace FiscalOverhaul
             [ReadOnly] public NativeHashMap<Entity, int> m_AreaOf;
             public int m_Outside;
             public NativeArray<double> m_Weights;
+            [ReadOnly] public NativeHashMap<Entity, int> m_ServiceColumn;
+            public NativeArray<double> m_ServiceWeights;
+            public int m_ColumnCount;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -575,6 +606,8 @@ namespace FiscalOverhaul
                     if (total <= 0) continue;
                     int area = AreaOfBuilding(entity, ref m_CurrentDistricts, ref m_Owners, m_AreaOf, m_Outside);
                     m_Weights[area * S + kSlotUpkeep] += total;
+                    if (m_ServiceColumn.TryGetValue(serviceObject.m_Service, out int column))
+                        m_ServiceWeights[area * m_ColumnCount + column] += total;
                 }
                 upkeeps.Dispose();
             }

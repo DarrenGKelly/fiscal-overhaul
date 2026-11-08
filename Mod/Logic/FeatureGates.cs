@@ -19,6 +19,12 @@ namespace FiscalOverhaul.Logic
         public static bool RecordsDistrictBudget(bool budgetChartEnabled, bool districtBudgetEnabled) => budgetChartEnabled && districtBudgetEnabled;
 
         /// <summary>
+        /// Whether ServiceUpkeepSystem records the city's per-service upkeep split: it is part of the budget chart, so
+        /// it records only while that switch is on (as district recording), whether or not the panel is open.
+        /// </summary>
+        public static bool RecordsServiceUpkeep(bool budgetChartEnabled) => budgetChartEnabled;
+
+        /// <summary>
         /// Whether a UI system builds its Economy panel data this frame: only while its feature is enabled and the
         /// panel is open. A disabled feature's tab is vanilla, so there's nothing to build for it.
         /// </summary>
