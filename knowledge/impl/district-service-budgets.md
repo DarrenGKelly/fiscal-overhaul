@@ -1,12 +1,16 @@
 ---
 type: Implementation
 title: District service budgets
-description: Per-district service budget % (BETA, simulation side) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, and the master "Simulation changes" switch every simulation-changing feature gates on.
+description: Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab UI (district selector, the area's slider and upkeep), and the master "Simulation changes" switch every simulation-changing feature gates on.
 resource:
   - Mod/Systems/DistrictServiceBudgetSystem.cs
   - Mod/Systems/DistrictServiceUpkeepSystem.cs
   - Mod/Systems/DistrictServiceBudgetUISystem.cs
   - Mod/Systems/ServiceUpkeepCost.cs
+  - Mod/Systems/DistrictListUISystem.cs
+  - Mod/Logic/DistrictServiceBudgetRows.cs
+  - UI/src/services/service-page.tsx
+  - UI/src/services/district-services.ts
   - Mod/Logic/DistrictServiceBudgetTable.cs
   - Mod/Logic/ServiceUpkeepMath.cs
   - Mod/Logic/ServiceBudgetPass.cs
@@ -18,8 +22,8 @@ resource:
 
 Each district (and Outside Districts, buildings in no district) can run a service at its own budget %: an
 **absolute** % from 50 to 150 per (service, district), the vanilla slider's range. A building whose (service, district)
-has no override runs at the city slider, as in vanilla. BETA, off by default. This slice is the simulation side only;
-the Services tab UI comes later.
+has no override runs at the city slider, as in vanilla. BETA, off by default. The simulation side is below; the
+Services tab under [UI](#ui).
 
 ## How vanilla uses the budget %
 
@@ -95,3 +99,25 @@ runs vanilla whatever its own switch says; stored values are kept. Today that is
 (`FeatureGates.AppliesDensityTaxes`) and district service budgets. **Any new simulation-changing feature, including the
 coming tax engine, must take this switch first in its `FeatureGates` gate.** The charts and recorded histories are not
 simulation changes and ignore it.
+
+## UI
+
+Shown while `FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding);
+off, the Services tab is vanilla, with no selector.
+
+- **Bindings** (`DistrictListUISystem`, only while the Economy panel is open): `districts`, the selector's list, now
+  shared by every tab and published while any district feature is on (`FeatureGates.PublishesDistrictList`; it moved
+  out of `BudgetHistoryUISystem`); `districtServiceBudgets`, one row per (service, area) with service buildings or an
+  override: `{ service: "index:version" of the service prefab entity (vanilla serviceDetails' entity), district,
+  budget: override % or 0, upkeep: the area's money upkeep at its effective % }` (`DistrictServiceBudgetRows`; a Burst
+  job over the upkeep group with `ServiceUpkeepCost.MoneyFullCost`, every 30 frames and at once after an override changes).
+- **ServicePage** (`extend`): the shared `DistrictSelector` above the vanilla page. The vanilla page is `height: 100%`,
+  so it sits in an absolutely placed box under the selector. One selection across tabs (`useSelectedDistrict`).
+- **ServiceDetail** (`extend`): Entire City is vanilla's detail, Reset and fees included. In a district view (a district
+  or Outside Districts) the mod draws its own detail from vanilla's pieces (`Section`, `Scrollable`, `SliderItem`,
+  `BudgetItem`, `Button`, the detail's classes, BudgetSliderItem's two gradients copied): the service's title; **Use city
+  budget** where vanilla has Reset (it clears the override, trigger budget 0; disabled while none is set); the area's
+  slider (50-150, shows the override or the city %, `sliderValue`) with a line saying which; Expenses with the area's
+  upkeep. No fee sliders, fee income or imports: they are city-wide. Vanilla's own detail is not used there because its
+  slider, Reset and fees all act on the city (`setServiceBudget` / `resetService`).
+- The service list on the left still shows each service's city-wide cost.

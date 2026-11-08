@@ -55,7 +55,7 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
   (`budgetChartEnabled`, `history`, `setSpan`, `districtBudgetEnabled`, `districts`, `setDistrict`, `densityTaxesEnabled`, `densityTaxes`,
-  `setDensityTax`, `setDistrictServiceBudget`) and compute
+  `setDensityTax`, `districtServiceBudgetEnabled`, `districtServiceBudgets`, `setDistrictServiceBudget`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
 - **Feature switches:** Options > Fiscal Overhaul > Features turns each feature off live (`Setting.EnableBudgetChart`,
@@ -66,7 +66,8 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   service efficiency/upkeep, taxes) off at once; every such feature, the coming tax engine included, gates on it first.
 - **District service budgets (BETA):** an absolute % per (service, district) in the save; `DistrictServiceBudgetSystem`
   rewrites service efficiency after vanilla's pass and `DistrictServiceUpkeepSystem` overwrites the Service Upkeep
-  expense. [impl/district-service-budgets.md](knowledge/impl/district-service-budgets.md)
+  expense. The Services tab (`UI/src/services/`) adds the shared district selector and, in a district view, the area's
+  own slider and upkeep. [impl/district-service-budgets.md](knowledge/impl/district-service-budgets.md)
 - **Budget tab:** `BudgetHistoryUISystem` turns the game's saved per-source income/expense statistics into per-month
   series (per district too: `DistrictBudgetSystem` records them, and a selector above the tab picks one);
   `UI/src/budget/budget-page.tsx` replaces vanilla `BudgetPage` (an `extend` that renders the vanilla page
