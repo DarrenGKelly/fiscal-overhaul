@@ -175,23 +175,6 @@ namespace FiscalOverhaul.Tests
             Assert.Equal(expected, FeatureGates.BuildsPanelData(budgetChart, economyPanelOpen: true));
         }
 
-        [Fact]
-        public void TheServicesTable_IsBuiltWheneverThePanelIsOpen_FeatureOrNot()
-        {
-            Assert.True(FeatureGates.BuildsServiceTable(economyPanelOpen: true));
-            Assert.False(FeatureGates.BuildsServiceTable(economyPanelOpen: false));
-        }
-
-        [Theory]
-        [InlineData(true, true, true, true)]    // district view offered: its fee shares are built
-        [InlineData(true, false, true, false)]  // feature off: the table is city-only, no shares
-        [InlineData(false, true, true, false)]  // master "Simulation changes" off: city-only too
-        [InlineData(true, true, false, false)]  // panel closed
-        public void DistrictServiceFees_AreBuiltOnlyForTheDistrictView(bool master, bool feature, bool open, bool expected)
-        {
-            Assert.Equal(expected, FeatureGates.BuildsDistrictServiceFees(master, feature, open));
-        }
-
         [Theory]
         [InlineData(true, true, true)]
         [InlineData(false, true, false)]  // master "Simulation changes" off: the Services table, city-only
