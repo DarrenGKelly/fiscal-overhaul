@@ -1,11 +1,11 @@
 import { useValue } from "cs2/api";
 import { taxation } from "cs2/bindings";
 import { createContext, useContext } from "react";
-import { densityTaxes$, densityTaxesEnabled$ } from "bindings";
+import { densityTaxes$, densityTaxesEnabled$, taxRates$ } from "bindings";
 import { taxationPageClasses } from "vanilla";
 import { CITY_KEY } from "district/district-select";
 import { TaxDistrictView, TaxRowTarget, useDistrictEstimates, useRowSlider } from "./district-tax-view";
-import { districtRowEstimate, districtTotalEstimate, RowTarget, TYPE_ZONE_RATE } from "./district-tax";
+import { districtHeaderRange, districtRowEstimate, districtTotalEstimate, RowTarget, TYPE_ZONE_RATE } from "./district-tax";
 import districtStyles from "./district-tax-view.module.scss";
 import { EngineWarningLine } from "./engine-warning-line";
 import { TaxRowSlider } from "./tax-row-slider";
@@ -53,11 +53,14 @@ const RowSlider = ({ TaxSlider, props, target }: { TaxSlider: any; props: any; t
   const area = useContext(TaxDistrictView);
   const estimates = useDistrictEstimates();
   const row = useRowSlider(target, props.rate, props.min, props.max);
+  const rates = useValue(taxRates$);
   if (area === CITY_KEY || !row.onChange) {
     const city = { ...props, income: zoneTotalIncome(props.income, props.primary, extra) };
     return <TaxRowSlider TaxSlider={TaxSlider} sliderProps={city} target={target} area={area} reset={row.reset} />;
   }
-  const district = { ...props, rate: row.rate, income: districtRowEstimate(estimates, area, target), onValueChanged: row.onChange };
+  // A header's label reads `range` over `rate` (vanilla TaxSlider): the district's span, not the city's.
+  const range = target.type === TYPE_ZONE_RATE ? districtHeaderRange(props.range, rates?.districts, area, target.zone, props.rate, props.min, props.max) : props.range;
+  const district = { ...props, rate: row.rate, range, income: districtRowEstimate(estimates, area, target), onValueChanged: row.onChange };
   return (
     <TaxRowSlider
       TaxSlider={TaxSlider}

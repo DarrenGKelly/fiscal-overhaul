@@ -51,6 +51,8 @@ namespace FiscalOverhaul
         private DistrictTaxEstimates m_Estimates;
         private int m_FramesSinceRefresh = kRefreshFrames;
         private int m_LastVersion = -1;
+        /// <summary>Per payer: the paid amount last seen and the rate it was charged at (<see cref="PaymentRate"/>).</summary>
+        private NativeParallelHashMap<Entity, int2> m_PaidRates;
 
         [Preserve]
         protected override void OnCreate()
@@ -68,6 +70,14 @@ namespace FiscalOverhaul
             });
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "districtTaxEstimates", Write));
             AddBinding(new TriggerBinding<string>(BudgetHistoryUISystem.kGroup, "setTaxEstimateArea", SetArea));
+            m_PaidRates = new NativeParallelHashMap<Entity, int2>(1024, Allocator.Persistent);
+        }
+
+        [Preserve]
+        protected override void OnDestroy()
+        {
+            if (m_PaidRates.IsCreated) m_PaidRates.Dispose();
+            base.OnDestroy();
         }
 
         private void SetArea(string area)
@@ -85,6 +95,7 @@ namespace FiscalOverhaul
             if (!shown || !TryArea(m_Area, out Entity district, out bool outside))
             {
                 m_FramesSinceRefresh = kRefreshFrames;
+                m_PaidRates.Clear(); // rates change only while the tab shows: a first sighting is at the rate now
                 if (m_Estimates != null)
                 {
                     m_Estimates = null;
@@ -145,6 +156,7 @@ namespace FiscalOverhaul
                     m_ResourceLimits = parameters.m_ResourceTaxLimits,
                     m_Items = items,
                     m_Density = density,
+                    m_PaidRates = m_PaidRates,
                 };
                 // One single-threaded pass every ~2 s while a district view is open; the binding writes it this frame.
                 job.Schedule(m_PayerQuery, Dependency).Complete();
@@ -248,6 +260,8 @@ namespace FiscalOverhaul
             public int2 m_ResourceLimits;
             public NativeArray<double> m_Items;
             public NativeArray<double> m_Density;
+            /// <summary>Per payer: (paid amount, the rate it was charged at); read and rewritten by this single-threaded pass.</summary>
+            public NativeParallelHashMap<Entity, int2> m_PaidRates;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -265,7 +279,12 @@ namespace FiscalOverhaul
                     if (m_Rates.m_Keys.District(property) != (m_Outside ? Entity.Null : m_District)) continue;
                     TaxPayer payer = taxPayers[i];
                     m_Rates.Adjustments(entities[i], property, kind, out int incomeDelta, out int densityTax);
-                    PayerTaxParts parts = PayerTaxParts.Of(payer.m_AverageTaxPaid, payer.m_UntaxedIncome, payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, kChargesPerMonth);
+                    // The base at the rate its last payment was charged at, so a rate moved since moves the parts (PaymentRate).
+                    int chargedNow = EffectiveTaxRate.Compute(payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, 1);
+                    bool known = m_PaidRates.TryGetValue(entities[i], out int2 seen);
+                    int paidRate = PaymentRate.Of(known, seen.x, seen.y, payer.m_AverageTaxPaid, chargedNow);
+                    m_PaidRates[entities[i]] = new int2(payer.m_AverageTaxPaid, paidRate);
+                    PayerTaxParts parts = PayerTaxParts.Of(payer.m_AverageTaxPaid, payer.m_UntaxedIncome, payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, kChargesPerMonth, paidRate);
                     if (parts.Base <= 0) continue;
 
                     if (isHousehold) m_Rates.AddHouseholdAmount(entities[i], parts.IncomePart, m_Items);

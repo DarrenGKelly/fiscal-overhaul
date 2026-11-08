@@ -52,6 +52,8 @@ namespace FiscalOverhaul
         private TaxSystem m_TaxSystem;
         private ResourceSystem m_ResourceSystem;
         private EntityQuery m_EconomyParameterQuery;
+        /// <summary>Per payer: the paid amount last seen and the rate it was charged at (<see cref="PaymentRate"/>).</summary>
+        private NativeParallelHashMap<Entity, int2> m_PaidRates;
         private int m_FramesSinceRefresh = kRefreshFrames;
         private int m_LastVersion = -1;
 
@@ -75,6 +77,14 @@ namespace FiscalOverhaul
             AddBinding(m_Binding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "densityTaxes", Write));
             AddBinding(new TriggerBinding<int, int, int>(BudgetHistoryUISystem.kGroup, "setDensityTax", SetDensityTax));
             AddBinding(m_EngineWarningBinding = new ValueBinding<int>(BudgetHistoryUISystem.kGroup, "taxEngineWarning", (int)TaxEngineWarning.None));
+            m_PaidRates = new NativeParallelHashMap<Entity, int2>(1024, Allocator.Persistent);
+        }
+
+        [Preserve]
+        protected override void OnDestroy()
+        {
+            if (m_PaidRates.IsCreated) m_PaidRates.Dispose();
+            base.OnDestroy();
         }
 
         [Preserve]
@@ -88,6 +98,7 @@ namespace FiscalOverhaul
             if (!FeatureGates.BuildsPanelData(needed, m_PanelSystem.activePanel is EconomyPanel))
             {
                 m_FramesSinceRefresh = kRefreshFrames; // refresh as soon as the rows show again
+                m_PaidRates.Clear(); // rates change only while the panel is open: a first sighting is at the rate now
                 return;
             }
 
@@ -185,6 +196,7 @@ namespace FiscalOverhaul
                     m_ResourceLimits = parameters.m_ResourceTaxLimits,
                     m_Part = densityPart,
                     m_DistrictPart = districtPart,
+                    m_PaidRates = m_PaidRates,
                 };
                 // This system's Dependency includes the tax engine's TaxPayer writes. Completed at once: one
                 // single-threaded pass every ~2 s while the panel is open, and the binding writes the result this frame.
@@ -228,6 +240,8 @@ namespace FiscalOverhaul
             public int2 m_ResourceLimits;
             public NativeArray<double> m_Part;
             public NativeArray<double> m_DistrictPart;
+            /// <summary>Per payer: (paid amount, the rate it was charged at); read and rewritten by this single-threaded pass.</summary>
+            public NativeParallelHashMap<Entity, int2> m_PaidRates;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -247,7 +261,12 @@ namespace FiscalOverhaul
                     // The payer's own district and density rates, as if it had income; a payer the density tax took to
                     // a 0 rate still counts (PayerTaxParts.Of: its untaxed income).
                     m_Rates.Adjustments(entities[i], property, kind, out int incomeDelta, out int densityTax);
-                    PayerTaxParts parts = PayerTaxParts.Of(payer.m_AverageTaxPaid, payer.m_UntaxedIncome, payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, kChargesPerMonth);
+                    // The base at the rate its last payment was charged at, so a rate moved since moves the parts (PaymentRate).
+                    int chargedNow = EffectiveTaxRate.Compute(payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, 1);
+                    bool known = m_PaidRates.TryGetValue(entities[i], out int2 seen);
+                    int paidRate = PaymentRate.Of(known, seen.x, seen.y, payer.m_AverageTaxPaid, chargedNow);
+                    m_PaidRates[entities[i]] = new int2(payer.m_AverageTaxPaid, paidRate);
+                    PayerTaxParts parts = PayerTaxParts.Of(payer.m_AverageTaxPaid, payer.m_UntaxedIncome, payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, kChargesPerMonth, paidRate);
                     if (parts.Base <= 0) continue;
                     if (DensityClassifier.TryClassify(property, isHousehold, ref m_PrefabRefs, ref m_Spawnables, ref m_Zones, ref m_ZoneProperties, out int cell))
                         m_Part[cell] += parts.DensityPart;
