@@ -57,6 +57,7 @@ namespace FiscalOverhaul
         private TaxSystem m_TaxSystem;
         private ResourceSystem m_ResourceSystem;
         private CitySystem m_CitySystem;
+        private DistrictServiceBudgetSystem m_ServiceBudgetStore;
 
         private EntityQuery m_DistrictQuery;
         private EntityQuery m_PayerQuery;
@@ -116,6 +117,7 @@ namespace FiscalOverhaul
             m_TaxSystem = World.GetOrCreateSystemManaged<TaxSystem>();
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
+            m_ServiceBudgetStore = World.GetOrCreateSystemManaged<DistrictServiceBudgetSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
             // As Game.UI.InGame.DistrictsSection.
@@ -207,6 +209,9 @@ namespace FiscalOverhaul
                 };
                 JobHandle handle = taxJob.Schedule(m_PayerQuery, Dependency);
 
+                // Per-district service budgets: a building's upkeep runs at its district's %, as DistrictServiceUpkeepSystem charges it.
+                bool useOverrides = m_ServiceBudgetStore.Applies;
+                NativeHashMap<ServiceDistrictKey, int> overrides = m_ServiceBudgetStore.GetOverrides();
                 var upkeepJob = new UpkeepJob
                 {
                     m_EntityType = GetEntityTypeHandle(),
@@ -231,6 +236,8 @@ namespace FiscalOverhaul
                     m_ServiceColumn = serviceColumn,
                     m_ServiceWeights = serviceWeights,
                     m_ColumnCount = columnCount,
+                    m_Overrides = overrides,
+                    m_UseOverrides = useOverrides,
                 };
                 handle = upkeepJob.Schedule(m_UpkeepQuery, handle);
 
@@ -267,6 +274,7 @@ namespace FiscalOverhaul
                 m_ResourceSystem.AddPrefabsReader(handle);
                 // Completed at once: one single-threaded pass per 1/32 month, and the sample is stored this frame.
                 handle.Complete();
+                m_ServiceBudgetStore.AddOverridesReader(handle);
 
                 int networkUpkeep = ReadNetworkUpkeep();
                 double[] vanilla = ReadVanilla(networkUpkeep);
@@ -569,6 +577,9 @@ namespace FiscalOverhaul
             [ReadOnly] public NativeHashMap<Entity, int> m_ServiceColumn;
             public NativeArray<double> m_ServiceWeights;
             public int m_ColumnCount;
+            // Per-district service budgets: the override map, used only while the feature applies (else the city %).
+            [ReadOnly] public NativeHashMap<ServiceDistrictKey, int> m_Overrides;
+            public bool m_UseOverrides;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -583,7 +594,9 @@ namespace FiscalOverhaul
                     Entity prefab = prefabs[i].m_Prefab;
                     if (!m_ServiceObjectDatas.TryGetComponent(prefab, out ServiceObjectData serviceObject)) continue;
                     if (!m_ServiceUpkeepDatas.HasBuffer(prefab)) continue;
-                    int budget = GetServiceBudget(serviceObject.m_Service);
+                    int cityBudget = GetServiceBudget(serviceObject.m_Service);
+                    int budget = ServiceUpkeepCost.EffectiveBudget(m_Overrides, m_UseOverrides, serviceObject.m_Service,
+                        ServiceUpkeepCost.DistrictOf(entity, ref m_CurrentDistricts, ref m_Owners), cityBudget);
                     bool inactive = hasBuilding && BuildingUtils.CheckOption(buildings[i], BuildingOption.Inactive);
                     upkeeps.Clear();
                     CityServiceUpkeepSystem.GetUpkeepWithUsageScale(upkeeps, m_ServiceUpkeepDatas, m_InstalledUpgradeBufs, m_Prefabs, m_ServiceUsages, entity, prefab, inactive);
