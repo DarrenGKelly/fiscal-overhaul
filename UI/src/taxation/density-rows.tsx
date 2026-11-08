@@ -20,7 +20,7 @@ interface AreaTypeLike {
 
 /**
  * The density cells of a zone: none for the city-wide area, a locked zone, no data yet, or while density taxes are off
- * (a district view draws its sections whatever the switch, but the Density tax section only while it is on).
+ * (a district view draws its sections whatever the switch, but the Density section only while it is on).
  */
 export function useDensityCells(areaType: AreaTypeLike): { cells: DensityTaxCell[] } {
   const data = useValue(densityTaxes$);

@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: Taxation tab
-description: The Taxation tab's side of the tax engine — the densityTaxes binding and its revenue estimate at each payer's resolved rate, the Enable density taxes switch, the engine warning line, the collapsible Density tax / Education / Resources sections, density rows as vanilla rows, totals including density tax, and per-district rates (taxRates, setTaxRate, the district picker, the district view).
+description: The Taxation tab's side of the tax engine — the densityTaxes binding and its revenue estimate at each payer's resolved rate, the Enable density taxes switch, the engine warning line, the collapsible Education / Resources then Density sections, density rows as vanilla rows, totals including density tax, and per-district rates (taxRates, setTaxRate, the district picker, the district view).
 resource:
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/TaxRatesUISystem.cs
@@ -50,12 +50,14 @@ an untested version (vanilla, or forced) or an incompatible game. None while the
 
 With density taxes on, the wrapper around each vanilla `TaxationGroup` (`UI/src/taxation/tax-sections-view.tsx`) draws
 collapsible sections under the zone's main slider, each a header row with an arrow and its title over its rows (no
-count summary, removed by request): **Density tax** first, one row per density the zone has (`density-rows.tsx`),
-then vanilla's own sub-rows, re-hosted as vanilla `TaxationItem`s from `taxation.areaResources$` (**Education** for
-Residential, **Resources** for the other zones). All start collapsed; the open ones are kept for the UI session
+count summary, removed by request): first the zone's main income tax, vanilla's own sub-rows re-hosted as vanilla
+`TaxationItem`s from `taxation.areaResources$` (**Education** for Residential, **Resources** for the other zones), then
+the additional taxes charged on top of it: **Density**, one row per density the zone has (`density-rows.tsx`; a user
+decision, 2026-11-08: renamed from "Density tax" and moved last). All start collapsed; the open ones are kept for the UI session
 (`sectionExpandState`, not reset when the panel closes). The section list is data (`TAX_SECTIONS` in
-`tax-sections.ts`: id, title per zone; `sectionsForArea` keeps the ones with rows, in order, none for a locked zone),
-and `TAX_SECTION_ROWS` in the view maps each id to its rows: a new tax type is one entry in each and a title in
+`tax-sections.ts`: id, `kind` "main" or "additional", title per zone; `orderedSections` draws the main section first,
+then the additional ones in list order; `sectionsForArea` keeps the ones with rows, none for a locked zone),
+and `TAX_SECTION_ROWS` in the view maps each id to its rows: a new tax type is one "additional" entry in each and a title in
 `l10n/en-US.json`. Vanilla's own expander (toggle button, gamepad hint, content) is hidden by adding classes to the
 live `taxation-group.module.scss` class object, which `TaxationGroup` reads on every render (`groupClasses`): the
 toggle is `visibility: hidden` so the header slider keeps its place. Off, the names are vanilla's again and no
@@ -71,7 +73,7 @@ icon, title, and `slider`, which fixes the TaxSlider at vanilla's 580rem) and va
 of those rules, used only if a patch moves the module). The icon is the zoning toolbar's (`Media/Game/Icons/Zone*.svg`
 via `densityIcon` in `density-icons.ts`; an empty box where the game has none, e.g. Commercial/Office medium).
 **Density tax is its own tax**, charged on top of income tax (a user decision), so the row shows only its own rate
-("3 %", "0 %" by default), never the zone rate plus it, and the section header reads "Density tax". The slider's range
+("3 %", "0 %" by default), never the zone rate plus it, and the section header reads "Density". The slider's range
 is one constant, `DENSITY_RATE_RANGE` = −5..+10 in `density-slider.ts` (with `densitySliderValues`/`rateFromSlider`,
 which rounds and clamps what the slider reports), matching `TaxRateTable.DensityMin/Max`. The estimate is the density
 tax's revenue, so it is a neutral ¢0 (no "+" pill, vanilla `NumberField`'s own rule for 0) until a rate is set.
@@ -114,7 +116,7 @@ Taxation tab it shows while the engine charges and the city has a district (`sho
 (`district-tax.ts` pure, `district-tax-view.tsx`), a TaxationPage wrapper provides the view (`taxViewKey`) through
 `TaxDistrictView` and, in a district view, draws **`TaxResetBar`** above the page: a vanilla `Button` **Use city
 rates**, disabled with no override. A **district view is the Entire City layout** with the district's values: the zone header
-slider, Density tax (while density taxes are on) and Education/Resources. Each slider says which rate it is through
+slider, Education/Resources and Density (while density taxes are on). Each slider says which rate it is through
 `TaxRowTarget` (the TaxationGroup wrapper: the zone rate, for the `primary` header; each re-hosted `TaxationItem`: its
 level or resource), and the extended `TaxSlider` swaps in the district's value and setter (`useDistrictSlider`,
 `rowRate`: district value else city; a level/resource is the district zone rate + the district's offset else the

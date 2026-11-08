@@ -36,7 +36,7 @@
   "FiscalOverhaul.UI.AxisMonths": "-{COUNT} mo",
   "FiscalOverhaul.UI.AxisMonthsWeeks": "-{MONTHS} mo {WEEKS} wk",
   "FiscalOverhaul.UI.AxisYears": "-{COUNT} yr",
-  "FiscalOverhaul.UI.SectionDensity": "Density tax",
+  "FiscalOverhaul.UI.SectionDensity": "Density",
   "FiscalOverhaul.UI.SectionEducation": "Education",
   "FiscalOverhaul.UI.SectionResources": "Resources",
   "FiscalOverhaul.UI.UseCityRates": "Use city rates",

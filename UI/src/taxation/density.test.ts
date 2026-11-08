@@ -60,7 +60,7 @@ describe("the Density tax header", () => {
   });
 
   it("still has its title", () => {
-    expect(EN_US["FiscalOverhaul.UI.SectionDensity"]).toBe("Density tax");
+    expect(EN_US["FiscalOverhaul.UI.SectionDensity"]).toBe("Density");
   });
 });
 describe("cellsForArea", () => {

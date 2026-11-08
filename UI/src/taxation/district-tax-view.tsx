@@ -12,7 +12,7 @@ import { hasDistrictOverrides, RowTarget, rowRate, ShownRate, taxDistrictOptions
 import styles from "./district-tax-view.module.scss";
 
 // Per-district tax rates on the Taxation tab: the district picked in the Economy panel header (district/selection.ts).
-// A picked district shows the same layout as Entire City (zone header slider, Density tax, Education/Resources) with
+// A picked district shows the same layout as Entire City (zone header slider, Education/Resources, Density) with
 // the district's own values: each slider shows the district's value (else the city's), is marked where it differs from
 // the city's, and sets the district's value (setTaxRate). Dragging a value back to the city's, or "Use city rates",
 // makes it follow the city again. Shown only while the tax engine charges and the city has a district. District keys
