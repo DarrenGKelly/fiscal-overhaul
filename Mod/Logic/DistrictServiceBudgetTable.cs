@@ -42,6 +42,12 @@ namespace FiscalOverhaul.Logic
         /// <summary>The area value that means "in no district".</summary>
         public TDistrict Outside => m_Outside;
 
+        /// <summary>
+        /// Decides whether a service key names a real service; <see cref="Set"/> stores nothing for one that does not.
+        /// Null (the default) accepts every key.
+        /// </summary>
+        public Func<string, bool> IsKnownService { get; set; }
+
         /// <summary>Bumped on every change, so the systems know to rebuild what they derived from it.</summary>
         public int Revision { get; private set; }
 
@@ -56,6 +62,7 @@ namespace FiscalOverhaul.Logic
         public int Set(string service, TDistrict area, int budget)
         {
             if (string.IsNullOrEmpty(service)) return 0;
+            if (IsKnownService != null && !IsKnownService(service)) return 0;
             int stored = Clamp(budget);
             var key = (service, area);
             if (stored == 0)
@@ -89,6 +96,17 @@ namespace FiscalOverhaul.Logic
                 TDistrict area = pair.Key.Item2;
                 if (!area.Equals(m_Outside) && !districtExists(area)) gone.Add(pair.Key);
             }
+            foreach ((string, TDistrict) key in gone) m_Budgets.Remove(key);
+            if (gone.Count > 0) Revision++;
+            return gone.Count;
+        }
+
+        /// <summary>Drops the overrides whose service key is not a known service. Returns how many went.</summary>
+        public int PruneServices(Func<string, bool> isKnown)
+        {
+            var gone = new List<(string, TDistrict)>();
+            foreach (KeyValuePair<(string, TDistrict), int> pair in m_Budgets)
+                if (!isKnown(pair.Key.Item1)) gone.Add(pair.Key);
             foreach ((string, TDistrict) key in gone) m_Budgets.Remove(key);
             if (gone.Count > 0) Revision++;
             return gone.Count;
