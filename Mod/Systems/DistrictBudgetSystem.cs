@@ -187,6 +187,8 @@ namespace FiscalOverhaul
                 for (int i = 0; i < districts.Length; i++) areaOf[districts[i]] = i;
                 int outside = districts.Length;
 
+                // The engine's charge records: while it charges, only payers it charged in the last 1/32 month weigh.
+                NativeParallelHashMap<Entity, int2> records = m_TaxEngine.GetChargeRecords(out JobHandle recordDeps, out int nowTick);
                 var currentDistricts = GetComponentLookup<CurrentDistrict>(true);
                 var owners = GetComponentLookup<Owner>(true);
                 var prefabRefs = GetComponentLookup<PrefabRef>(true);
@@ -216,10 +218,13 @@ namespace FiscalOverhaul
                     m_DistrictModifiers = GetBufferLookup<DistrictModifier>(true),
                     m_Rates = rates,
                     m_EngineCharges = m_TaxEngine.Mode == TaxEngineMode.Engine,
+                    m_Records = records,
+                    m_NowTick = nowTick,
                     m_JobLevelLimits = taxParameters.m_JobLevelTaxLimits,
                     m_ResourceLimits = taxParameters.m_ResourceTaxLimits,
                 };
-                JobHandle handle = taxJob.Schedule(m_PayerQuery, Dependency);
+                JobHandle handle = taxJob.Schedule(m_PayerQuery, JobHandle.CombineDependencies(Dependency, recordDeps));
+                m_TaxEngine.AddChargeRecordsReader(handle);
 
                 // Per-district service budgets: a building's upkeep runs at its district's %, as DistrictServiceUpkeepSystem charges it.
                 bool useOverrides = m_ServiceBudgetStore.Applies;
@@ -478,6 +483,8 @@ namespace FiscalOverhaul
             /// <summary>The tax engine's rates; read only while it charges (<see cref="m_EngineCharges"/>).</summary>
             public TaxRateResolver m_Rates;
             public bool m_EngineCharges;
+            [ReadOnly] public NativeParallelHashMap<Entity, int2> m_Records;
+            public int m_NowTick;
             public int2 m_JobLevelLimits;
             public int2 m_ResourceLimits;
 
@@ -553,6 +560,9 @@ namespace FiscalOverhaul
 
                     TaxPayer payer = taxPayers[i];
                     int paid = payer.m_AverageTaxPaid;
+                    int2 charge = default;
+                    bool hasRecord = m_EngineCharges && m_Records.TryGetValue(entities[i], out charge);
+                    if (!DistrictBudgetMath.PayerCounts(m_EngineCharges, hasRecord, charge.y, m_NowTick)) continue;
                     if (paid == 0) continue;
                     // The rates the tax engine charged it at (its district's and density rates), as TaxEngineSystem's
                     // charge (untaxed income taken as positive: a payment that paid something had some).

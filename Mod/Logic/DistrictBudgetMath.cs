@@ -128,6 +128,15 @@ namespace FiscalOverhaul.Logic
             if (density < 0) subsidyWeight = subsidyAtCity = -density;
         }
 
+        /// <summary>
+        /// Whether a payer's paid amount weighs in the tax split: always while vanilla charges (as before); while the
+        /// tax engine charges, only with a charge record in the last 1/32 month (<see cref="ChargeWindow.IsCurrent"/>):
+        /// a payer the engine skips (no untaxed income) keeps its last <c>m_AverageTaxPaid</c> for good, and the city
+        /// books nothing from it.
+        /// </summary>
+        public static bool PayerCounts(bool engineCharges, bool hasRecord, int recordTick, int nowTick)
+            => !engineCharges || (hasRecord && ChargeWindow.IsCurrent(recordTick, nowTick));
+
         /// <summary>vanillaRow / sumAtCityRate, or 0 when the denominator is 0. A district's tax = its payers' paid sum * this.</summary>
         public static double TaxScale(double vanillaRow, double sumAtCityRate)
         {

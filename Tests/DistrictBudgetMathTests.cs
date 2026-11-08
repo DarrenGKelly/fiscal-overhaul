@@ -202,6 +202,41 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void PayerCounts_WhileTheEngineCharges_OnlyWithACurrentRecord()
+        {
+            // Vanilla charges: every payer weighs, as before.
+            Assert.True(DistrictBudgetMath.PayerCounts(false, false, 0, 100));
+            // Engine: a payer with paid > 0 but no record (never charged), or an old one (stopped earning), weighs 0.
+            Assert.False(DistrictBudgetMath.PayerCounts(true, false, 0, 100));
+            Assert.False(DistrictBudgetMath.PayerCounts(true, true, 80, 100));
+            Assert.True(DistrictBudgetMath.PayerCounts(true, true, 90, 100));
+        }
+
+        [Fact]
+        public void StalePayer_WeighsNothing_AndTheSharesStillSumToTheRow()
+        {
+            // District 0 has a current payer (paid 1000); district 1 only a stale one (paid 500, no current record).
+            // The city books 1000 (vanilla's row from the current payer).
+            var payers = new[] { (area: 0, paid: 1000.0, current: true), (area: 1, paid: 500.0, current: false) };
+            var weights = new double[2 * DistrictBudgetMath.SourceCount];
+            var atCity = new double[DistrictBudgetMath.TaxRowCount];
+            foreach (var p in payers)
+            {
+                if (!DistrictBudgetMath.PayerCounts(true, p.current, p.current ? 100 : 50, 100)) continue;
+                DistrictBudgetMath.PayerTaxWeights(p.paid, 10, 10, 10, 10, 10, out double tax, out double taxAt, out _, out _);
+                weights[p.area * DistrictBudgetMath.SourceCount] += tax;
+                atCity[0] += taxAt;
+            }
+            float[][] s = DistrictBudgetMath.Samples(weights, 2, Row((0, 1000)), atCity);
+            Assert.Equal(1000f, s[0][0], 1);
+            Assert.Equal(0f, s[1][0]);
+            Assert.Equal(1000.0, s[0][0] + s[1][0], 1);
+            // Fail case: weighing the stale payer gives its district a share the city never receives.
+            float[][] old = DistrictBudgetMath.Samples(Weights(Row((0, 1000)), Row((0, 500))), 2, Row((0, 1000)), new double[] { 1500, 0, 0, 0, 0, 0, 0, 0 });
+            Assert.NotEqual(0f, old[1][0]);
+        }
+
+        [Fact]
         public void PayerTaxWeights_PositiveDensity_DistrictsSumToTheBookedRow()
         {
             // District 0 at density +10 (stored 10, charged 20): paid 2000. District 1 at vanilla: paid 1000. The city
