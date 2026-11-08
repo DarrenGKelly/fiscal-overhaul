@@ -75,7 +75,7 @@ namespace FiscalOverhaul
             return 262144 / (TaxSystem.kUpdatesPerDay * 16);
         }
 
-        // Queries: copied from Game.Simulation.TaxSystem.OnCreate (TaxSystem.cs:333-350), game version 1.6.0f1.
+        // Queries: copied from Game.Simulation.TaxSystem.OnCreate (TaxSystem.cs:333-350), game version 1.6.3f1.
         [Preserve]
         protected override void OnCreate()
         {
@@ -107,7 +107,7 @@ namespace FiscalOverhaul
             base.OnDestroy();
         }
 
-        // Copied from Game.Simulation.TaxSystem.OnGameLoaded (TaxSystem.cs:242-258), game version 1.6.0f1.
+        // Copied from Game.Simulation.TaxSystem.OnGameLoaded (TaxSystem.cs:242-258), game version 1.6.3f1.
         protected override void OnGameLoaded(Context serializationContext)
         {
             base.OnGameLoaded(serializationContext);
@@ -171,7 +171,7 @@ namespace FiscalOverhaul
             Mode = mode;
         }
 
-        // Copied from Game.Simulation.TaxSystem.OnUpdate (TaxSystem.cs:373-436), game version 1.6.0f1. Changes: the
+        // Copied from Game.Simulation.TaxSystem.OnUpdate (TaxSystem.cs:373-436), game version 1.6.3f1. Changes: the
         // mode check first; vanilla's private fields read through GetTaxParameterData(); the adjustments, limits and
         // key lookups passed to the job; the three jobs built by one helper.
         [Preserve]
@@ -244,7 +244,7 @@ namespace FiscalOverhaul
         }
 
         /// <summary>
-        /// Copied from Game.Simulation.TaxSystem.PayTaxJob (TaxSystem.cs:30-150), game version 1.6.0f1. Changes: the
+        /// Copied from Game.Simulation.TaxSystem.PayTaxJob (TaxSystem.cs:30-150), game version 1.6.3f1. Changes: the
         /// tax is charged at <see cref="EffectiveTaxRate.Compute"/>'s rate (the payer's vanilla rate plus its density
         /// and district adjustments) instead of the payer's stored rate, which is left as it is; everything else
         /// (paid multiplier, statistics, office detection, zeroing the untaxed income, the average paid) is vanilla's.
