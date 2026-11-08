@@ -19,6 +19,10 @@ namespace FiscalOverhaul.Logic
         /// <summary>The money upkeep of buildings costing <paramref name="moneyFullCost"/> at 100%, at <paramref name="budget"/>% (unrounded, vanilla's float maths).</summary>
         public static float MoneyAt(int moneyFullCost, int budget) => moneyFullCost * (budget / 100f);
 
+        /// <summary>The % a building runs at: its district's override when overrides apply and one exists, else the city's.</summary>
+        public static int EffectivePercent(bool applies, bool hasOverride, int overridePercent, int cityPercent)
+            => applies && hasOverride ? overridePercent : cityPercent;
+
         /// <summary>Vanilla's upkeep of one service: every building at the city's <paramref name="cityBudget"/>%.</summary>
         public static int VanillaServiceUpkeep(int baseCost, int nonMoneyFullCost, int moneyFullCost, int cityBudget)
             => baseCost + nonMoneyFullCost + Round(MoneyAt(moneyFullCost, cityBudget));

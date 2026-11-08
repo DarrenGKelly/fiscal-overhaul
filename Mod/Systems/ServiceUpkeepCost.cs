@@ -104,8 +104,9 @@ namespace FiscalOverhaul
         /// <summary>The % a building of <paramref name="service"/> in <paramref name="district"/> runs at: its override, else the city's.</summary>
         public static int EffectiveBudget(NativeHashMap<ServiceDistrictKey, int> overrides, bool useOverrides, Entity service, Entity district, int cityBudget)
         {
-            if (useOverrides && overrides.TryGetValue(new ServiceDistrictKey(service, district), out int budget)) return budget;
-            return cityBudget;
+            int budget = 0;
+            bool has = useOverrides && overrides.TryGetValue(new ServiceDistrictKey(service, district), out budget);
+            return Logic.ServiceUpkeepMath.EffectivePercent(useOverrides, has, budget, cityBudget);
         }
     }
 }

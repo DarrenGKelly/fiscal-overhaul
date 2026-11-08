@@ -95,3 +95,11 @@ runs vanilla whatever its own switch says; stored values are kept. Today that is
 (`FeatureGates.AppliesDensityTaxes`) and district service budgets. **Any new simulation-changing feature, including the
 coming tax engine, must take this switch first in its `FeatureGates` gate.** The charts and recorded histories are not
 simulation changes and ignore it.
+
+## The Budget tab follows the %
+
+`DistrictBudgetSystem`'s upkeep job reads `GetOverrides()` (while `Applies`) and scales each building's money upkeep by
+`ServiceUpkeepCost.EffectiveBudget(service, building's district)`, falling back to the city % with no override, the feature
+off or the master switch off. A district with a 150% override therefore takes a larger share of the city's Service Upkeep
+row and the other districts and Outside a smaller one; the row still sums to the city row, and the per-service split
+children (same weights) still sum to the district slot.

@@ -66,7 +66,7 @@ weights:
 | Garbage | `GarbageProducer.m_Garbage` |
 | Parking | parked cars x their lane's `ParkingLane.m_ParkingFee`, by the lane's district (`BorderDistrict` side, else the owner building's `CurrentDistrict`) |
 | Public transport | household residents |
-| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |
+| Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |; the money part runs at the building's district % for its service when per-district service budgets apply (`ServiceUpkeepCost.EffectiveBudget`), else the city %; the per-service weights use the same %, so the children still sum to the district slot |
 
 **Taxes are not apportioned**: vanilla's tax rows are policy-blind estimates (taxable income x city rate), while
 `m_AverageTaxPaid` includes a district's Low Commercial Tax policy; scaling the paid sums keeps a discount in its
