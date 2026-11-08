@@ -2,6 +2,7 @@
 
 ## 2026-11-08
 
+* **Services tab as a table** (playtest, user design): with District service budgets on, the tab is a Taxation-style table (Type | Budget / Fee | Estimate, fee sub-rows, reset buttons and markers, NET per service and ESTIMATED TOTAL) in place of vanilla's list, detail and info column; a district view sets the area's budget, shows the city's fees read-only and the district's NET (fee share by usage, `districtServiceFees`, minus its upkeep). Closes #62. [impl/district-service-budgets.md](impl/district-service-budgets.md#ui)
 * **Taxation tab polish** (playtest): "Density tax" renamed "Density" and drawn after Education/Resources (sections have a main/additional kind); a district view shows its own estimates (`DistrictTaxEstimateUISystem`); every estimate is booked as charged (`PayerTaxParts`: each payer's clamped density part at its own rates); "Use city rates" replaced by a reset button and target marker on every row (`UI/src/common/`); Outside Districts sets its own tax rates (save format 3). [impl/tax-engine-ui.md](impl/tax-engine-ui.md).
 * **One district picker in the Economy panel header**: at the left of the tabs, shown on Budget, Taxation and Services by each tab's own rule and hidden on Production and Loans; a divider separates [Budget | Taxation | Services] from [Production | Loans]; the per-tab pickers are gone (Taxation keeps "Use city rates"); the city option is the city's name (`toolbarBottom.cityName`, "Entire City" while blank). [impl/budget-chart.md § District selector](impl/budget-chart.md#district-selector).
 

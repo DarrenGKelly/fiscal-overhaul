@@ -46,7 +46,7 @@ screenshots), `LICENSE` (MIT), `CHANGELOG.md` (Keep a Changelog; one entry per r
 | `district/` | The district selector and the one shared selected district, used by the Budget, Taxation and Services tabs |
 | `common/` | Pieces shared by the tabs: a slider row's reset button, target marker and their frame, with their pure logic (`slider-reset.ts`, tested) |
 | `chart/` | The line chart component and its pure maths (`chart-math.ts`, tested by vitest) |
-| `services/` | The Services tab's per-district budget (`service-page.tsx`) and its pure logic (`district-services.ts`, tested) |
+| `services/` | The Services tab table (`service-table-view.tsx`) and its pure logic (`service-table.ts`, `district-services.ts`, tested) |
 | `taxation/` | The density rows on the Taxation tab and their pure logic (`density.ts`, tested) |
 | `economy/` | Economy panel tab order (`tab-order.ts`, tested) |
 | `l10n.ts` | `localize()`: a UI string by key through the game's translate, English fallback (tested) |

@@ -95,6 +95,9 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   To hide part of a vanilla component, add a class to its live `*.module.scss` `classes` object (from `getModule`),
   which it reads on every render, and restore it when off: the Taxation tab hides `TaxationGroup`'s own expander this
   way ([impl/tax-engine-ui.md](impl/tax-engine-ui.md#layout)).
+  **Trap: an extended component reaches every use of it.** Our `NumberField` extension adds the density total to the
+  field wearing the Taxation page's `totalValue` class, so another page's total must not borrow that class (the
+  Services table's: [impl/district-service-budgets.md § UI](impl/district-service-budgets.md#ui)).
   It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
   the Options switch (a bool binding) is off.
 - **Economy panel header (the header hook):** EconomyPanel's `Panel` header is the title bar, then vanilla
@@ -120,8 +123,8 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   page); a focusable `Button` of ours beside the page logs "Cannot register second focus key" in UI.log. Give such a
   button `focusKey={FOCUS_DISABLED}` (`cs2/input`).
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
-  `BudgetItemDetail`, `TaxSlider`, `TaxationItem`, and for the Services tab `Section`, `SliderItem`, `BudgetItem`, `Button`,
-  `useLegacyInterfaceActive`, the service detail's classes) and their props as read from the bundle. **After a game patch, check those
+  `BudgetItemDetail`, `TaxSlider`, `TaxationItem`, and for the Services tab `Section`, `GradientSlider`, `intTransformer`, the economy gradient-slider theme,
+  `taxSliderClasses`, `useLegacyInterfaceActive`) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.
 - **Scroll bars:** Gameface draws none for `overflow: auto` (it scrolls by wheel, with no sign there is more). Wrap the
   content in vanilla's `Scrollable` (`game-ui/common/scrolling/scrollable.tsx`, in `vanilla.ts`) with a rem
