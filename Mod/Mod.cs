@@ -91,6 +91,9 @@ namespace FiscalOverhaul
             // The district list the tabs' selectors share, and the Services tab's per-district budgets.
             updateSystem.UpdateAt<DistrictListUISystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.World.GetOrCreateSystemManaged<DistrictListUISystem>().SetSettings(m_Setting);
+            // The Services tab table: vanilla's default fees and each area's share of the fee income.
+            updateSystem.UpdateAt<ServiceTableUISystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.World.GetOrCreateSystemManaged<ServiceTableUISystem>().SetSettings(m_Setting);
         }
 
         /// <summary>
