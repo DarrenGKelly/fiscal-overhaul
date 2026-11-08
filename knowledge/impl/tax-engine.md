@@ -1,17 +1,19 @@
 ---
 type: Implementation
 title: Tax engine
-description: The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, how buildings are classified, what it does not affect (demand, happiness), storage and the Taxation tab rows.
+description: The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, happiness at each citizen's home rate (a copy of CitizenHappinessSystem's update), how buildings are classified, what it does not affect (demand), storage and the Taxation tab rows.
 resource:
   - Mod/Systems/TaxEngineSystem.cs
   - Mod/Systems/TaxEngineGuard.cs
   - Mod/Systems/TaxKeyResolver.cs
+  - Mod/Systems/TaxHappinessSystem.cs
   - Mod/Systems/DensityClassifier.cs
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/DensityTaxState.cs
   - Mod/Systems/TaxRatesSystem.cs
   - Mod/Logic/EffectiveTaxRate.cs
   - Mod/Logic/TaxEngineGuardLogic.cs
+  - Mod/Logic/TaxHappinessMath.cs
   - Mod/Logic/TaxPayerZone.cs
   - Mod/Logic/DensityTaxTable.cs
   - Mod/Logic/TaxRateTable.cs
@@ -24,7 +26,7 @@ resource:
 
 User decisions (2026-11-03): density is **another adjustment** on top of the vanilla rate (zone rate + education/product
 offset), capped at ±5 points (`DensityTaxTable.MaxOffset`); district adjustments are relative to the city rate, capped
-±10. So far they change **revenue only**, not demand or happiness (later slices). User decisions (2026-11-07): the mod
+±10. They change revenue and citizen happiness ([§ Happiness](#happiness)), not yet demand (a later slice). User decisions (2026-11-07): the mod
 charges tax with its own copy of vanilla's charge (copying decompiled game code is fine: minimal copies, each with a
 header naming the source class, method, line range and game version); on an unknown game version it falls back to
 vanilla with a warning unless the player forces it; a "Simulation changes" master switch turns every simulation change
@@ -158,9 +160,48 @@ through vanilla's own components, so sign and money format are vanilla's. Off, o
 both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTotal`/`zoneTotalIncome`/
 `estimatedTotalValue` in `density.ts`.
 
+## Happiness
+
+The tax happiness factor (a user decision) follows each citizen's own rate, so a district's rates have a real
+effect (unhappy households move out through vanilla `HouseholdBehaviorSystem`).
+
+Vanilla `CitizenHappinessSystem` computes each citizen's wellbeing every 16 frames (16 `UpdateFrame` groups) and keeps
+the city's happiness factors (`m_HappinessFactors`, 26 factors × 16 frames, saved by vanilla and read by the city info
+UI through `GetHappinessFactor`). Its tax bonus is `GetTaxBonuses(educationLevel, taxRates, …)`: the city's residential
+rate for the education level, `(10 - rate)`, the city's `TaxHappiness` modifier, times the level's (negative)
+`CitizenHappinessParameterData.m_Tax*Multiplier`.
+
+- `TaxHappinessSystem` (`Mod/Systems/`) is a copy of its update: `CitizenHappinessJob`, `HappinessFactorJob`, `OnCreate`
+  and `OnUpdate` and three private helpers (headers name each source range, game version 1.6.0f1; changes are marked
+  `CHANGED`/`ADDED`; vanilla's debug distribution is left out). The public static `Get*Bonuses` helpers are called, not
+  copied. `UpdateBefore<…, CitizenHappinessSystem>` with its interval (16), so it inherits its offset.
+- **The one change**: the tax bonus is at the citizen's **home rate**, the vanilla rate for their education level plus
+  the density and district adjustments of their household's `PropertyRenter.m_Property` (`TaxKeyResolver`, the
+  district's Residential entry), inside the job-level limits (`TaxHappinessMath.ResidentRate`, i.e.
+  `EffectiveTaxRate.Compute` for a household with income). When that equals the vanilla rate (no adjustment, or no home)
+  the job calls vanilla's own `GetTaxBonuses`, so all-zero adjustments are exactly vanilla; otherwise
+  `TaxHappinessMath.Bonus` (`Mod/Logic/`, tested: a port of `GetTaxBonuses` with the rate and modifier passed in).
+- Vanilla stays the **data store**: the copy writes vanilla's private `m_HappinessFactors` (read by reflection once) and
+  sets vanilla's private `m_LastDeps` to its own handle each update, so `GetHappinessFactor` waits for it. Its first job
+  also waits on vanilla's last handle (the switch-over update).
+- **When it runs**: exactly while the tax engine charges, `TaxEngineGuardLogic.RunsHappiness(engineMode, structureOk,
+  foreignDisabled)` (tested). While it runs `CitizenHappinessSystem.Enabled = false`; anything else turns it back on,
+  live (every update, and `Mod.ApplyFeatureSwitches` after the engine's `ApplyMode`). The structure check
+  (`TaxEngineGuard.HappinessStructureOk`) confirms the two private fields' types and the array's length (416); if
+  vanilla was already disabled by someone else, it backs off for the session. Mod.log: `TaxHappiness: structure …` once
+  and `TaxHappiness: running|vanilla (…)` on each change.
+
+**Known limits** (still the city rate): the building happiness shown in the building info panel
+(`GetBuildingHappinessFactors`, CitizenHappinessSystem.cs:1817) and company factors (:1591), which `PropertyUtils` and
+the UI call directly; household net income (vanilla's income estimates elsewhere use the city rate); companies
+moving away (`CompanyMoveAway`); the Taxes factor in the city info panel is the city average of the per-citizen
+bonuses, so it moves with the share of citizens under an adjustment.
+
 ## Follow-ups
 
 - Check in game that all-zero adjustments match vanilla's monthly tax income within 1%, and that a non-zero density
   adjustment changes the zone's tax revenue.
 - Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.0f1` (the known-list format).
-- Demand/happiness reacting to adjusted rates: later slices (S3/S4).
+- Demand reacting to adjusted rates: a later slice (S3).
+- Check in game that the happiness Taxes factor with all-zero adjustments equals vanilla's, and that +5 in one district
+  lowers its residents' wellbeing over a couple of in-game days.

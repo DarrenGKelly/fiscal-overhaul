@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-07
+
+* **Tax happiness**: citizens' tax happiness follows their home's charged rate (density + district adjustments) through `TaxHappinessSystem`, a copy of `CitizenHappinessSystem`'s update that runs exactly while the tax engine does ([impl/tax-engine.md § Happiness](impl/tax-engine.md#happiness)).
+
 ## 2026-11-06
 
 * **Scripted game runs**: `tools/in-game-check.ps1` runs the in-game check end to end (claim, deploy, Steam launch, paused check, Budget/tooltip/Taxation shots, `-Steps`, a manifest, always quit) and `tools/store-screenshots.ps1` takes and installs the Paradox Mods set, both on `tools/game-run-common.ps1`. Two new screenshot rules: every Budget-tab shot has all lines on, and each set gets new, version-suffixed names, which `publish.ps1` now enforces (a changed picture under a released name is refused) ([releasing.md § Screenshots](releasing.md#screenshots)).
