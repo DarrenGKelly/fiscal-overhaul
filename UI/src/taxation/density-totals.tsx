@@ -3,8 +3,10 @@ import { taxation } from "cs2/bindings";
 import { createContext, useContext } from "react";
 import { densityTaxes$, densityTaxesEnabled$ } from "bindings";
 import { taxationPageClasses } from "vanilla";
-import { TaxDistrictView } from "./district-tax-view";
-import { headerSliderDisabled } from "./district-tax";
+import { CITY_KEY } from "district/district-select";
+import { TaxDistrictView, TaxRowTarget, useDistrictSlider } from "./district-tax-view";
+import { TYPE_ZONE_RATE } from "./district-tax";
+import districtStyles from "./district-tax-view.module.scss";
 import { EngineWarningLine } from "./engine-warning-line";
 import { densityExtraForArea, densityExtraTotal, estimatedTotalValue, zoneTotalIncome } from "./density";
 
@@ -41,17 +43,29 @@ export const withTotalDensityExtra = (TaxationPage: any) => (props: any) => {
 
 /**
  * TaxSlider: a zone group's header slider shows the zone total plus the zone's extra. In a district view
- * (district-tax-view.tsx) it shows the city rate read-only: the district's own slider is in its District section.
+ * (district-tax-view.tsx) the header and each re-hosted education/resource row (TaxRowTarget) show and set the
+ * district's own value, marked where it differs from the city's, with no estimate (the estimates are the city's).
  */
 export const withZoneDensityExtra = (TaxSlider: any) => (props: any) => {
   const extra = useContext(ZoneDensityExtra);
-  const district = useContext(TaxDistrictView);
-  const disabled = headerSliderDisabled(props.disabled, props.primary, district);
-  return <TaxSlider {...props} income={zoneTotalIncome(props.income, props.primary, extra)} disabled={disabled} />;
+  const area = useContext(TaxDistrictView);
+  const target = useContext(TaxRowTarget);
+  // The group's target (a zone rate) is the header's only; a row's target is its own slider's.
+  const applies = !!target && (target.type === TYPE_ZONE_RATE) === !!props.primary;
+  const district = useDistrictSlider(applies ? target : null, props.rate, props.min, props.max);
+  if (area === CITY_KEY || !district.onChange) {
+    return <TaxSlider {...props} income={zoneTotalIncome(props.income, props.primary, extra)} />;
+  }
+  const className = [props.className, districtStyles.noEstimate, district.overridden ? districtStyles.overridden : null].filter(Boolean).join(" ");
+  return <TaxSlider {...props} rate={district.rate} income={0} className={className} onValueChanged={district.onChange} />;
 };
 
-/** NumberField: the ESTIMATED TOTAL field shows the total plus every zone's extra. */
+/** NumberField: the ESTIMATED TOTAL field shows the total plus every zone's extra; hidden in a district view. */
 export const withEstimatedTotalDensityExtra = (NumberField: any) => (props: any) => {
   const extra = useContext(TotalDensityExtra);
-  return <NumberField {...props} value={estimatedTotalValue(props.value, props.className, taxationPageClasses?.totalValue, extra)} />;
+  const area = useContext(TaxDistrictView);
+  const totalClass = taxationPageClasses?.totalValue;
+  const isTotal = !!totalClass && props.className === totalClass;
+  const className = isTotal && area !== CITY_KEY ? `${props.className} ${districtStyles.hiddenTotal}` : props.className;
+  return <NumberField {...props} className={className} value={estimatedTotalValue(props.value, props.className, totalClass, extra)} />;
 };

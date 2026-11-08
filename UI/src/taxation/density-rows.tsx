@@ -1,11 +1,16 @@
 import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
-import { useCallback } from "react";
-import { densityTaxes$, DensityTaxCell, setDensityTax } from "bindings";
+import { useCallback, useContext } from "react";
+import { densityTaxes$, densityTaxesEnabled$, DensityTaxCell, setDensityTax, setTaxRate, taxRates$ } from "bindings";
+import { CITY_KEY } from "district/district-select";
 import { Translate } from "l10n";
-import { TaxSlider } from "vanilla";
+import { ActiveFocusDiv, TaxSlider, taxationItemClasses } from "vanilla";
 import { densityIcon } from "./density-icons";
-import { cellsForArea, densityLabel, offsetSummary } from "./density";
+import { cellsForArea, densityLabel, rateSummary } from "./density";
+import { densityOverrideCount, districtDensityRate, TYPE_DENSITY } from "./district-tax";
+import { TaxDistrictView } from "./district-tax-view";
+import districtStyles from "./district-tax-view.module.scss";
+import { densitySliderValues, rateFromSlider } from "./density-slider";
 import styles from "./density-rows.module.scss";
 
 interface AreaTypeLike {
@@ -13,44 +18,83 @@ interface AreaTypeLike {
   locked: boolean;
 }
 
-/** The density cells of a zone (none for the city, a locked zone, or no data yet). The sections are drawn only while density taxes are on. */
-export function useDensityCells(areaType: AreaTypeLike): { cells: DensityTaxCell[]; max: number } {
+/**
+ * The density cells of a zone: none for the city-wide area, a locked zone, no data yet, or while density taxes are off
+ * (a district view draws its sections whatever the switch, but the Density tax section only while it is on).
+ */
+export function useDensityCells(areaType: AreaTypeLike): { cells: DensityTaxCell[] } {
   const data = useValue(densityTaxes$);
-  return { cells: cellsForArea(data?.cells, areaType.index, areaType.locked, true), max: data?.maxOffset ?? 0 };
+  const enabled = useValue(densityTaxesEnabled$);
+  return { cells: cellsForArea(data?.cells, areaType.index, areaType.locked, enabled) };
 }
 
-/** The Density section's header summary: "no offsets", "2 offsets set". */
+/** The Density tax section's header summary: "2 rates set" (Entire City), "1 override" (a district); nothing at 0. */
 export const DensitySummary = ({ areaType }: { areaType: AreaTypeLike }) => {
   const { translate } = useLocalization();
   const { cells } = useDensityCells(areaType);
-  return <>{offsetSummary(cells.filter((c) => c.offset !== 0).length, translate)}</>;
+  const area = useContext(TaxDistrictView);
+  const rates = useValue(taxRates$);
+  if (area !== CITY_KEY) return <>{rateSummary(densityOverrideCount(rates?.districts, area, cells), translate, true)}</>;
+  return <>{rateSummary(cells.filter((c) => c.offset !== 0).length, translate)}</>;
 };
 
 /**
  * The Density section's rows: one slider per density the zone has, setting an offset in percentage points on top of
- * whatever rate the building already pays.
+ * whatever rate the building already pays. Each row is drawn exactly as vanilla TaxationItem draws an education or
+ * resource row (its focus wrapper, its class names, its TaxSlider), so the icon, title, % column, slider and estimate
+ * line up with those rows; only the values are ours: the density tax's own rate, which is charged on top of income
+ * tax (density-slider.ts). In a district view the row shows and sets the district's rate (else the city's), marked
+ * where it differs from the city's, with no estimate.
  */
 export const DensityRows = ({ areaType }: { areaType: AreaTypeLike }) => {
   const { translate } = useLocalization();
-  const { cells, max } = useDensityCells(areaType);
+  const { cells } = useDensityCells(areaType);
   return (
     <>
       {cells.map((cell) => (
-        <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} max={max} translate={translate} />
+        <DensityRow key={`${cell.zone}-${cell.density}`} cell={cell} translate={translate} />
       ))}
     </>
   );
 };
 
-const DensityRow = ({ cell, max, translate }: { cell: DensityTaxCell; max: number; translate: Translate }) => {
-  // The C# trigger takes an int (and clamps it to ±maxOffset), so round whatever the slider reports.
-  const onChange = useCallback((v: number) => setDensityTax(cell.zone, cell.density, Math.round(v)), [cell.zone, cell.density]);
+// Vanilla's taxation-item classes, or this module's copies of them should a game patch move the module.
+const itemClasses = {
+  row: taxationItemClasses?.taxationItem ?? styles.row,
+  icon: taxationItemClasses?.icon ?? styles.icon,
+  title: taxationItemClasses?.title ?? styles.title,
+  slider: taxationItemClasses?.slider ?? styles.slider,
+};
+
+const RowBox = ActiveFocusDiv ?? "div";
+
+interface DensityRowProps {
+  cell: DensityTaxCell;
+  translate: Translate;
+}
+
+const DensityRow = ({ cell, translate }: DensityRowProps) => {
+  const area = useContext(TaxDistrictView);
+  const rates = useValue(taxRates$);
+  const district = area !== CITY_KEY;
+  const onChange = useCallback(
+    (v: number) =>
+      district
+        ? setTaxRate(TYPE_DENSITY, cell.zone, cell.density, area, rateFromSlider(v))
+        : setDensityTax(cell.zone, cell.density, rateFromSlider(v)),
+    [cell.zone, cell.density, district, area],
+  );
   const icon = densityIcon(cell.zone, cell.density);
+  const rate = district ? districtDensityRate(rates?.districts, area, cell.zone, cell.density, cell.offset) : cell.offset;
+  const slider = densitySliderValues(rate);
+  const sliderClass = district
+    ? [itemClasses.slider, districtStyles.noEstimate, rate !== cell.offset ? districtStyles.overridden : null].filter(Boolean).join(" ")
+    : itemClasses.slider;
   return (
-    <div className={styles.row}>
-      {icon ? <img className={styles.icon} src={icon} /> : <div className={styles.icon} />}
-      <div className={styles.rowTitle}>{densityLabel(cell.density, translate)}</div>
-      <TaxSlider min={-max} max={max} rate={cell.offset} income={cell.estimate} className={styles.slider} onValueChanged={onChange} />
-    </div>
+    <RowBox className={itemClasses.row}>
+      {icon ? <img className={itemClasses.icon} src={icon} /> : <div className={itemClasses.icon} />}
+      <div className={itemClasses.title}>{densityLabel(cell.density, translate)}</div>
+      <TaxSlider min={slider.min} max={slider.max} rate={slider.rate} income={district ? 0 : cell.estimate} className={sliderClass} onValueChanged={onChange} />
+    </RowBox>
   );
 };

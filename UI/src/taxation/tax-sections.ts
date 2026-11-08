@@ -4,29 +4,26 @@ import { UiKey } from "../l10n";
 // more entry here, one more renderer there, and its title in l10n/en-US.json.
 
 /** A section's id: also its key in the expand state and in tax-sections-view.tsx's renderers. */
-export type TaxSectionId = "density" | "vanilla" | "district";
+export type TaxSectionId = "density" | "vanilla";
 
-/** Which view of the tab a section belongs to: the Entire City view, or a district picked in the selector. */
-export type TaxView = "city" | "district";
 
 export interface TaxSectionDef {
   id: TaxSectionId;
   /** The header's text for a tax area (vanilla TaxAreaType index: Residential = 1, Commercial = 2, ...). */
   title: (areaIndex: number) => UiKey;
-  /** The view it shows in. City sections set city-wide rates, so a district view leaves them out. */
-  view: TaxView;
+
   /** Open until the player collapses it (default: collapsed until opened). */
   startsOpen?: boolean;
 }
 
-/** Every section type, top to bottom. Density is always first in the city view. */
+/**
+ * Every section type, top to bottom. Density is always first. A district view shows the same sections as Entire City,
+ * with the district's own values in them (district-tax-view.tsx).
+ */
 export const TAX_SECTIONS: readonly TaxSectionDef[] = [
-  { id: "density", title: () => "SectionDensity", view: "city" },
+  { id: "density", title: () => "SectionDensity" },
   // Vanilla's own sub-rows (TaxationItem): education levels for Residential, resources for the other zones.
-  { id: "vanilla", title: (areaIndex) => (areaIndex === 1 ? "SectionEducation" : "SectionResources"), view: "city" },
-  // The picked district's adjustment for the zone: one slider, -cap..+cap points on the city rate. Open by default:
-  // it is all a district view shows.
-  { id: "district", title: () => "SectionDistrict", view: "district", startsOpen: true },
+  { id: "vanilla", title: (areaIndex) => (areaIndex === 1 ? "SectionEducation" : "SectionResources") },
 ];
 
 export interface TaxSection {
@@ -36,19 +33,18 @@ export interface TaxSection {
 }
 
 /**
- * The sections a zone group shows in a view: each of that view's types that has rows there (rowCounts[id] > 0), in
- * TAX_SECTIONS order. None for a locked zone (vanilla doesn't expand one either).
+ * The sections a zone group shows: each type that has rows there (rowCounts[id] > 0), in TAX_SECTIONS order. None for
+ * a locked zone (vanilla doesn't expand one either).
  */
 export function sectionsForArea(
   areaIndex: number,
   locked: boolean,
   rowCounts: Partial<Record<TaxSectionId, number>>,
   sections: readonly TaxSectionDef[] = TAX_SECTIONS,
-  view: TaxView = "city",
 ): TaxSection[] {
   if (locked) return [];
   return sections
-    .filter((s) => s.view === view && (rowCounts[s.id] ?? 0) > 0)
+    .filter((s) => (rowCounts[s.id] ?? 0) > 0)
     .map((s) => ({ id: s.id, title: s.title(areaIndex), startsOpen: s.startsOpen ?? false }));
 }
 

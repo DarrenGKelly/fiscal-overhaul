@@ -5,47 +5,84 @@ namespace FiscalOverhaul.Tests
 {
     public class TaxRateTableTests
     {
+        private const int A = 42, AV = 2; // a district entity (index, version)
+
         [Fact]
-        public void SetThenGet_RoundTrips()
+        public void SetThenGet_RoundTripsPerArea()
         {
             var table = new TaxRateTable();
 
             Assert.Equal(3, table.Set(TaxType.Density, (int)TaxZone.Commercial, (int)Density.High, 3));
-            Assert.Equal(-7, table.Set(TaxType.District, (int)TaxZone.Residential, 42, 2, -7));
+            Assert.Equal(17, table.Set(TaxType.ZoneRate, (int)TaxZone.Residential, 0, A, AV, 17));
 
             Assert.Equal(3, table.Get(TaxType.Density, (int)TaxZone.Commercial, (int)Density.High));
-            Assert.Equal(-7, table.Get(TaxType.District, (int)TaxZone.Residential, 42, 2));
-            // Fail cases: another cell, another type, another entity version read 0.
+            Assert.Equal(17, table.Get(TaxType.ZoneRate, (int)TaxZone.Residential, 0, A, AV));
+            // Fail cases: another cell, the city instead of the district, another entity version.
             Assert.Equal(0, table.Get(TaxType.Density, (int)TaxZone.Commercial, (int)Density.Low));
-            Assert.Equal(0, table.Get(TaxType.District, (int)TaxZone.Commercial, (int)Density.High));
-            Assert.Equal(0, table.Get(TaxType.District, (int)TaxZone.Residential, 42, 3));
+            Assert.Equal(0, table.Get(TaxType.Density, (int)TaxZone.Commercial, (int)Density.High, A, AV));
+            Assert.False(table.TryGet(TaxType.ZoneRate, (int)TaxZone.Residential, 0, A, AV + 1, out _));
         }
 
         [Fact]
-        public void Set_ClampsToTheTypesCap()
+        public void Density_IsClampedToMinus5Plus10()
         {
             var table = new TaxRateTable();
 
-            Assert.Equal(TaxRateTable.DensityCap, table.Set(TaxType.Density, 0, 0, 50));
-            Assert.Equal(-TaxRateTable.DensityCap, table.Set(TaxType.Density, 0, 1, -50));
-            Assert.Equal(TaxRateTable.DistrictCap, table.Set(TaxType.District, 0, 5, 1, 50));
-            Assert.Equal(-TaxRateTable.DistrictCap, table.Set(TaxType.District, 0, 6, 1, -50));
-            // Within the cap: stored as given.
-            Assert.Equal(4, table.Set(TaxType.Density, 0, 2, 4));
-            Assert.Equal(8, table.Set(TaxType.District, 0, 7, 1, 8));
+            Assert.Equal(10, table.Set(TaxType.Density, 0, 0, 50));
+            Assert.Equal(-5, table.Set(TaxType.Density, 0, 1, -50));
+            // Inside the range, above the old ±5 cap: stored as given.
+            Assert.Equal(8, table.Set(TaxType.Density, 0, 2, 8));
+            Assert.NotEqual(5, table.Get(TaxType.Density, 0, 2));
+            Assert.Equal(-5, TaxRateTable.DensityMin);
+            Assert.Equal(10, TaxRateTable.DensityMax);
         }
 
         [Fact]
-        public void SetZero_RemovesTheEntry()
+        public void CityZero_IsRemovedButADistrictZero_IsAnOverride()
         {
             var table = new TaxRateTable();
             table.Set(TaxType.Density, 1, 2, 3);
-            Assert.True(table.Any(TaxType.Density));
-
             table.Set(TaxType.Density, 1, 2, 0);
-
             Assert.Equal(0, table.Count);
-            Assert.False(table.Any(TaxType.Density));
+
+            // A district's 0 differs from a city's 3: it is kept.
+            table.Set(TaxType.Density, 1, 2, 3);
+            table.Set(TaxType.Density, 1, 2, A, AV, 0);
+            Assert.True(table.TryGet(TaxType.Density, 1, 2, A, AV, out int v));
+            Assert.Equal(0, v);
+            Assert.Equal(2, table.Count);
+        }
+
+        [Fact]
+        public void CityZoneAndResourceRates_AndRetiredDistrictAdjustments_AreNotStored()
+        {
+            var table = new TaxRateTable();
+
+            Assert.Equal(0, table.Set(TaxType.ZoneRate, 0, 0, 12));        // the city's zone rate is vanilla's
+            Assert.Equal(0, table.Set(TaxType.ResourceRate, 0, 3, 2));     // so are its level/resource rates
+            Assert.Equal(0, table.Set(TaxType.District, 0, A, A, AV, 5));  // retired ±adjustment
+            Assert.Equal(0, table.Count);
+            // Pass case: a district's zone rate is stored.
+            table.Set(TaxType.ZoneRate, 0, 0, A, AV, 12);
+            Assert.Equal(1, table.Count);
+        }
+
+        [Fact]
+        public void ClearArea_RemovesOneDistrictsOverridesOnly()
+        {
+            var table = new TaxRateTable();
+            table.Set(TaxType.Density, 0, 2, 4);
+            table.Set(TaxType.ZoneRate, 0, 0, A, AV, 15);
+            table.Set(TaxType.ResourceRate, 0, 4, A, AV, 3);
+            table.Set(TaxType.ZoneRate, 1, 0, 7, 1, 9);
+
+            Assert.True(table.AnyForArea(A, AV));
+            Assert.Equal(2, table.ClearArea(A, AV));
+
+            Assert.False(table.AnyForArea(A, AV));
+            Assert.True(table.AnyForArea(7, 1));
+            Assert.Equal(4, table.Get(TaxType.Density, 0, 2));
+            Assert.Equal(0, table.ClearArea(TaxRateTable.CityArea, 0)); // never the city
         }
 
         [Fact]
@@ -53,16 +90,29 @@ namespace FiscalOverhaul.Tests
         {
             var table = new TaxRateTable();
             table.Set(TaxType.Density, 0, 2, -4);
-            table.Set(TaxType.Density, 3, 0, 5);
-            table.Set(TaxType.District, 1, 17, 3, 9);
+            table.Set(TaxType.Density, 3, 0, 9);
+            table.Set(TaxType.Density, 3, 0, A, AV, 0);
+            table.Set(TaxType.ResourceRate, 1, 17, A, AV, -3);
 
             TaxRateTable parsed = TaxRateTable.Parse(table.Serialize());
 
             Assert.Equal(table.Entries(), parsed.Entries());
-            Assert.Equal(3, parsed.Count);
-            // Fail case: a changed table no longer matches.
+            Assert.Equal(4, parsed.Count);
             parsed.Set(TaxType.Density, 0, 2, 1);
             Assert.NotEqual(table.Entries(), parsed.Entries());
+        }
+
+        [Fact]
+        public void ParseVersion1_KeepsDensity_DropsDistrictAdjustments()
+        {
+            // The old ±adjustment model's text: "1;type,zone,key,keyVersion,value".
+            TaxRateTable parsed = TaxRateTable.Parse("1;0,0,2,0,4;1,0,12,3,7;0,1,0,0,-5");
+
+            Assert.Equal(2, parsed.Count);
+            Assert.Equal(4, parsed.Get(TaxType.Density, 0, 2));
+            Assert.Equal(-5, parsed.Get(TaxType.Density, 1, 0));
+            Assert.Equal(0, parsed.Get(TaxType.District, 0, 12, 12, 3));
+            Assert.Equal(2, TaxRateTable.FormatVersion);
         }
 
         [Fact]
@@ -86,8 +136,6 @@ namespace FiscalOverhaul.Tests
         {
             var table = new TaxRateTable();
 
-            // The old Setting.DensityTaxOffsets form: 12 ints, zone-major. Unsupported cells (Commercial/Office medium,
-            // Industrial medium/high) stay 0 and are not stored.
             int seeded = table.SeedDensityFrom("1,2,3,4,5,-1,2,3,4,-5,1,-2");
 
             Assert.Equal(8, seeded);
@@ -99,7 +147,6 @@ namespace FiscalOverhaul.Tests
             Assert.Equal(-1, table.Get(TaxType.Density, (int)TaxZone.Commercial, (int)Density.High));
             Assert.Equal(2, table.Get(TaxType.Density, (int)TaxZone.Industrial, (int)Density.Low));
             Assert.Equal(-2, table.Get(TaxType.Density, (int)TaxZone.Office, (int)Density.High));
-            Assert.False(table.Any(TaxType.District));
         }
 
         [Theory]
@@ -119,22 +166,22 @@ namespace FiscalOverhaul.Tests
         public void PruneDistricts_DropsOnlyMissingDistricts()
         {
             var table = new TaxRateTable();
-            table.Set(TaxType.District, 0, 10, 1, 4);   // still there
-            table.Set(TaxType.District, 1, 11, 1, -3);  // deleted
-            table.Set(TaxType.District, 2, 10, 2, 6);   // same index, newer version: a different entity, deleted
-            table.Set(TaxType.Density, 0, 0, 2);         // not a district: never pruned
+            table.Set(TaxType.ZoneRate, 0, 0, 10, 1, 4);   // still there
+            table.Set(TaxType.ZoneRate, 1, 0, 11, 1, 3);   // deleted
+            table.Set(TaxType.Density, 2, 0, 10, 2, 6);    // same index, newer version: a different entity, deleted
+            table.Set(TaxType.Density, 0, 0, 2);           // the city's: never pruned
 
             int pruned = table.PruneDistricts((index, version) => index == 10 && version == 1);
 
             Assert.Equal(2, pruned);
-            Assert.Equal(4, table.Get(TaxType.District, 0, 10, 1));
-            Assert.Equal(0, table.Get(TaxType.District, 1, 11, 1));
-            Assert.Equal(0, table.Get(TaxType.District, 2, 10, 2));
+            Assert.Equal(4, table.Get(TaxType.ZoneRate, 0, 0, 10, 1));
+            Assert.False(table.TryGet(TaxType.ZoneRate, 1, 0, 11, 1, out _));
+            Assert.False(table.TryGet(TaxType.Density, 2, 0, 10, 2, out _));
             Assert.Equal(2, table.Get(TaxType.Density, 0, 0));
         }
 
         [Fact]
-        public void DensityTaxTable_IsAViewOfTheRateTable()
+        public void DensityTaxTable_IsAViewOfTheCitysDensityRates()
         {
             var rates = new TaxRateTable();
             var density = new DensityTaxTable(rates);
@@ -145,17 +192,16 @@ namespace FiscalOverhaul.Tests
             rates.Set(TaxType.Density, (int)TaxZone.Residential, (int)Density.Low, -2);
             Assert.Equal(-2, density.Get(TaxZone.Residential, Density.Low));
 
-            // A district entry is not a density offset.
+            // A district's override is not the city's rate.
             rates.Clear(TaxType.Density);
-            rates.Set(TaxType.District, 0, 1, 1, 5);
+            rates.Set(TaxType.Density, 0, 0, 1, 1, 5);
             Assert.True(density.IsEmpty);
             Assert.Equal(new int[DensityTaxTable.ZoneCount * DensityTaxTable.DensityCount], density.ToArray());
         }
 
         [Fact]
-        public void TwoCities_KeepTheirOwnDensityOffsets()
+        public void TwoCities_KeepTheirOwnDensityRates()
         {
-            // Each save has its own table: a slider set in one city leaves another's at 0.
             var first = new TaxRateTable();
             var second = new TaxRateTable();
             new DensityTaxTable(first).Set(TaxZone.Residential, Density.High, 3);

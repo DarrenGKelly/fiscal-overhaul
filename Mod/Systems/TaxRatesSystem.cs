@@ -54,16 +54,10 @@ namespace FiscalOverhaul
             {
                 writer.Write((int)e.Type);
                 writer.Write(e.Zone);
-                // District keys are entities: written as such so the game remaps them on load.
-                if (e.Type == TaxType.District)
-                {
-                    writer.Write(new Entity { Index = e.Key, Version = e.KeyVersion });
-                }
-                else
-                {
-                    writer.Write(e.Key);
-                    writer.Write(e.KeyVersion);
-                }
+                writer.Write(e.Key);
+                // The area is an entity (Entity.Null = the city), written as such so the game remaps it on load:
+                // district entity indexes change from load to load.
+                writer.Write(new Entity { Index = e.Area, Version = e.AreaVersion });
                 writer.Write(e.Value);
             }
         }
@@ -72,33 +66,49 @@ namespace FiscalOverhaul
         {
             m_Rates.Clear();
             reader.Read(out int version);
-            if (version == TaxRateTable.FormatVersion) // a format this build doesn't know: start empty
+            if (version == TaxRateTable.FormatVersion)
             {
                 reader.Read(out int count);
                 for (int i = 0; i < count; i++)
                 {
                     reader.Read(out int type);
                     reader.Read(out int zone);
-                    int key, keyVersion;
-                    if ((TaxType)type == TaxType.District)
-                    {
-                        reader.Read(out Entity district);
-                        key = district.Index;
-                        keyVersion = district.Version;
-                        reader.Read(out int districtValue);
-                        // A district deleted before the save comes back as Entity.Null: drop its entry.
-                        if (district != Entity.Null) m_Rates.Set(TaxType.District, zone, key, keyVersion, districtValue);
-                        continue;
-                    }
-                    reader.Read(out key);
-                    reader.Read(out keyVersion);
+                    reader.Read(out int key);
+                    reader.Read(out Entity area);
                     reader.Read(out int value);
-                    m_Rates.Set((TaxType)type, zone, key, keyVersion, value);
+                    // A district deleted before the save comes back as Entity.Null: its overrides are dropped, never
+                    // read as the city's (only density has a city value in the table).
+                    bool city = area == Entity.Null;
+                    if (city && !TaxRateTable.HasCityValue((TaxType)type)) continue;
+                    m_Rates.Set((TaxType)type, zone, key, area.Index, area.Version, value);
                 }
             }
+            else if (version == 1)
+            {
+                // The ±adjustment model (never shipped): density entries become the city's density tax rates; district
+                // adjustments mean nothing as overrides and are dropped.
+                reader.Read(out int count);
+                for (int i = 0; i < count; i++)
+                {
+                    reader.Read(out int type);
+                    reader.Read(out int zone);
+                    int key = 0;
+                    if ((TaxType)type == TaxType.District)
+                    {
+                        reader.Read(out Entity _);
+                    }
+                    else
+                    {
+                        reader.Read(out key);
+                        reader.Read(out int _);
+                    }
+                    reader.Read(out int value);
+                    TaxRateTable.LoadVersion1(m_Rates, (TaxType)type, zone, key, value);
+                }
+            }
+            // Any other version: a format this build doesn't know: start empty.
             DensityTaxState.Use(m_Rates);
         }
-
         /// <summary>No block in the save: a new city or an older save. Seeds the density entries from the template once.</summary>
         public void SetDefaults(Context context)
         {

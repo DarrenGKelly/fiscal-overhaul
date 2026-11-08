@@ -10,24 +10,31 @@ import { TaxationItem, taxationGroupClasses } from "vanilla";
 import { arrowFor, zoneForAreaIndex } from "./density";
 import { DensityRows, DensitySummary, useDensityCells } from "./density-rows";
 import { useZoneDensityExtra, ZoneDensityExtra } from "./density-totals";
-import { DistrictRows, DistrictSummary, TaxDistrictView } from "./district-tax-view";
-import { groupClasses, sectionExpandState, sectionsForArea, TaxSection, TaxSectionId, TaxView } from "./tax-sections";
+import { DemandInfo, TaxDistrictView, TaxRowTarget } from "./district-tax-view";
+import { TYPE_RESOURCE_RATE, TYPE_ZONE_RATE } from "./district-tax";
+import { groupClasses, sectionExpandState, sectionsForArea, TaxSection, TaxSectionId } from "./tax-sections";
 import styles from "./tax-sections.module.scss";
 
 // The Taxation tab with density taxes on: under each zone's main slider, collapsible sections (tax-sections.ts):
-// Density, then vanilla's own rows (education levels or resources), whose vanilla expander is hidden. A district
-// picked in the selector (district-tax-view.tsx) shows the District section alone, whatever the density switch. Off
-// and in the Entire City view: the vanilla TaxationGroup exactly.
+// Density tax, then vanilla's own rows (education levels or resources), whose vanilla expander is hidden. A district
+// picked in the selector (district-tax-view.tsx) shows the same sections (Density tax only while density taxes are on)
+// with the district's own values. Density taxes off, in the Entire City view: the vanilla TaxationGroup exactly.
 
 type AreaType = taxation.TaxAreaType;
 
-/** Vanilla's own sub-rows of a zone, as vanilla draws them inside its group. */
+/**
+ * Vanilla's own sub-rows of a zone, as vanilla draws them inside its group. Each says which rate it is
+ * (TaxRowTarget: the education level or resource), so its slider shows and sets the district's value in a district view.
+ */
 const VanillaRows = ({ areaType }: { areaType: AreaType }) => {
   const resources = useMapValue(taxation.areaResources$, areaType.index) ?? [];
+  const zone = zoneForAreaIndex(areaType.index);
   return (
     <>
       {resources.map((r) => (
-        <TaxationItem key={r.resource} areaType={areaType} resource={r} />
+        <TaxRowTarget.Provider key={r.resource} value={{ type: TYPE_RESOURCE_RATE, zone, key: r.resource }}>
+          <TaxationItem areaType={areaType} resource={r} />
+        </TaxRowTarget.Provider>
       ))}
     </>
   );
@@ -37,7 +44,7 @@ const VanillaRows = ({ areaType }: { areaType: AreaType }) => {
 const TAX_SECTION_ROWS: Record<TaxSectionId, { Rows: FC<{ areaType: AreaType }>; Summary?: FC<{ areaType: AreaType }> }> = {
   density: { Rows: DensityRows, Summary: DensitySummary },
   vanilla: { Rows: VanillaRows },
-  district: { Rows: DistrictRows, Summary: DistrictSummary },
+
 };
 
 // TaxationGroup's class names as the game ships them, before any wrapper has changed the live object.
@@ -49,30 +56,34 @@ function hideVanillaExpander(hide: boolean) {
 }
 
 /**
- * The TaxationGroup extension (index.tsx): the zone total with its density extra, then the sections while density
- * taxes are on or a district is picked.
+ * The TaxationGroup extension (index.tsx): the zone total with its density extra (its header slider is the zone rate:
+ * TaxRowTarget), then the sections while density taxes are on or a district is picked.
  */
 export const withTaxSections = (TaxationGroup: any) => (props: any) => {
   const enabled = useValue(densityTaxesEnabled$);
-  const view: TaxView = useContext(TaxDistrictView) === CITY_KEY ? "city" : "district";
+  const district = useContext(TaxDistrictView) !== CITY_KEY;
   const extra = useZoneDensityExtra(props.areaType);
-  const sectionsOn = enabled || view === "district";
+  const sectionsOn = enabled || district;
   hideVanillaExpander(sectionsOn);
+  const zone = zoneForAreaIndex(props.areaType?.index ?? 0);
   return (
     <>
       <ZoneDensityExtra.Provider value={extra}>
-        <TaxationGroup {...props} />
+        <TaxRowTarget.Provider value={zone >= 0 ? { type: TYPE_ZONE_RATE, zone, key: 0 } : null}>
+          <TaxationGroup {...props} />
+        </TaxRowTarget.Provider>
       </ZoneDensityExtra.Provider>
-      {sectionsOn && <TaxSections areaType={props.areaType} view={view} />}
+      {district && zone >= 0 && !props.areaType?.locked && <DemandInfo zone={zone} />}
+      {sectionsOn && <TaxSections areaType={props.areaType} />}
     </>
   );
 };
 
-const TaxSections = ({ areaType, view }: { areaType: AreaType; view: TaxView }) => {
+const TaxSections = ({ areaType }: { areaType: AreaType }) => {
   const { cells } = useDensityCells(areaType);
   const resources = useMapValue(taxation.areaResources$, areaType.index);
-  const counts = { density: cells.length, vanilla: resources?.length ?? 0, district: zoneForAreaIndex(areaType.index) >= 0 ? 1 : 0 };
-  const sections = sectionsForArea(areaType.index, areaType.locked, counts, undefined, view);
+  const counts = { density: cells.length, vanilla: resources?.length ?? 0 };
+  const sections = sectionsForArea(areaType.index, areaType.locked, counts);
   if (sections.length === 0) return null;
   return (
     <div className={styles.sections}>

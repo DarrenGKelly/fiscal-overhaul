@@ -1,6 +1,7 @@
 // Pure logic for the Taxation tab's information-only district demand. No game imports, so vitest runs it in Node.
 // The game simulates ONE city-wide demand per zone; a district has none. This estimates what the city demand would be
 // if the whole city paid the district's rate, using the same tax-effect weights vanilla's demand systems use.
+import { districtZoneRate, OverrideRow } from "./district-tax";
 
 /** DemandParameterData.m_TaxEffect: x residential, y commercial, z industrial and office. */
 export interface TaxEffect {
@@ -61,4 +62,13 @@ export function cityDemandFor(
     default:
       return 0;
   }
+}
+
+/**
+ * How far a district's own zone rate is from the city's, in points: the district's zone rate (its override, else the
+ * city's) minus the city's. 0 when the district follows the city. Vanilla's demand factor reads the zone rate, so this
+ * is the shift the info line applies (education and resource overrides are not counted).
+ */
+export function districtRateDelta(rows: OverrideRow[] | null | undefined, area: string, zone: number, cityZoneRate: number): number {
+  return districtZoneRate(rows, area, zone, cityZoneRate) - cityZoneRate;
 }

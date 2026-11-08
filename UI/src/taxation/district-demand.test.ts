@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cityDemandFor, demandPercent, districtDemand, taxEffectFor } from "./district-demand";
+import { cityDemandFor, demandPercent, districtDemand, districtRateDelta, taxEffectFor } from "./district-demand";
+import { TYPE_RESOURCE_RATE, TYPE_ZONE_RATE } from "./district-tax";
 
 const effect = { x: 1, y: 1, z: 1 };
 
@@ -39,5 +40,22 @@ describe("helpers", () => {
   });
   it("formats a percent", () => {
     expect(demandPercent(0.374)).toBe("37%");
+  });
+});
+
+describe("districtRateDelta", () => {
+  // District "12:1" sets its Commercial zone rate to 15; the city's is 10.
+  const rows = [
+    { area: "12:1", type: TYPE_ZONE_RATE, zone: 1, key: 0, value: 15 },
+    { area: "12:1", type: TYPE_RESOURCE_RATE, zone: 0, key: 4, value: 10 },
+  ];
+  it("is the district's own zone rate minus the city's", () => {
+    expect(districtRateDelta(rows, "12:1", 1, 10)).toBe(5);
+    expect(districtDemand(0.5, 1, districtRateDelta(rows, "12:1", 1, 10), effect)).toBeLessThan(0.5);
+  });
+  it("is 0 where the district follows the city's zone rate", () => {
+    expect(districtRateDelta(rows, "12:1", 0, 10)).toBe(0); // only an education override, not the zone rate
+    expect(districtRateDelta(rows, "40:2", 1, 10)).toBe(0);
+    expect(districtDemand(0.5, 1, districtRateDelta(rows, "40:2", 1, 10), effect)).toBe(0.5);
   });
 });

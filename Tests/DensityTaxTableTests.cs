@@ -7,12 +7,12 @@ namespace FiscalOverhaul.Tests
     public class DensityTaxTableTests
     {
         [Fact]
-        public void Set_ClampsToTheCap()
+        public void Set_ClampsToMinus5Plus10()
         {
             var table = new DensityTaxTable();
 
-            Assert.Equal(DensityTaxTable.MaxOffset, table.Set(TaxZone.Residential, Density.High, 50));
-            Assert.Equal(-DensityTaxTable.MaxOffset, table.Set(TaxZone.Residential, Density.Low, -50));
+            Assert.Equal(10, table.Set(TaxZone.Residential, Density.High, 50));
+            Assert.Equal(-5, table.Set(TaxZone.Residential, Density.Low, -50));
             Assert.Equal(3, table.Set(TaxZone.Residential, Density.Medium, 3));
         }
 
@@ -91,7 +91,7 @@ namespace FiscalOverhaul.Tests
         public void Parse_ClampsOutOfRangeValues()
         {
             var table = DensityTaxTable.Parse("99,0,0,0,0,0,0,0,0,0,0,0");
-            Assert.Equal(DensityTaxTable.MaxOffset, table.Get(TaxZone.Residential, Density.Low));
+            Assert.Equal(DensityTaxTable.MaxRate, table.Get(TaxZone.Residential, Density.Low));
         }
 
         [Fact]

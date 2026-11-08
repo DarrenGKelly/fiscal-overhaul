@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: Tax engine
-description: The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, how buildings are classified, what it does not affect (demand, happiness), storage and the Taxation tab rows.
+description: The mod's own tax charge — a copy of vanilla TaxSystem's charge at each payer's income tax plus density tax with its district's own rates (the rate model), the game-version guard and the Simulation changes switch, how buildings are classified, what it does not affect (demand, happiness), storage and the Taxation tab rows.
 resource:
   - Mod/Systems/TaxEngineSystem.cs
   - Mod/Systems/TaxEngineGuard.cs
@@ -12,6 +12,8 @@ resource:
   - Mod/Systems/TaxRatesSystem.cs
   - Mod/Systems/TaxRatesUISystem.cs
   - Mod/Logic/TaxRateRows.cs
+  - Mod/Logic/TaxRateModel.cs
+  - Mod/Systems/TaxRateResolver.cs
   - Mod/Logic/EffectiveTaxRate.cs
   - Mod/Logic/TaxEngineGuardLogic.cs
   - Mod/Logic/TaxPayerZone.cs
@@ -24,9 +26,11 @@ resource:
 
 # Tax engine
 
-User decisions (2026-11-03): density is **another adjustment** on top of the vanilla rate (zone rate + education/product
-offset), capped at ±5 points (`DensityTaxTable.MaxOffset`); district adjustments are relative to the city rate, capped
-±10. So far they change **revenue only**, not demand or happiness (later slices). User decisions (2026-11-07): the mod
+User decisions (2026-11-07): **income tax** is vanilla's (zone rate + education
+level or resource rate); **density tax** is a separate tax per (zone, density) with its own rate, −5..+10 (negative is
+a tax break), charged on top; a **district sets its own values** for any zone, education-level, resource or density
+rate, and a building in it pays the district's value where set, else the city's. So far they change **revenue only**,
+not demand or happiness (later slices). User decisions (2026-11-07): the mod
 charges tax with its own copy of vanilla's charge (copying decompiled game code is fine: minimal copies, each with a
 header naming the source class, method, line range and game version); on an unknown game version it falls back to
 vanilla with a warning unless the player forces it; a "Simulation changes" master switch turns every simulation change
@@ -55,21 +59,44 @@ UI, and its setters (which clamp with `TaxParameterData`). Only its **update** i
   `m_TaxPaidMultiplier` load from `OnGameLoaded` (`:242-258`, `ModeSettingData`), game version 1.6.0f1; each copied
   block has a header naming its source. `TaxSystem.GetTaxParameterData()` is called each tick (runs vanilla's
   `EnsureTaxParameterData`).
-- **The one change**: the tax is `TaxSystem.GetTax` at the **charged rate**, `EffectiveTaxRate.Compute` (`Mod/Logic/`):
-  the payer's stored `m_AverageTaxRate` plus its density and district adjustments, clamped to the vanilla limits for its
-  kind (`TaxParameterData.m_JobLevelTaxLimits` for households, `m_ResourceTaxLimits` for companies; both limit the full
-  rate) and never below 0. The clamp never moves a rate past where vanilla put it, and refunds (zero or negative untaxed
-  income) are at the vanilla rate, so **with every adjustment 0 the charge is exactly vanilla's**. The stored rate is
-  never touched; `m_AverageTaxPaid` records what was charged.
-- Keys per payer: `TaxKeyResolver` (Burst-safe lookups): the density cell of its `PropertyRenter.m_Property`
-  (`DensityClassifier`) and the district (`CurrentDistrict`, up the `Owner` chain as `DistrictBudgetSystem`). The
-  district adjustment is per zone, the zone being the tax line vanilla books the payer on (`TaxPayerZone.Of`: industrial
-  with weightless output is Office). Payers with no property (homeless households) pay the vanilla rate.
+- **The one change**: the tax is `TaxSystem.GetTax` at the **charged rate**, `TaxRateResolver.ChargedRate` (below):
+  the payer's stored `m_AverageTaxRate` plus its density tax and its district's income-tax difference, clamped by
+  `EffectiveTaxRate.Compute` (`Mod/Logic/`) to the vanilla limits for its kind (`TaxParameterData.m_JobLevelTaxLimits`
+  for households, `m_ResourceTaxLimits` for companies; both limit the full rate) and never below 0. The clamp never
+  moves a rate past where vanilla put it, and refunds (zero or negative untaxed income) are at the vanilla rate, so
+  **with no density tax and no district override the charge is exactly vanilla's**. The stored rate is never touched;
+  `m_AverageTaxPaid` records what was charged.
 - **Threading.** `DensityTaxState` (the table and the switch) is main-thread state, changed by the sliders, the Options
-  switch and the reset button at any time. Each update the engine copies `DensityTaxState.Snapshot()` (all 0 while
-  density taxes are off) into a `TempJob` array and the district entries into a `TempJob` map (district entity →
-  `int4` per zone), disposed with the jobs' handle.
+  switch and the reset buttons at any time. Each update the engine builds a `TaxRateResolver` whose `TempJob` arrays
+  are computed from it, plus the wage per education level (`EconomyParameterData.GetWage`), all disposed with the
+  jobs' handle.
 
+## The rate model
+
+`TaxRateModel` (`Mod/Logic/`, tested) mirrors how vanilla combines its 92-int rate array (`TaxSystem.cs`, 1.6.0f1):
+a zone rate is `rates[0] + rates[1 + zone]`; an education level's is the residential zone rate + `rates[5 + level]`; a
+resource's is the zone rate + `rates[10 + resource]` (Commercial) or `rates[51 + resource]` (Industrial and Office
+share these offsets). **A district's** level/resource rate is its zone rate (its override, else the city's) plus its
+offset (its override, else the city's), clamped to vanilla's item limits; with no override in the zone it is exactly
+the city's. Its density tax for a cell is its override, else the city's.
+
+The income systems (`PayWageSystem`, the company systems) are not copied, so `m_AverageTaxRate` keeps blending the
+**city's** rates. The engine adds the difference instead (`TaxRateModel.DistrictDeltas`: district rate − city rate per
+level and resource):
+
+- **Households**: the mean over the household's workers (`HouseholdCitizen` → `Worker.m_Level`) of the difference at
+  each worker's level, **weighted by that level's wage** (a provisional choice: `EconomyParameterData.GetWage(level)`;
+  equal weights would be the alternative). No worker: level 0's (vanilla taxes other income at level 0's rate).
+- **Companies**: the difference for the company's output resource (`IndustrialProcessData.m_Output`) in the zone
+  vanilla books it on (`TaxPayerZone.Of`: industrial with weightless output is Office).
+- Then **density tax**: the cell of its building (`DensityClassifier`), the district's rate else the city's; 0 while
+  density taxes are off.
+
+`TaxRateResolver` (`Mod/Systems/`, Burst-safe) is **the one effective-rate computation**: `Create` on the main thread
+(the city's rates and limits from `TaxSystem`, the table, the wages), then `ChargedRate(taxPayer, payer, property,
+kind, limits)` or `Adjustments(...)` in a job, then `Dispose(handle)`. The district of a building is `CurrentDistrict`
+up the `Owner` chain (`TaxKeyResolver`). Payers in no district, Outside, or with no property (homeless) pay the city's
+values. **Demand, happiness and home choice** must call it rather than add density and district adjustments themselves.
 ## The guard and the switches
 
 `TaxEngineGuardLogic.Decide(versionKnown, structureOk, forceUntested, masterOn)` (`Mod/Logic/`, tested):
@@ -105,24 +132,29 @@ so commercial companies in mixed-housing zones and commuters are not affected.
 
 ## Storage and UI
 
-Offsets are **per save**. Each city keeps a `TaxRateTable` (`Mod/Logic/TaxRateTable.cs`): sparse entries keyed by
-(`TaxType`, zone, key, key version) to percentage points, clamped to a per-type cap (`Density` ±5; `District` ±10, a
-provisional constant for the district slice; later types take the next enum numbers). Density entries are keyed by
-`Density`; district entries by the district entity's index and version (ints in the logic, an `Entity` in the save so
-the game remaps it). `DensityTaxTable` is a view of a table's density entries (its classification and estimate maths
-stay; the charged rate is `EffectiveTaxRate`'s).
+Rates are **per save**. Each city keeps a `TaxRateTable` (`Mod/Logic/TaxRateTable.cs`): sparse entries keyed by
+(`TaxType`, zone, key, **area**) to percentage points, the area being the city (0:0) or a district entity (index and
+version: ints in the logic, an `Entity` in the save so the game remaps it; **district keys change on every load**, so
+the UI takes them from the `districts` binding only and never caches one). Types: `Density` (key = density; the city's
+rate and district overrides, −5..+10), `ZoneRate` (a district's full zone rate) and `ResourceRate` (a district's
+education-level or resource rate, stored like vanilla as an offset from the zone rate); `District` (1) is the retired
+±adjustment, never stored. A city value of 0 is the default and not stored; a district entry is an override and is
+stored even at 0. New types (wealth, land value, building level) take the next enum numbers and work the same way. The
+city's zone and resource rates are vanilla's own array, not the table's. `DensityTaxTable` is a view of the city's
+density entries.
 
-`TaxRatesSystem` is `IDefaultSerializable`: the save block is `FormatVersion`, a count, then per entry type, zone,
-key (an `Entity` for districts, else key and key version) and value. An unknown version loads empty. On load it drops
-district entries whose entity is gone (`Entity.Null` on read; `PruneDistricts` on `OnGameLoadingComplete`) and points
-`DensityTaxState` at the city's table (`DensityTaxState.Use`); sliders write it in place, and it is saved with the city.
-
+`TaxRatesSystem` is `IDefaultSerializable`: the save block is `FormatVersion` (2), a count, then per entry type, zone,
+key, area (`Entity`, `Entity.Null` = the city) and value. A version-1 block (the unshipped ±adjustment model) keeps
+its density entries as the city's density rates and drops its district adjustments; any other version loads empty. On
+load it drops district entries whose entity is gone (`Entity.Null` on read; `PruneDistricts` on
+`OnGameLoadingComplete`) and points `DensityTaxState` at the city's table (`DensityTaxState.Use`); sliders write it in
+place, and it is saved with the city.
 **Migration and the template.** `Setting.DensityTaxOffsets` (12 comma-separated ints) is now only the template for a
 city with no block: a new city, or a save from before per-save rates. `SetDefaults` seeds that city's density entries
 from it once (`TaxRateTable.SeedDensityFrom`); the next save carries the block, so it is never seeded again. Sliders no
-longer write the setting. Options > reset clears both the template and the loaded city's density offsets.
+longer write the setting. Options > reset clears the template and the loaded city's density rates (the city's and every district's).
 `DensityTaxUISystem` publishes
-`densityTaxes = { maxOffset, cells[{ zone, density, offset, estimate }] }` and `setDensityTax(zone, density, offset)`.
+`densityTaxes = { minRate, maxRate, cells[{ zone, density, offset, estimate }] }` (`offset` = the city's density tax rate) and `setDensityTax(zone, density, rate)`.
 The estimate is `EstimateExtraRevenue`: each cell's monthly tax paid (`TaxPayer.m_AverageTaxPaid`, the last payment
 × 32) scaled back to its taxable base, times the offset. The engine charged that payment at the stored rate **plus**
 the offset, so the base is paid ÷ (rate + offset); dividing by the stored rate alone overstated it by (rate + offset) / rate.
@@ -130,17 +162,20 @@ Recomputed every ~2 s while the panel is open and density taxes are on.
 
 **Options > Enable density taxes (BETA)** (`Setting.EnableDensityTaxes`, default **off**: density taxes are a BETA feature, `FeatureGates.DensityTaxesDefault`) switches the feature off live. The options
 page calls `ApplyAndSave` on every change; `Mod` listens on `onSettingsApplied` and calls
-`DensityTaxState.SetEnabled`. Off, the density adjustments the engine reads are all 0
-(`DensityTaxTable.EffectiveOffsets(false)`), so buildings pay no density adjustment (district adjustments still apply
-while the engine runs); the stored table and the template are left as they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and
+`DensityTaxState.SetEnabled`. Off, the density rates the engine reads are all 0 (`TaxRateModel.DistrictDensityRates`
+with the switch off), so buildings pay no density tax (district income-tax overrides still apply while the engine runs); the stored table and the template are left as they are, so switching back on restores them. `DensityTaxUISystem` publishes the switch as `densityTaxesEnabled`, and
 the rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells while it is off.
 
 **Taxation tab layout.** With density taxes on, the wrapper around each vanilla `TaxationGroup`
 (`UI/src/taxation/tax-sections-view.tsx`) draws collapsible sections under the zone's main slider, each a header row
-with an arrow (and an optional summary) over its rows: **Density** first (one vanilla `TaxSlider` per density the zone
-has, `density-rows.tsx`; the old "revenue only" note is gone, density is a real tax charge now; each row leads with the zoning toolbar's icon
-as a 32rem `<img>` like vanilla's education rows, `Media/Game/Icons/Zone*.svg` via `densityIcon` in
-`density-icons.ts`, an empty box where the game has none, e.g. Commercial/Office medium), then vanilla's own sub-rows, re-hosted as
+with an arrow (and an optional summary) over its rows: **Density tax** first (summary: "2 rates set", nothing when
+every rate is 0; `rateSummary` in `density.ts`), one row per density the zone has (`density-rows.tsx`). **Density
+rows are vanilla rows**: each is built exactly as vanilla `TaxationItem` builds an education/resource row (the same
+`ActiveFocusDiv`, the live `taxation-item.module.scss` class names `taxationItemClasses`, vanilla `TaxSlider`), so icon,
+title, % column, slider and estimate line up (`density-rows.module.scss` holds copies of those rules for a moved
+module). The icon is the zoning toolbar's (`densityIcon` in `density-icons.ts`; an empty box where the game has none).
+The row shows the density tax's **own rate**, never the zone rate plus it; the slider range is one constant,
+`DENSITY_RATE_RANGE` = −5..+10 in `density-slider.ts`, matching `TaxRateTable.DensityMin/Max`. After it, vanilla's own sub-rows, re-hosted as
 vanilla `TaxationItem`s from `taxation.areaResources$` (**Education** for Residential, **Resources** for the other
 zones). All start collapsed; the open ones are kept for the UI session (`sectionExpandState`, not reset when the panel
 closes). The section list is data (`TAX_SECTIONS` in `tax-sections.ts`: id, title per zone; `sectionsForArea` keeps the
@@ -162,41 +197,47 @@ through vanilla's own components, so sign and money format are vanilla's. Off, o
 both pass through unchanged. The maths is `densityExtraForArea`/`densityExtraTotal`/`zoneTotalIncome`/
 `estimatedTotalValue` in `density.ts`.
 
-**Per-district rates** (a user decision: an adjustment of ±`TaxRateTable.DistrictCap` points on the city
-rate, density on top, the sum clamped to vanilla's limits by the engine). `TaxRatesUISystem` publishes
-`taxRates = { engineOn, districtCap, districts[{ key, zone, value }] }`: every stored district entry (sparse, a missing
-row is 0) keyed by `DistrictKey` ("index:version"), built by `TaxRateRows.DistrictRows`; `engineOn` is
-`TaxEngineMode.Engine`. `setTaxRate(type, zone, key, value)` takes a `TaxType`, a zone and a district key (or a density
-"0".."2"); `TaxRateRows.TryResolve` rejects Entire City, Outside, bad keys and zones, and the system also checks the
-district entity still exists, then writes through `DensityTaxState.SetRate` (bumping its version). The UI picks the
-selected district's rows itself, so the selection stays the UI's. The district list is `BudgetHistoryUISystem`'s
-`districts` binding, which is filled only while the budget chart and district recording are on (until
+**Per-district rates** (a user decision: a district sets its own values). `TaxRatesUISystem` publishes
+`taxRates = { engineOn, districts[{ area, type, zone, key, value }] }`: every stored district override (as stored:
+full zone rate, level/resource offset, density rate), keyed by `DistrictKey` ("index:version"), built by
+`TaxRateRows.DistrictRows`; `engineOn` is `TaxEngineMode.Engine`. `setTaxRate(type, zone, target, value)` takes the
+value **as the slider shows it** (a full rate) and a target "key@area" (a trigger takes at most four arguments;
+`TaxRateRows.SplitTarget`); `TryResolve` accepts the city ("" area) for density only, and the system checks the
+district still exists, then `TaxRateModel.SetDistrictValue` clamps to vanilla's limits, turns a level/resource rate
+into its offset from the district's zone rate, and **removes the override when the value equals what the district
+would have without it**, so dragging a slider back to the city's value makes it follow the city again.
+`resetDistrictTaxRates(area)` removes every override of the district ("Use city rates"). The district list is
+`BudgetHistoryUISystem`'s `districts` binding, filled only while the budget chart and district recording are on (until
 `DistrictListUISystem` takes it over).
 
 On the tab (`district-tax.ts` pure, `district-tax-view.tsx`), a TaxationPage wrapper draws the shared
 `DistrictSelector` (`district/selection.ts`, the same choice as the Budget tab) above the page while the engine charges
 and the city has a district (`showsTaxDistrictSelector`): Entire City, then each district, no Outside Districts
-(`taxDistrictOptions`). It provides the view (`taxViewKey`: Entire City for the engine off, Outside or a gone district)
-through `TaxDistrictView`. Entire City is the layout above. A district view shows only the **District** section
-(`TAX_SECTIONS` entry with `view: "district"`, `startsOpen`), whatever the density switch: one `TaxSlider`
-(−cap..+cap, its estimate column hidden, as there is no revenue estimate) labelled "+N% vs city", also the header's
-summary. Density and vanilla's rows are city-wide, so a district view leaves them out (`view: "city"`), and each zone's
-header slider shows the city rate read-only (`headerSliderDisabled` in the extended `TaxSlider`).
-
+(`taxDistrictOptions`), and under it, in a district view, a vanilla `Button` **Use city rates** (disabled with no
+override). It provides the view (`taxViewKey`) through `TaxDistrictView`. A **district view is the Entire City layout**
+with the district's values: the zone header slider, Density tax (while density taxes are on; summary "N overrides",
+the cells differing from the city's) and Education/Resources. Each slider says which rate it is through
+`TaxRowTarget` (the TaxationGroup wrapper: the zone rate, for the `primary` header; each re-hosted `TaxationItem`: its
+level or resource), and the extended `TaxSlider` swaps in the district's value and setter (`useDistrictSlider`,
+`rowRate`: district value else city; a level/resource is the district zone rate + the district's offset else the
+city's, as in C#), adds `overridden` (an accent bar down the slider's left edge) where it differs from the city's,
+and hides the estimate column. Density rows do the same themselves. **Estimates are hidden in a district view**
+(row incomes, zone totals and ESTIMATED TOTAL, which are the city's; a provisional choice: a per-district estimate
+would need a per-district paid-tax sum). Entire City is unchanged.
 ## District demand (info only)
 
-The game simulates one city-wide demand per zone, so a district has none. A district view's District section shows an
-estimate under the slider, "Demand (info): X% vs city Y%" with the note "Estimate only", never feeding the simulation
+The game simulates one city-wide demand per zone, so a district has none. A district view shows an estimate under each
+zone's header, "Demand (info): X% vs city Y%" with the note "Estimate only", never feeding the simulation
 (`UI/src/taxation/district-demand.ts`, `DemandInfo` in `district-tax-view.tsx`). The city demand is vanilla's
 `cityInfo` bindings (`residentialLow/Medium/HighDemand` averaged, `commercialDemand`, `industrialDemand`,
 `officeDemand`; 0..1). `taxRates.taxEffect` carries `DemandParameterData.m_TaxEffect` (x residential, y commercial, z
-industrial and office). The district figure is the city demand minus adjustment x weight x a per-point scale, clamped
-to 0..1. The scales (`RESIDENTIAL_DEMAND_PER_POINT` 0.01, `OTHER_DEMAND_PER_POINT` 0.05) are provisional, read off
-vanilla's formulas (residential `x * (10 - rate)` on a 0..100 demand; others `-0.05 * (rate - 10) * weight`).
-
+industrial and office). The shift is the district's own zone rate minus the city's (`districtRateDelta`; education and
+resource overrides are not counted): the district figure is the city demand minus that x weight x a per-point scale,
+clamped to 0..1. The scales (`RESIDENTIAL_DEMAND_PER_POINT` 0.01, `OTHER_DEMAND_PER_POINT` 0.05) are provisional, read
+off vanilla's formulas (residential `x * (10 - rate)` on a 0..100 demand; others `-0.05 * (rate - 10) * weight`).
 ## Follow-ups
 
-- Check in game that all-zero adjustments match vanilla's monthly tax income within 1%, and that a non-zero density
-  adjustment changes the zone's tax revenue.
+- Check in game that no density tax and no override match vanilla's monthly tax income within 1%, and that a density
+  tax or a district override changes the zone's tax revenue.
 - Confirm in Mod.log that `Game.Version.current.shortVersion` reads `1.6.0f1` (the known-list format).
 - Demand/happiness reacting to adjusted rates: later slices (S3/S4).

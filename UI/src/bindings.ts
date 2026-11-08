@@ -44,7 +44,8 @@ export interface DensityTaxCell {
 }
 
 export interface DensityTaxes {
-  maxOffset: number;
+  minRate: number;
+  maxRate: number;
   cells: DensityTaxCell[];
 }
 
@@ -63,19 +64,26 @@ export function setDensityTax(zone: number, density: number, offset: number) {
  */
 export const taxEngineWarning$ = bindValue<number>(GROUP, "taxEngineWarning", 0);
 
-/** One stored district adjustment (C# TaxRatesUISystem): percentage points on the city rate for a zone (0 Residential .. 3 Office). */
+/**
+ * One district override (C# TaxRatesUISystem): the district's own value for a (type, zone, key), as stored: a full
+ * zone rate (TAX_TYPE_ZONE_RATE), an offset from the zone rate (TAX_TYPE_RESOURCE_RATE, like vanilla), a density tax
+ * rate (TAX_TYPE_DENSITY). A value with no row follows the city.
+ */
 export interface DistrictTaxRate {
-  key: string;
+  /** The district's key ("index:version"). It changes on every load: compare with districts$ keys, never cache it. */
+  area: string;
+  type: number;
+  /** 0 Residential .. 3 Office. */
   zone: number;
+  /** Density 0..2, education level 0..4 (Residential), resource index (other zones); 0 for a zone rate. */
+  key: number;
   value: number;
 }
 
 export interface TaxRates {
-  /** The tax engine charges (Simulation changes on, guard happy): district adjustments take effect. */
+  /** The tax engine charges (Simulation changes on, guard happy): district rates take effect. */
   engineOn: boolean;
-  /** Adjustments are clamped to ±this. */
-  districtCap: number;
-  /** Sparse: a district/zone with no row is 0. */
+  /** Every stored district override. */
   districts: DistrictTaxRate[];
   /** DemandParameterData.m_TaxEffect, the weights of vanilla's demand tax factor (x residential, y commercial, z industrial/office). */
   taxEffect: { x: number; y: number; z: number };
@@ -93,10 +101,21 @@ export const cityDemand$ = {
 
 export const taxRates$ = bindValue<TaxRates | null>(GROUP, "taxRates", null);
 
-/** C# TaxType: Density = 0, District = 1. */
-export const TAX_TYPE_DISTRICT = 1;
+/** C# TaxType: Density = 0 (1 = the retired ±adjustment), ZoneRate = 2, ResourceRate = 3 (education level or resource). */
+export const TAX_TYPE_DENSITY = 0;
+export const TAX_TYPE_ZONE_RATE = 2;
+export const TAX_TYPE_RESOURCE_RATE = 3;
 
-/** Sets an adjustment: type (TAX_TYPE_*), zone (0..3), key (a district key for District), value (clamped in C#). */
-export function setTaxRate(type: number, zone: number, key: string, value: number) {
-  trigger(GROUP, "setTaxRate", type, zone, key, value);
+/**
+ * Sets a value as its slider shows it: type (TAX_TYPE_*), zone (0..3), key, area ("" = the city: density only; else a
+ * district key), value (a full rate; clamped, and turned into vanilla's offset form, in C#). Setting a district's value
+ * back to the city's makes it follow the city again. The trigger takes key and area as one "key@area" string.
+ */
+export function setTaxRate(type: number, zone: number, key: number, area: string, value: number) {
+  trigger(GROUP, "setTaxRate", type, zone, area ? `${key}@${area}` : `${key}`, value);
+}
+
+/** "Use city rates": removes every override of the district. */
+export function resetDistrictTaxRates(area: string) {
+  trigger(GROUP, "resetDistrictTaxRates", area);
 }

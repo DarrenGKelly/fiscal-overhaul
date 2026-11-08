@@ -7,7 +7,7 @@ import {
   densityExtraTotal,
   densityLabel,
   estimatedTotalValue,
-  offsetSummary,
+  rateSummary,
   zoneForAreaIndex,
   zoneTotalIncome,
 } from "./density";
@@ -16,7 +16,7 @@ const french: Translate = (id, fallback) =>
   ({
     "FiscalOverhaul.UI.DensityLow": "Faible densité",
     "FiscalOverhaul.UI.DensityOther": "Densité {NUMBER}",
-    "FiscalOverhaul.UI.OffsetsSet": "{COUNT} ajustements",
+    "FiscalOverhaul.UI.RatesSet": "{COUNT} taux",
   })[id] ??
   fallback ??
   null;
@@ -51,19 +51,25 @@ describe("densityLabel", () => {
   });
 });
 
-describe("offsetSummary", () => {
-  it("reads as before in English", () => {
-    expect(offsetSummary(0, null)).toBe("no offsets");
-    expect(offsetSummary(1, null)).toBe("1 offset set");
-    expect(offsetSummary(3, null)).toBe("3 offsets set");
+describe("rateSummary", () => {
+  it("counts the city's density rates, nothing when none is set", () => {
+    expect(rateSummary(0, null)).toBe("");
+    expect(rateSummary(1, null)).toBe("1 rate set");
+    expect(rateSummary(3, null)).toBe("3 rates set");
+    expect(rateSummary(3, null)).not.toContain("offset");
+  });
+
+  it("counts a district's overrides in a district view", () => {
+    expect(rateSummary(1, null, true)).toBe("1 override");
+    expect(rateSummary(2, null, true)).toBe("2 overrides");
+    expect(rateSummary(0, null, true)).toBe("");
   });
 
   it("fills the count into the translation", () => {
-    expect(offsetSummary(3, french)).toBe("3 ajustements");
-    expect(offsetSummary(0, french)).toBe("no offsets");
+    expect(rateSummary(3, french)).toBe("3 taux");
+    expect(rateSummary(1, french)).toBe("1 rate set");
   });
 });
-
 describe("cellsForArea", () => {
   const cells = [
     { zone: 0, density: 0 },

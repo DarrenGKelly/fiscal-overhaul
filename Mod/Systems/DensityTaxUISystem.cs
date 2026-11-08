@@ -19,7 +19,8 @@ namespace FiscalOverhaul
     /// <summary>
     /// Taxation tab bindings for density offsets (group "fiscalOverhaul"):
     ///   densityTaxesEnabled  bool  <see cref="Setting.EnableDensityTaxes"/>; false = the UI shows no density rows
-    ///   densityTaxes         raw   { maxOffset, cells: [{ zone, density, offset, estimate }] } (supported cells only)
+    ///   densityTaxes         raw   { minRate, maxRate, cells: [{ zone, density, offset, estimate }] } (supported cells only;
+    ///                              offset = the city's density tax rate for the cell)
     ///   setDensityTax        trigger(int zone, int density, int offset)
     ///   taxEngineWarning     int   <see cref="TaxEngineWarning"/>: why the Taxation tab warns that taxes are vanilla (0 = no warning)
     /// The estimate is the extra (or lost) monthly revenue the offset brings: each cell's monthly tax paid scaled back
@@ -107,8 +108,10 @@ namespace FiscalOverhaul
                     if (DensityTaxTable.IsSupported((TaxZone)z, (Density)d)) supported++;
 
             writer.TypeBegin("FiscalOverhaul.DensityTaxes");
-            writer.PropertyName("maxOffset");
-            writer.Write(DensityTaxTable.MaxOffset);
+            writer.PropertyName("minRate");
+            writer.Write(DensityTaxTable.MinRate);
+            writer.PropertyName("maxRate");
+            writer.Write(DensityTaxTable.MaxRate);
             writer.PropertyName("cells");
             writer.ArrayBegin(supported);
             for (int z = 0; z < DensityTaxTable.ZoneCount; z++)
