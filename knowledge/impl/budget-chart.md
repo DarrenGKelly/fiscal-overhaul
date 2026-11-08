@@ -60,7 +60,7 @@ weights:
 
 | Source | Weight per district |
 |---|---|
-| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate (`AtCityRate`: paid x city rate / the rate the payer's district charges now) |
+| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate (`AtCityRate`: paid x city rate / the rate the payer's district charges now). While the tax engine charges, `PayerTaxWeights` splits paid pro rata by rate into its vanilla part (restated), district part and density part (both as paid, since the engine books them exactly, [tax-engine.md](tax-engine.md#the-citys-side)); a negative density part weighs the subsidy slot. While the engine charges, only payers with a current charge record weigh (`PayerCounts`, `TaxEngineSystem.GetChargeRecords`): a payer it skips keeps a stale `m_AverageTaxPaid` |
 | Electricity, water | `ElectricityConsumer.m_FulfilledConsumption`; `WaterConsumer.m_FulfilledFresh + m_FulfilledSewage` |
 | Healthcare, education | `Patient` / `Student` buffer length |
 | Garbage | `GarbageProducer.m_Garbage` |
