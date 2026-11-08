@@ -19,7 +19,7 @@ namespace FiscalOverhaul
     /// <summary>
     /// Taxation tab bindings for density offsets (group "fiscalOverhaul"):
     ///   densityTaxesEnabled  bool  <see cref="Setting.EnableDensityTaxes"/>; false = the UI shows no density rows
-    ///   densityTaxes         raw   { maxOffset, cells: [{ zone, density, offset, estimate, payers }] } (supported cells only)
+    ///   densityTaxes         raw   { maxOffset, cells: [{ zone, density, offset, estimate }] } (supported cells only)
     ///   setDensityTax        trigger(int zone, int density, int offset)
     /// The estimate is the extra (or lost) monthly revenue the offset brings: each cell's monthly tax paid scaled back
     /// to its taxable base at the rate charged (stored rate + offset), times the offset. Refreshed every ~2 s while the Economy panel is open and density
@@ -37,7 +37,6 @@ namespace FiscalOverhaul
 
         private long[] m_TaxPaid = new long[DensityTaxTable.ZoneCount * DensityTaxTable.DensityCount];
         private double[] m_AverageRate = new double[DensityTaxTable.ZoneCount * DensityTaxTable.DensityCount];
-        private int[] m_Payers = new int[DensityTaxTable.ZoneCount * DensityTaxTable.DensityCount];
         private int m_FramesSinceRefresh = kRefreshFrames;
         private int m_LastVersion = -1;
 
@@ -127,8 +126,6 @@ namespace FiscalOverhaul
                     writer.Write(offset);
                     writer.PropertyName("estimate");
                     writer.Write((int)DensityTaxTable.EstimateExtraRevenue(m_TaxPaid[cell], m_AverageRate[cell], offset));
-                    writer.PropertyName("payers");
-                    writer.Write(m_Payers[cell]);
                     writer.TypeEnd();
                 }
             }
@@ -141,7 +138,6 @@ namespace FiscalOverhaul
             int cells = m_TaxPaid.Length;
             var paid = new NativeArray<long>(cells, Allocator.TempJob);
             var weightedRate = new NativeArray<double>(cells, Allocator.TempJob);
-            var payers = new NativeArray<int>(cells, Allocator.TempJob);
             try
             {
                 var job = new SumJob
@@ -155,7 +151,6 @@ namespace FiscalOverhaul
                     m_ZoneProperties = GetComponentLookup<ZonePropertiesData>(true),
                     m_Paid = paid,
                     m_WeightedRate = weightedRate,
-                    m_Payers = payers,
                 };
                 // This system's Dependency includes the restore job's TaxPayer writes, so the sum sees the stored
                 // (vanilla) rates, never one adjusted mid-payment. Completed at once: one single-threaded pass every
@@ -166,18 +161,16 @@ namespace FiscalOverhaul
                 {
                     m_TaxPaid[i] = paid[i];
                     m_AverageRate[i] = paid[i] != 0 ? weightedRate[i] / paid[i] : 0;
-                    m_Payers[i] = payers[i];
                 }
             }
             finally
             {
                 paid.Dispose();
                 weightedRate.Dispose();
-                payers.Dispose();
             }
         }
 
-        /// <summary>Per density cell: monthly tax paid, tax-paid-weighted rate sum, and payer count.</summary>
+        /// <summary>Per density cell: monthly tax paid, tax-paid-weighted rate sum.</summary>
         [BurstCompile]
         private struct SumJob : IJobChunk
         {
@@ -190,7 +183,6 @@ namespace FiscalOverhaul
             [ReadOnly] public ComponentLookup<ZonePropertiesData> m_ZoneProperties;
             public NativeArray<long> m_Paid;
             public NativeArray<double> m_WeightedRate;
-            public NativeArray<int> m_Payers;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -201,7 +193,6 @@ namespace FiscalOverhaul
                 {
                     if (!DensityClassifier.TryClassify(renters[i].m_Property, isHousehold, ref m_PrefabRefs, ref m_Spawnables, ref m_Zones, ref m_ZoneProperties, out int cell)) continue;
                     TaxPayer payer = taxPayers[i];
-                    m_Payers[cell] += 1;
                     if (payer.m_AverageTaxPaid <= 0) continue;
                     m_Paid[cell] += payer.m_AverageTaxPaid;
                     m_WeightedRate[cell] += (double)payer.m_AverageTaxPaid * payer.m_AverageTaxRate;
