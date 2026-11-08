@@ -67,7 +67,7 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   while the chart is off) and draws `UI/src/chart/line-chart.tsx` (canvas).
   [impl/budget-chart.md](knowledge/impl/budget-chart.md)
 - **Density taxes:** an apply/restore system pair around vanilla `TaxSystem` adds each building's density offset only
-  while tax is charged; offsets live in `Setting.DensityTaxOffsets`; the Taxation tab extends vanilla `TaxationGroup`.
+  while tax is charged; offsets are per save (`TaxRatesSystem`, seeded once from the `Setting.DensityTaxOffsets` template); the Taxation tab extends vanilla `TaxationGroup`.
   [impl/density-taxes.md](knowledge/impl/density-taxes.md)
 - **Pure logic** (`Mod/Logic/`, `UI/src/chart/chart-math.ts`, `UI/src/taxation/density.ts`) carries the maths and is
   what the unit tests cover.

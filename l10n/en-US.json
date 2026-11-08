@@ -10,7 +10,7 @@
   "FiscalOverhaul.Options.Label.EnableDistrictBudget": "Record district budgets",
   "FiscalOverhaul.Options.Desc.EnableDistrictBudget": "Records each district's share of taxes, fees, subsidies and service upkeep 32 times a month, kept in the save, for the per-district budget view. Needs the budget chart on. Off: nothing new is recorded; what was recorded is kept.",
   "FiscalOverhaul.Options.Label.ResetDensityTaxes": "Reset density tax offsets",
-  "FiscalOverhaul.Options.Desc.ResetDensityTaxes": "Sets every density offset (set in Economy > Taxation) back to 0, so buildings pay the vanilla rates again.",
+  "FiscalOverhaul.Options.Desc.ResetDensityTaxes": "Sets the loaded city's density offsets (set in Economy > Taxation) and the starting offsets for new cities back to 0, so buildings pay the vanilla rates again.",
   "FiscalOverhaul.Options.Warning.ResetDensityTaxes": "Reset all density tax offsets to 0?",
 
   "FiscalOverhaul.UI.StatAverage": "Average",
