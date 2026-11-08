@@ -26,17 +26,10 @@ import { BudgetItemDetail, NumberField, Scrollable } from "vanilla";
 import { buildSourceSeries, childRows, expandArrow, hasExpander, itemKey, subItemLocaleId, toggled, visibleSources } from "./budget-rows";
 import { buildServiceSeries, hasServiceRows, serviceLocaleId, serviceRows } from "./service-rows";
 import styles from "./budget-page.module.scss";
-import {
-  BudgetKind,
-  CITY_KEY,
-  districtOptions,
-  effectiveKey,
-  isCityOnlyItem,
-  isDistrictView,
-  rowValue,
-  showsDistrictSelector,
-} from "./district-select";
-import { DistrictSelector } from "./district-selector";
+import { BudgetKind, isCityOnlyItem, isDistrictView, rowValue } from "./budget-district";
+import { districtOptions, effectiveKey, showsDistrictSelector } from "district/district-select";
+import { DistrictSelector } from "district/district-selector";
+import { useSelectedDistrict } from "district/selection";
 
 /**
  * While the item pop-out shows, the chart's plot starts after it: the pop-out is 360rem wide at 6rem from the chart
@@ -47,7 +40,6 @@ const POPOUT_INSET_REM = 360 + 6 - 10 + 12;
 // Kept outside the component so the choice survives switching tabs or closing the panel.
 let rememberedEnabled = new Set<string>([INCOME_TOTAL, EXPENSE_TOTAL]);
 let rememberedSpan = DEFAULT_SPAN_MONTHS;
-let rememberedDistrict = CITY_KEY;
 // The categories expanded into their subcategory rows (itemKey), kept like rememberedEnabled.
 let rememberedExpanded = new Set<string>();
 
@@ -70,7 +62,7 @@ export const BudgetPage = () => {
 
   const [enabled, setEnabled] = useState(rememberedEnabled);
   const [span, setSpanState] = useState(rememberedSpan);
-  const [district, setDistrictState] = useState(rememberedDistrict);
+  const [district, setDistrict] = useSelectedDistrict();
   const [expanded, setExpanded] = useState(rememberedExpanded);
   const [rowHover, setRowHover] = useState<string | null>(null);
   const [lineHover, setLineHover] = useState<string | null>(null);
@@ -88,7 +80,6 @@ export const BudgetPage = () => {
 
   // Sent on mount too, like the span: the C# side builds history for the district it was last told.
   useEffect(() => {
-    rememberedDistrict = selectedDistrict;
     sendDistrict(selectedDistrict);
   }, [selectedDistrict]);
 
@@ -242,10 +233,7 @@ export const BudgetPage = () => {
         <DistrictSelector
           options={districtChoices}
           selected={selectedDistrict}
-          onSelect={(key) => {
-            rememberedDistrict = key;
-            setDistrictState(key);
-          }}
+          onSelect={setDistrict}
         />
       )}
       <div className={styles.budgetBody}>
