@@ -77,6 +77,45 @@ export function districtItemRate(
   return Math.max(min, Math.min(max, full));
 }
 
+/** A zone header's rate span (vanilla taxation.areaResourceTaxRanges$: its resources' full rates, low to high). */
+export interface RateRange {
+  min: number;
+  max: number;
+}
+
+/**
+ * What a zone header's % label reads in a view. Vanilla's TaxSlider shows `range` (the zone's resources' rates) over
+ * `rate` whenever it is given, so a district view must pass the district's span, not the city's: the city's span moved
+ * by the district's zone rate, widened to the rates of the resources the district sets itself, each kept in
+ * [min, max]. The city's span, unchanged, where the district sets nothing in the zone (or in Entire City). A resource
+ * the district sets is still counted at its city rate too (the span lists no resource), so then it can read wider.
+ */
+export function districtHeaderRange(
+  cityRange: RateRange | null | undefined,
+  rows: OverrideRow[] | null | undefined,
+  area: string,
+  zone: number,
+  cityZoneRate: number,
+  min: number,
+  max: number,
+): RateRange | null | undefined {
+  if (!cityRange || !area || area === CITY_KEY) return cityRange;
+  const own = (rows ?? []).filter((r) => r.area === area && r.zone === zone);
+  const zoneRate = own.find((r) => r.type === TYPE_ZONE_RATE)?.value;
+  const items = own.filter((r) => r.type === TYPE_RESOURCE_RATE);
+  if (zoneRate === undefined && items.length === 0) return cityRange;
+  const clamp = (v: number) => Math.max(min, Math.min(max, v));
+  const delta = (zoneRate ?? cityZoneRate) - cityZoneRate;
+  let lo = clamp(cityRange.min + delta);
+  let hi = clamp(cityRange.max + delta);
+  for (const item of items) {
+    const rate = clamp((zoneRate ?? cityZoneRate) + item.value);
+    lo = Math.min(lo, rate);
+    hi = Math.max(hi, rate);
+  }
+  return { min: lo, max: hi };
+}
+
 /** The district's density tax rate for a cell: its own, else the city's. */
 export function districtDensityRate(rows: OverrideRow[] | null | undefined, area: string, zone: number, density: number, cityRate: number): number {
   return districtOverride(rows, area, TYPE_DENSITY, zone, density) ?? cityRate;
