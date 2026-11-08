@@ -12,7 +12,10 @@ const OFFICE = 4;
 describe("TAX_SECTIONS", () => {
   it("puts Density first", () => {
     expect(TAX_SECTIONS[0].id).toBe("density");
-    expect(TAX_SECTIONS.map((s) => s.id)).toEqual(["density", "vanilla", "district"]);
+    expect(TAX_SECTIONS.map((s) => s.id)).toEqual(["density", "vanilla"]);
+    // The old ±adjustment District section is gone: a district view shows these same sections with its own values.
+    expect(TAX_SECTIONS.map((s) => s.id)).not.toContain("district");
+    expect(Object.keys(EN_US)).not.toContain("FiscalOverhaul.UI.SectionDistrict");
   });
 
   it("has an English title for every section in every zone", () => {
@@ -50,29 +53,8 @@ describe("sectionsForArea", () => {
     expect(sectionsForArea(RESIDENTIAL, false, {})).toEqual([]);
   });
 
-  it("shows the District section in a district view only, alone and open", () => {
-    const counts = { density: 3, vanilla: 5, district: 1 };
-    for (const area of [RESIDENTIAL, COMMERCIAL, INDUSTRIAL, OFFICE]) {
-      expect(sectionsForArea(area, false, counts, TAX_SECTIONS, "district")).toEqual([
-        { id: "district", title: "SectionDistrict", startsOpen: true },
-      ]);
-    }
-    expect(english("SectionDistrict")).toBe("District");
-  });
-
-  it("leaves the District section out of the Entire City view", () => {
-    const counts = { density: 3, vanilla: 5, district: 1 };
-    expect(sectionsForArea(RESIDENTIAL, false, counts).map((s) => s.id)).toEqual(["density", "vanilla"]);
-    expect(sectionsForArea(RESIDENTIAL, false, counts, TAX_SECTIONS, "city").map((s) => s.id)).not.toContain("district");
-  });
-
-  it("gives no District section for a locked zone or the city-wide group", () => {
-    expect(sectionsForArea(OFFICE, true, { district: 1 }, TAX_SECTIONS, "district")).toEqual([]);
-    expect(sectionsForArea(0, false, { district: 0 }, TAX_SECTIONS, "district")).toEqual([]);
-  });
-
   it("takes a new tax type as one more entry, after Density", () => {
-    const withNew = [...TAX_SECTIONS, { id: "land", title: () => "SectionResources", view: "city" } as unknown as TaxSectionDef];
+    const withNew = [...TAX_SECTIONS, { id: "land", title: () => "SectionResources" } as unknown as TaxSectionDef];
     const counts = { density: 1, vanilla: 1, land: 2 } as Record<string, number>;
     expect(sectionsForArea(RESIDENTIAL, false, counts, withNew).map((s) => s.id)).toEqual(["density", "vanilla", "land"]);
     expect(sectionsForArea(RESIDENTIAL, false, counts).map((s) => s.id)).toEqual(["density", "vanilla"]);
@@ -98,11 +80,11 @@ describe("SectionExpandState", () => {
 
   it("starts a startsOpen section open and remembers it collapsed", () => {
     const state = new SectionExpandState();
-    expect(state.isOpen("Residential", "district", true)).toBe(true);
-    expect(state.toggle("Residential", "district", true)).toBe(false);
-    expect(state.isOpen("Residential", "district", true)).toBe(false);
-    expect(state.isOpen("Commercial", "district", true)).toBe(true);
-    expect(state.toggle("Residential", "district", true)).toBe(true);
+    expect(state.isOpen("Residential", "vanilla", true)).toBe(true);
+    expect(state.toggle("Residential", "vanilla", true)).toBe(false);
+    expect(state.isOpen("Residential", "vanilla", true)).toBe(false);
+    expect(state.isOpen("Commercial", "vanilla", true)).toBe(true);
+    expect(state.toggle("Residential", "vanilla", true)).toBe(true);
   });
 });
 

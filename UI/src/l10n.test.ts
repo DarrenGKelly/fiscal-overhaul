@@ -35,8 +35,8 @@ describe("localize", () => {
   });
 
   it("fills placeholders in the translation and in the fallback", () => {
-    expect(localize(fakeTranslate({ "FiscalOverhaul.UI.OffsetsSet": "{COUNT} Anpassungen" }), "OffsetsSet", { COUNT: 5 })).toBe("5 Anpassungen");
-    expect(localize(null, "OffsetsSet", { COUNT: 5 })).toBe("5 offsets set");
+    expect(localize(fakeTranslate({ "FiscalOverhaul.UI.RatesSet": "{COUNT} Sätze" }), "RatesSet", { COUNT: 5 })).toBe("5 Sätze");
+    expect(localize(null, "RatesSet", { COUNT: 5 })).toBe("5 rates set");
   });
 });
 

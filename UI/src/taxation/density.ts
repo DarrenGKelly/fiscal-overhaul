@@ -24,10 +24,14 @@ export function densityLabel(density: number, translate: Translate | null): stri
   return key ? localize(translate, key) : localize(translate, "DensityOther", { NUMBER: density });
 }
 
-/** The collapsed rows' summary: "no offsets", "1 offset set", "3 offsets set". */
-export function offsetSummary(active: number, translate: Translate | null): string {
-  if (active <= 0) return localize(translate, "NoOffsets");
-  return localize(translate, active === 1 ? "OneOffsetSet" : "OffsetsSet", { COUNT: active });
+/**
+ * The Density tax section's header summary. Entire City: how many density rates are not 0 ("2 rates set"); a district
+ * view: how many of its values differ from the city's ("1 override"). Nothing when the count is 0.
+ */
+export function rateSummary(count: number, translate: Translate | null, district = false): string {
+  if (count <= 0) return "";
+  if (district) return localize(translate, count === 1 ? "OneOverride" : "Overrides", { COUNT: count });
+  return localize(translate, count === 1 ? "OneRateSet" : "RatesSet", { COUNT: count });
 }
 
 /**

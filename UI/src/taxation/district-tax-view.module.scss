@@ -1,24 +1,31 @@
-// The District section's row, laid out like the density rows (density-rows.module.scss).
-.row {
+// The district view of the Taxation tab (district-tax-view.tsx, density-totals.tsx).
+
+// "Use city rates", under the district selector.
+.reset-bar {
   display: flex;
   flex-direction: row;
-  align-items: center;
-  padding: 4rem 20rem 4rem 76rem;
+  justify-content: center;
+  padding: 4rem 0 8rem 0;
 }
 
-.row-title {
-  width: 216rem;
-  flex: 0 0 auto;
-  font-size: 18rem;
-  color: rgba(255, 255, 255, 0.9);
+.reset-button {
+  padding: 6rem 20rem;
+  font-size: var(--fontSizeS);
 }
 
-// Vanilla TaxSlider: [slider column][estimate column]. The district slider has no revenue estimate, so its estimate
-// column (the last child) is hidden, keeping its place so the slider lines up with the others.
-.slider {
-  flex: 1 1 auto;
+// A slider whose district value differs from the city's: a bar in the accent colour down its left edge (an inset
+// shadow, so the row's layout doesn't move).
+.overridden {
+  box-shadow: inset 4rem 0 0 0 var(--accentColorNormal, rgba(255, 196, 0, 0.9));
 }
 
-.slider > div:last-child {
+// Vanilla TaxSlider: [slider column][estimate column]. A district view has no revenue estimate, so the estimate column
+// (the last child) is hidden, keeping its place so the slider lines up with the city view's.
+.no-estimate > div:last-child {
+  visibility: hidden;
+}
+
+// ESTIMATED TOTAL in a district view: hidden (the totals are the city's).
+.hidden-total {
   visibility: hidden;
 }

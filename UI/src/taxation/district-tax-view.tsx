@@ -1,28 +1,33 @@
-import { useValue } from "cs2/api";
+import { useMapValue, useValue } from "cs2/api";
+import { taxation } from "cs2/bindings";
 import { useLocalization } from "cs2/l10n";
-import { createContext, useCallback, useContext, useMemo } from "react";
-import { districts$, setTaxRate, TAX_TYPE_DISTRICT, taxRates$ } from "bindings";
+import { Button } from "cs2/ui";
+import { createContext, useContext, useMemo } from "react";
+import { districts$, resetDistrictTaxRates, setTaxRate, taxRates$ } from "bindings";
 import { CITY_KEY } from "district/district-select";
 import { DistrictSelector } from "district/district-selector";
 import { useSelectedDistrict } from "district/selection";
-import { TaxSlider } from "vanilla";
-import { zoneForAreaIndex } from "./density";
-import { clampAdjustment, districtAdjustment, showsTaxDistrictSelector, taxDistrictOptions, taxViewKey, vsCityLabel } from "./district-tax";
+import { localize } from "l10n";
+import { hasDistrictOverrides, RowTarget, rowRate, ShownRate, showsTaxDistrictSelector, taxDistrictOptions, taxViewKey } from "./district-tax";
 import styles from "./district-tax-view.module.scss";
 
-// Per-district tax rates on the Taxation tab: the shared district selector above the page (district/selection.ts),
-// and in a district view each zone's District section (tax-sections.ts) with one slider: the district's adjustment on
-// the city rate. Entire City is today's layout. Shown only while the tax engine charges and the city has a district.
+// Per-district tax rates on the Taxation tab: the shared district selector above the page (district/selection.ts).
+// A picked district shows the same layout as Entire City (zone header slider, Density tax, Education/Resources) with
+// the district's own values: each slider shows the district's value (else the city's), is marked where it differs from
+// the city's, and sets the district's value (setTaxRate). Dragging a value back to the city's, or "Use city rates",
+// makes it follow the city again. Shown only while the tax engine charges and the city has a district. District keys
+// change on every load: the view always takes them from the districts binding.
 
 /** The district the Taxation tab shows: CITY_KEY for the Entire City view (and outside the Taxation page). */
 export const TaxDistrictView = createContext<string>(CITY_KEY);
 
-interface AreaTypeLike {
-  index: number;
-  locked: boolean;
-}
+/**
+ * The row a TaxSlider below belongs to: provided by the zone group (its header: a zone rate) and around each
+ * re-hosted vanilla TaxationItem (an education level or resource). Null: a slider the district view leaves alone.
+ */
+export const TaxRowTarget = createContext<RowTarget | null>(null);
 
-/** TaxationPage, with the district selector above it and the view it picks provided to the zone groups. */
+/** TaxationPage, with the district selector (and "Use city rates") above it and the view it picks provided to the zone groups. */
 export const withTaxDistrictSelector = (TaxationPage: any) => (props: any) => {
   const { translate } = useLocalization();
   const rates = useValue(taxRates$);
@@ -33,40 +38,45 @@ export const withTaxDistrictSelector = (TaxationPage: any) => (props: any) => {
   const view = taxViewKey(engineOn, options, selected);
   return (
     <TaxDistrictView.Provider value={view}>
-      {showsTaxDistrictSelector(engineOn, options) && <DistrictSelector options={options} selected={view} onSelect={setSelected} />}
+      {showsTaxDistrictSelector(engineOn, options) && (
+        <>
+          <DistrictSelector options={options} selected={view} onSelect={setSelected} />
+          {view !== CITY_KEY && (
+            <div className={styles.resetBar}>
+              <Button
+                variant="flat"
+                className={styles.resetButton}
+                disabled={!hasDistrictOverrides(rates?.districts, view)}
+                onSelect={() => resetDistrictTaxRates(view)}
+              >
+                {localize(translate, "UseCityRates")}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
       <TaxationPage {...props} />
     </TaxDistrictView.Provider>
   );
 };
 
-/** The selected district's adjustment for a zone group, and the cap; key = CITY_KEY in the city view. */
-function useDistrictAdjustment(areaType: AreaTypeLike): { key: string; zone: number; value: number; cap: number } {
-  const key = useContext(TaxDistrictView);
-  const rates = useValue(taxRates$);
-  const zone = zoneForAreaIndex(areaType.index);
-  return { key, zone, value: districtAdjustment(rates?.districts, key, zone), cap: rates?.districtCap ?? 0 };
+export interface DistrictSlider extends ShownRate {
+  /** The district view's setter, or null in the Entire City view (the slider keeps vanilla's). */
+  onChange: ((value: number) => void) | null;
 }
 
-/** The District section's header summary: "+5% vs city". */
-export const DistrictSummary = ({ areaType }: { areaType: AreaTypeLike }) => {
-  const { translate } = useLocalization();
-  const { value } = useDistrictAdjustment(areaType);
-  return <>{vsCityLabel(value, translate)}</>;
-};
+/**
+ * What a slider for `target` shows in the current view: the city's value (vanilla's `cityRate`) in Entire City, the
+ * district's in a district view, with its setter.
+ */
+export function useDistrictSlider(target: RowTarget | null, cityRate: number, min: number, max: number): DistrictSlider {
+  const area = useContext(TaxDistrictView);
+  const rates = useValue(taxRates$);
+  // The zone's city rate (vanilla's areaTaxRates: base + zone), for a level/resource row's offset.
+  const areaIndex = target ? target.zone + 1 : 0;
+  const cityZoneRate = useMapValue(taxation.areaTaxRates$, areaIndex) ?? 0;
+  if (!target || area === CITY_KEY) return { rate: cityRate, overridden: false, onChange: null };
+  const shown = rowRate(target, area, rates?.districts, cityRate, cityZoneRate, min, max);
+  return { ...shown, onChange: (v: number) => setTaxRate(target.type, target.zone, target.key, area, Math.round(v)) };
+}
 
-/** The District section's row: one slider, -cap..+cap points on the city rate, for the selected district and this zone. */
-export const DistrictRows = ({ areaType }: { areaType: AreaTypeLike }) => {
-  const { translate } = useLocalization();
-  const { key, zone, value, cap } = useDistrictAdjustment(areaType);
-  const onChange = useCallback(
-    (v: number) => setTaxRate(TAX_TYPE_DISTRICT, zone, key, clampAdjustment(v, cap)),
-    [zone, key, cap],
-  );
-  if (key === CITY_KEY || zone < 0 || cap <= 0) return null;
-  return (
-    <div className={styles.row}>
-      <div className={styles.rowTitle}>{vsCityLabel(value, translate)}</div>
-      <TaxSlider min={-cap} max={cap} rate={value} income={0} className={styles.slider} onValueChanged={onChange} />
-    </div>
-  );
-};
