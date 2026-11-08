@@ -242,11 +242,11 @@ namespace FiscalOverhaul
         }
 
         /// <summary>
-        /// Books a household's taxable base to its workers' education-level rows by wage
+        /// Books a household's income part (an amount) to its workers' education-level rows by wage
         /// (<see cref="DistrictTaxEstimate.AddHousehold"/>'s loop; no worker: level 0), indexed by
         /// <see cref="TaxRateModel.DeltaIndex"/>.
         /// </summary>
-        public void AddHouseholdBase(Entity household, double taxableBase, NativeArray<double> itemBases)
+        public void AddHouseholdAmount(Entity household, double amount, NativeArray<double> itemBases)
         {
             long total = 0;
             DynamicBuffer<HouseholdCitizen> citizens = default;
@@ -259,7 +259,7 @@ namespace FiscalOverhaul
             }
             if (total == 0)
             {
-                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)] += taxableBase;
+                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)] += amount;
                 return;
             }
             for (int i = 0; i < citizens.Length; i++)
@@ -267,7 +267,7 @@ namespace FiscalOverhaul
                 Entity citizen = citizens[i].m_Citizen;
                 if (!m_Workers.HasComponent(citizen)) continue;
                 int level = WorkerLevel(citizen);
-                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, level)] += DistrictTaxEstimate.Share(taxableBase, LevelWeight(level), total);
+                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, level)] += DistrictTaxEstimate.Share(amount, LevelWeight(level), total);
             }
         }
 

@@ -5,13 +5,13 @@ namespace FiscalOverhaul.Logic
 {
     /// <summary>
     /// One district's Taxation tab estimates (<see cref="DistrictTaxEstimate.Compute"/>): what each row brings in a
-    /// month at the district's own rates. Every total is the sum of the rounded rows below it, so the rows always add up.
+    /// month. Every total is the sum of the rounded rows below it, so the rows always add up.
     /// </summary>
     public sealed class DistrictTaxEstimates
     {
         /// <summary>Per education level / resource row, indexed by <see cref="TaxRateModel.DeltaIndex"/>.</summary>
         public readonly long[] Items = new long[TaxRateModel.BlockSize];
-        /// <summary>Per density row, indexed by <see cref="DensityTaxTable.Index"/>.</summary>
+        /// <summary>Per density row, indexed by <see cref="DensityTaxTable.Index"/> (negative: a subsidy).</summary>
         public readonly long[] Density = new long[TaxRateModel.DensityCells];
         /// <summary>Per zone (<see cref="TaxZone"/>): its level/resource rows plus its density rows (the zone header).</summary>
         public readonly long[] Zones = new long[DensityTaxTable.ZoneCount];
@@ -20,81 +20,55 @@ namespace FiscalOverhaul.Logic
     }
 
     /// <summary>
-    /// The district view's estimates on the Taxation tab, the district twin of vanilla's (rate × taxable income per
-    /// level/resource). Each of the district's payers gives its monthly taxable base: what it paid
-    /// (<c>TaxPayer.m_AverageTaxPaid</c>) over the rate it was charged (<see cref="DensityTaxTable.TaxableBase"/>, the
-    /// resolver's rate). The base is booked to the payer's level/resource row (a household's split over its workers'
-    /// education levels by wage, as <see cref="TaxRateModel.HouseholdDelta"/> weighs them; none: level 0) and, whole, to
-    /// its building's density row. A row's estimate is its base times the district's effective rate for that row
-    /// (<see cref="DistrictItemRates"/>, <see cref="TaxRateModel.DistrictDensityRates"/>: its overrides, else the
-    /// city's). With no override a payer's rows give base × (its rate + its density tax) = what it pays at city rates.
+    /// The district view's estimates on the Taxation tab, booked as the city books the engine's charges: each of the
+    /// district's payers gives its <see cref="PayerTaxParts"/> (its own rates: the district's overrides, else the
+    /// city's, clamped as charged). Its income part goes to its level/resource row (a household's split over its
+    /// workers' education levels by wage, as <see cref="TaxRateModel.HouseholdDelta"/> weighs them; none: level 0), its
+    /// density part to its building's density row. With no override a payer's rows add up to what it pays at city rates.
     /// </summary>
     public static class DistrictTaxEstimate
     {
         /// <summary>
-        /// A worker's part of a household's base: base × weight / totalWeight (0 with no weight). Burst-safe: the
+        /// A worker's part of a household's amount: amount × weight / totalWeight (0 with no weight). Burst-safe: the
         /// Taxation tab's job calls it per worker.
         /// </summary>
-        public static double Share(double taxableBase, long weight, long totalWeight)
-            => totalWeight <= 0 ? 0 : taxableBase * weight / totalWeight;
+        public static double Share(double amount, long weight, long totalWeight)
+            => totalWeight <= 0 ? 0 : amount * weight / totalWeight;
 
-        /// <summary>A row's estimate: base × rate / 100, rounded half away from zero (0 for no base).</summary>
-        public static long Estimate(double taxableBase, int rate)
-        {
-            if (taxableBase <= 0) return 0;
-            return (long)Math.Round(taxableBase * rate / 100.0, MidpointRounding.AwayFromZero);
-        }
+        /// <summary>A row's amount rounded half away from zero, as the tab shows it.</summary>
+        public static long Round(double amount) => (long)Math.Round(amount, MidpointRounding.AwayFromZero);
 
         /// <summary>
-        /// Books a household's base (the managed twin of the job's loop, for tests): split over its workers' levels by
-        /// <see cref="TaxRateModel.WageWeight"/> (no worker: all to level 0, the level vanilla taxes other income at),
-        /// and whole to <paramref name="densityCell"/> (-1: none).
+        /// Books a household (the managed twin of the job's loop, for tests): its income part split over its workers'
+        /// levels by <see cref="TaxRateModel.WageWeight"/> (no worker: all to level 0, the level vanilla taxes other
+        /// income at), its density part to <paramref name="densityCell"/> (-1: none).
         /// </summary>
-        public static void AddHousehold(double[] itemBases, double[] densityBases, double taxableBase, int densityCell, IReadOnlyList<int> workerLevels, IReadOnlyList<int> wageByLevel)
+        public static void AddHousehold(double[] items, double[] density, PayerTaxParts parts, int densityCell, IReadOnlyList<int> workerLevels, IReadOnlyList<int> wageByLevel)
         {
-            if (taxableBase <= 0) return;
+            if (parts.Base <= 0) return;
+            double income = parts.IncomePart;
             int count = workerLevels?.Count ?? 0;
             long total = 0;
             for (int i = 0; i < count; i++) total += TaxRateModel.WageWeight(wageByLevel, ClampLevel(workerLevels[i]));
-            if (total == 0) itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)] += taxableBase;
+            if (total == 0) items[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)] += income;
             for (int i = 0; i < count; i++)
             {
                 int level = ClampLevel(workerLevels[i]);
-                itemBases[TaxRateModel.DeltaIndex(TaxZone.Residential, level)] += Share(taxableBase, TaxRateModel.WageWeight(wageByLevel, level), total);
+                items[TaxRateModel.DeltaIndex(TaxZone.Residential, level)] += Share(income, TaxRateModel.WageWeight(wageByLevel, level), total);
             }
-            AddDensity(densityBases, densityCell, taxableBase);
+            AddDensity(density, densityCell, parts.DensityPart);
         }
 
-        /// <summary>Books a company's base to its (zone, resource) row and its density row (-1: none).</summary>
-        public static void AddCompany(double[] itemBases, double[] densityBases, double taxableBase, int densityCell, TaxZone zone, int resourceKey)
+        /// <summary>Books a company: its income part to its (zone, resource) row, its density part to its density row (-1: none).</summary>
+        public static void AddCompany(double[] items, double[] density, PayerTaxParts parts, int densityCell, TaxZone zone, int resourceKey)
         {
-            if (taxableBase <= 0) return;
-            if (TaxRateModel.IsValidKey(zone, resourceKey)) itemBases[TaxRateModel.DeltaIndex(zone, resourceKey)] += taxableBase;
-            AddDensity(densityBases, densityCell, taxableBase);
+            if (parts.Base <= 0) return;
+            if (TaxRateModel.IsValidKey(zone, resourceKey)) items[TaxRateModel.DeltaIndex(zone, resourceKey)] += parts.IncomePart;
+            AddDensity(density, densityCell, parts.DensityPart);
         }
 
-        /// <summary>
-        /// The district's full rate for every level/resource row (<see cref="TaxRateModel.DistrictItemRate"/>: its
-        /// overrides, else the city's), indexed by <see cref="TaxRateModel.DeltaIndex"/>.
-        /// </summary>
-        public static int[] DistrictItemRates(TaxRateTable table, int area, int areaVersion, IReadOnlyList<int> cityRates, TaxLimits limits)
-        {
-            var rates = new int[TaxRateModel.BlockSize];
-            for (int z = 0; z < DensityTaxTable.ZoneCount; z++)
-            {
-                var zone = (TaxZone)z;
-                int keys = zone == TaxZone.Residential ? TaxRateModel.JobLevels : TaxRateModel.ResourceCount;
-                for (int k = 0; k < keys; k++)
-                    rates[TaxRateModel.DeltaIndex(zone, k)] = TaxRateModel.DistrictItemRate(table, area, areaVersion, cityRates, limits, zone, k);
-            }
-            return rates;
-        }
-
-        /// <summary>
-        /// The estimates from the summed bases and the district's rates: each row <see cref="Estimate"/>, each zone the
-        /// sum of its rows (level/resource and density), the total the sum of the zones.
-        /// </summary>
-        public static DistrictTaxEstimates Compute(IReadOnlyList<double> itemBases, IReadOnlyList<double> densityBases, IReadOnlyList<int> itemRates, IReadOnlyList<int> densityRates)
+        /// <summary>The estimates from the summed amounts: each row rounded, each zone the sum of its rows (level/resource and density), the total the sum of the zones.</summary>
+        public static DistrictTaxEstimates Compute(IReadOnlyList<double> items, IReadOnlyList<double> density)
         {
             var result = new DistrictTaxEstimates();
             for (int z = 0; z < DensityTaxTable.ZoneCount; z++)
@@ -105,7 +79,7 @@ namespace FiscalOverhaul.Logic
                 for (int k = 0; k < keys; k++)
                 {
                     int i = TaxRateModel.DeltaIndex(zone, k);
-                    long e = Estimate(itemBases[i], itemRates[i]);
+                    long e = Round(items[i]);
                     result.Items[i] = e;
                     sum += e;
                 }
@@ -113,7 +87,7 @@ namespace FiscalOverhaul.Logic
                 {
                     if (!DensityTaxTable.IsSupported(zone, (Density)d)) continue;
                     int i = DensityTaxTable.Index(zone, (Density)d);
-                    long e = Estimate(densityBases[i], densityRates[i]);
+                    long e = Round(density[i]);
                     result.Density[i] = e;
                     sum += e;
                 }
@@ -123,9 +97,9 @@ namespace FiscalOverhaul.Logic
             return result;
         }
 
-        private static void AddDensity(double[] densityBases, int cell, double taxableBase)
+        private static void AddDensity(double[] density, int cell, double amount)
         {
-            if (cell >= 0 && cell < densityBases.Length) densityBases[cell] += taxableBase;
+            if (cell >= 0 && cell < density.Length) density[cell] += amount;
         }
 
         private static int ClampLevel(int level) => Math.Max(0, Math.Min(TaxRateModel.JobLevels - 1, level));

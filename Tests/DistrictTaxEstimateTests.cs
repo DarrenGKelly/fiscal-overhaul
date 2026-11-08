@@ -4,26 +4,10 @@ using Xunit;
 
 namespace FiscalOverhaul.Tests
 {
+    /// <summary>The Taxation tab's estimates booked as charged: <see cref="PayerTaxParts"/> and <see cref="DistrictTaxEstimate"/>.</summary>
     public class DistrictTaxEstimateTests
     {
-        private const int A = 42, AV = 1;
-
-        /// <summary>Base 10, every zone and offset 0: every level/resource pays 10 (vanilla's defaults).</summary>
-        private static int[] CityRates()
-        {
-            var r = new int[TaxRateModel.VanillaRateCount];
-            r[0] = 10;
-            return r;
-        }
-
-        private static TaxLimits Limits()
-        {
-            var l = TaxLimits.Wide();
-            l.JobLevelMin = 0; l.JobLevelMax = 30;
-            l.ResourceMin = 0; l.ResourceMax = 30;
-            for (int z = 0; z < 4; z++) { l.ZoneMin[z] = 0; l.ZoneMax[z] = 30; }
-            return l;
-        }
+        private const int Min = 0, Max = 30, Charges = 32;
 
         private static double[] Items() => new double[TaxRateModel.BlockSize];
         private static double[] Cells() => new double[TaxRateModel.DensityCells];
@@ -31,79 +15,104 @@ namespace FiscalOverhaul.Tests
         private static int ResLow => DensityTaxTable.Index(TaxZone.Residential, Density.Low);
         private static int ComHigh => DensityTaxTable.Index(TaxZone.Commercial, Density.High);
 
-        /// <summary>
-        /// A district's two payers at city rates with no override: a household (one level-2 worker) paying 120 at 10% +
-        /// 2% density, and a shop (resource 3) paying 50 at 10%.
-        /// </summary>
-        private static (double[] items, double[] cells, TaxRateTable table) TwoPayers()
-        {
-            var table = new TaxRateTable();
-            table.Set(TaxType.Density, (int)TaxZone.Residential, (int)Density.Low, 2);
-            double[] items = Items(), cells = Cells();
-            DistrictTaxEstimate.AddHousehold(items, cells, DensityTaxTable.TaxableBase(120, 12), ResLow, new[] { 2 }, null);
-            DistrictTaxEstimate.AddCompany(items, cells, DensityTaxTable.TaxableBase(50, 10), ComHigh, TaxZone.Commercial, 3);
-            return (items, cells, table);
-        }
+        /// <summary>A payer that paid <paramref name="paid"/> a month at its vanilla rate plus the adjustments.</summary>
+        private static PayerTaxParts Payer(long paid, int vanilla, int density, int delta, int untaxed = 0)
+            => PayerTaxParts.Of(paid, untaxed, vanilla, density, delta, Min, Max, Charges);
 
-        private static DistrictTaxEstimates Estimates(TaxRateTable table, double[] items, double[] cells)
+        [Fact]
+        public void Parts_SplitTheChargeIntoIncomeAndDensity()
         {
-            int[] itemRates = DistrictTaxEstimate.DistrictItemRates(table, A, AV, CityRates(), Limits());
-            int[] densityRates = TaxRateModel.DistrictDensityRates(table, A, AV, true);
-            return DistrictTaxEstimate.Compute(items, cells, itemRates, densityRates);
+            // 120 paid at 10% + 2% density: base 1000, income part 100, density part 20.
+            PayerTaxParts p = Payer(120, 10, 2, 0);
+            Assert.Equal(1000, p.Base, 6);
+            Assert.Equal(100, p.IncomePart, 6);
+            Assert.Equal(20, p.DensityPart, 6);
+            Assert.Equal(120, p.IncomePart + p.DensityPart, 6);
+            Assert.NotEqual(120, p.IncomePart, 6);
         }
 
         [Fact]
-        public void NoOverrides_MatchWhatTheBuildingsPayAtCityRates()
+        public void Parts_ClampTheDensityPartAsTheChargeDoes()
         {
-            var (items, cells, table) = TwoPayers();
-            DistrictTaxEstimates e = Estimates(table, items, cells);
+            // At 28% a +5 density tax can only add 2 before the 30% limit: base 1000, density part 20, not 50.
+            PayerTaxParts p = Payer(300, 28, 5, 0);
+            Assert.Equal(30, p.ChargedRate);
+            Assert.Equal(1000, p.Base, 6);
+            Assert.Equal(20, p.DensityPart, 6);
+            Assert.NotEqual(50, p.DensityPart, 6);
+        }
+
+        [Fact]
+        public void Parts_CountAPayerTheDensityTaxTookToZero()
+        {
+            // 3% − 5% density: charged 0, paid nothing; the subsidy is its untaxed income × 32 × −3%.
+            PayerTaxParts p = Payer(0, 3, -5, 0, untaxed: 100);
+            Assert.Equal(0, p.ChargedRate);
+            Assert.Equal(3200, p.Base, 6);
+            Assert.Equal(-96, p.DensityPart, 6);
+            // Paid nothing at a rate above 0 (no income): nothing to book.
+            Assert.Equal(0, Payer(0, 10, 2, 0, untaxed: 100).Base, 6);
+        }
+
+        [Fact]
+        public void ACell_BooksEachPayerAtItsOwnRate_AndClamped()
+        {
+            // Two shops in Commercial High: one under a district density override of 4 (the city's is 2), paying 140 at
+            // 10% + 4%; one at 28% + 5%, clamped to 30%, paying 300.
+            double[] items = Items(), cells = Cells();
+            DistrictTaxEstimate.AddCompany(items, cells, Payer(140, 10, 4, 0), ComHigh, TaxZone.Commercial, 3);
+            DistrictTaxEstimate.AddCompany(items, cells, Payer(300, 28, 5, 0), ComHigh, TaxZone.Commercial, 4);
+            DistrictTaxEstimates e = DistrictTaxEstimate.Compute(items, cells);
+            // 40 (1000 × 4%) + 20 (1000 × the clamped 2%).
+            Assert.Equal(60, e.Density[ComHigh]);
+            // The city's rate on every payer's base would have said 2% × 2000 = 40; the unclamped +5, 90.
+            Assert.NotEqual(40, e.Density[ComHigh]);
+            Assert.NotEqual(90, e.Density[ComHigh]);
+            Assert.Equal(100, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 3)]);
+            Assert.Equal(280, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 4)]);
+            Assert.Equal(440, e.Total);
+        }
+
+        [Fact]
+        public void NoOverrides_MatchWhatTheBuildingsPay_AndTheRowsSumToTheTotal()
+        {
+            double[] items = Items(), cells = Cells();
+            DistrictTaxEstimate.AddHousehold(items, cells, Payer(120, 10, 2, 0), ResLow, new[] { 2 }, null);
+            DistrictTaxEstimate.AddCompany(items, cells, Payer(50, 10, 0, 0), ComHigh, TaxZone.Commercial, 3);
+            DistrictTaxEstimates e = DistrictTaxEstimate.Compute(items, cells);
             Assert.Equal(100, e.Items[TaxRateModel.DeltaIndex(TaxZone.Residential, 2)]);
             Assert.Equal(20, e.Density[ResLow]);
             Assert.Equal(50, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 3)]);
             Assert.Equal(120, e.Zones[(int)TaxZone.Residential]);
-            Assert.Equal(50, e.Zones[(int)TaxZone.Commercial]);
             Assert.Equal(170, e.Total);
-            // Not the base itself, and nothing on rows the payers aren't on.
-            Assert.NotEqual(1000, e.Items[TaxRateModel.DeltaIndex(TaxZone.Residential, 2)]);
-            Assert.Equal(0, e.Items[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)]);
-            Assert.Equal(0, e.Zones[(int)TaxZone.Industrial]);
-        }
-
-        [Fact]
-        public void Overrides_Count_AndTheRowsSumToTheTotal()
-        {
-            var (items, cells, table) = TwoPayers();
-            table.Set(TaxType.ZoneRate, (int)TaxZone.Commercial, 0, A, AV, 15);
-            table.Set(TaxType.Density, (int)TaxZone.Residential, (int)Density.Low, A, AV, -1);
-            DistrictTaxEstimates e = Estimates(table, items, cells);
-            Assert.Equal(75, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 3)]);
-            Assert.NotEqual(50, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 3)]);
-            Assert.Equal(-10, e.Density[ResLow]);
             Assert.Equal(e.Items.Sum() + e.Density.Sum(), e.Total);
             Assert.Equal(e.Zones.Sum(), e.Total);
-            Assert.Equal(90 + 75, e.Total);
+            Assert.Equal(0, e.Items[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)]);
         }
 
         [Fact]
-        public void AnotherDistrictsOverrides_DoNotCount()
+        public void ADistrictOverride_Counts()
         {
-            var (items, cells, table) = TwoPayers();
-            table.Set(TaxType.ZoneRate, (int)TaxZone.Commercial, 0, 99, 1, 20);
-            DistrictTaxEstimates e = Estimates(table, items, cells);
-            Assert.Equal(50, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 3)]);
+            // The district's Commercial rate 15 (+5 on the city's 10): the shop paid 75 at 15%.
+            double[] items = Items(), cells = Cells();
+            DistrictTaxEstimate.AddCompany(items, cells, Payer(75, 10, 0, 5), ComHigh, TaxZone.Commercial, 3);
+            DistrictTaxEstimates e = DistrictTaxEstimate.Compute(items, cells);
+            Assert.Equal(75, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 3)]);
+            Assert.NotEqual(50, e.Items[TaxRateModel.DeltaIndex(TaxZone.Commercial, 3)]);
+            Assert.Equal(0, e.Density[ComHigh]);
         }
 
         [Fact]
         public void Household_IsSplitOverItsWorkersLevelsByWage()
         {
             double[] items = Items(), cells = Cells();
-            DistrictTaxEstimate.AddHousehold(items, cells, 300, -1, new[] { 0, 4 }, new[] { 100, 0, 0, 0, 200 });
+            // Income part 300 (3000 base at 10%).
+            DistrictTaxEstimate.AddHousehold(items, cells, Payer(300, 10, 0, 0), -1, new[] { 0, 4 }, new[] { 100, 0, 0, 0, 200 });
             Assert.Equal(100, items[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)], 6);
             Assert.Equal(200, items[TaxRateModel.DeltaIndex(TaxZone.Residential, 4)], 6);
             Assert.Equal(0, cells.Sum());
-            // No worker: all of it at level 0.
             double[] none = Items();
-            DistrictTaxEstimate.AddHousehold(none, Cells(), 300, -1, new int[0], null);
+            DistrictTaxEstimate.AddHousehold(none, Cells(), Payer(300, 10, 0, 0), -1, new int[0], null);
             Assert.Equal(300, none[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)], 6);
             Assert.NotEqual(300, items[TaxRateModel.DeltaIndex(TaxZone.Residential, 0)], 6);
         }
@@ -112,21 +121,21 @@ namespace FiscalOverhaul.Tests
         public void Company_WithABadKey_BooksOnlyItsDensityRow()
         {
             double[] items = Items(), cells = Cells();
-            DistrictTaxEstimate.AddCompany(items, cells, 80, ComHigh, TaxZone.Commercial, TaxRateModel.ResourceCount);
+            DistrictTaxEstimate.AddCompany(items, cells, Payer(120, 10, 2, 0), ComHigh, TaxZone.Commercial, TaxRateModel.ResourceCount);
             Assert.Equal(0, items.Sum());
-            Assert.Equal(80, cells[ComHigh]);
-            DistrictTaxEstimate.AddCompany(items, cells, 0, ComHigh, TaxZone.Commercial, 1);
-            Assert.Equal(80, cells[ComHigh]);
+            Assert.Equal(20, cells[ComHigh], 6);
+            DistrictTaxEstimate.AddCompany(items, cells, Payer(0, 10, 2, 0), ComHigh, TaxZone.Commercial, 1);
+            Assert.Equal(20, cells[ComHigh], 6);
         }
 
         [Fact]
-        public void Share_And_Estimate()
+        public void Share_And_Round()
         {
             Assert.Equal(25, DistrictTaxEstimate.Share(100, 1, 4));
             Assert.Equal(0, DistrictTaxEstimate.Share(100, 1, 0));
-            Assert.Equal(13, DistrictTaxEstimate.Estimate(125, 10)); // 12.5 rounds away from zero
-            Assert.Equal(-13, DistrictTaxEstimate.Estimate(125, -10));
-            Assert.Equal(0, DistrictTaxEstimate.Estimate(0, 10));
+            Assert.Equal(13, DistrictTaxEstimate.Round(12.5));
+            Assert.Equal(-13, DistrictTaxEstimate.Round(-12.5));
+            Assert.NotEqual(12, DistrictTaxEstimate.Round(12.5));
         }
     }
 }

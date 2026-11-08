@@ -124,9 +124,10 @@ describe("densityExtraForArea", () => {
     expect(densityExtraForArea(totalsCells, 2, false, false)).toBe(0);
   });
 
-  it("is 0 with every offset 0, even if a stale estimate is left", () => {
-    const zeroed = [{ zone: 0, density: 1, offset: 0, estimate: 21720 }];
-    expect(densityExtraForArea(zeroed, 1, false, true)).toBe(0);
+  it("counts a cell at the city's 0 whose payers pay a district's density rate (booked as charged)", () => {
+    const districtOnly = [{ zone: 0, density: 1, offset: 0, estimate: 1200 }];
+    expect(densityExtraForArea(districtOnly, 1, false, true)).toBe(1200);
+    expect(densityExtraForArea([{ zone: 0, density: 1, offset: 0, estimate: 0 }], 1, false, true)).toBe(0);
   });
 
   it("is 0 for the city-wide area, a locked zone, a zone without offsets, or no data", () => {

@@ -49,12 +49,13 @@ interface AreaLike {
 }
 
 /**
- * The density offsets' extra monthly revenue in one tax area: the sum of its rows' estimates (negative offsets lower
- * it). 0 while density taxes are off, for the city-wide area, a locked zone, or with every offset 0.
+ * The density tax's monthly revenue in one tax area: the sum of its rows' estimates (each payer's own density part as
+ * charged, so a cell at the city's 0 still counts what its districts' rates bring; a subsidy lowers it). 0 while
+ * density taxes are off, for the city-wide area, a locked zone, or with no payer paying density tax.
  */
 export function densityExtraForArea(cells: EstimateCell[] | null | undefined, areaIndex: number, locked: boolean, enabled: boolean): number {
   let sum = 0;
-  for (const c of cellsForArea(cells, areaIndex, locked, enabled)) if (c.offset !== 0) sum += c.estimate;
+  for (const c of cellsForArea(cells, areaIndex, locked, enabled)) sum += c.estimate;
   return sum;
 }
 

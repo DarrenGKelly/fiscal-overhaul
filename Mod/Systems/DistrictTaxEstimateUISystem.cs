@@ -23,17 +23,18 @@ namespace FiscalOverhaul
     /// <summary>
     /// The Taxation tab's estimates in a district view (group "fiscalOverhaul"):
     ///   districtTaxEstimates  raw  { area, items: [{ zone, key, estimate }], density: [{ zone, density, estimate }],
-    ///                              zones: [4], total }: the district's rows at its own effective rates
-    ///                              (<see cref="DistrictTaxEstimate"/>); area "" = none computed
-    ///   setTaxEstimateArea    trigger(string area)  the district the tab shows (a <see cref="DistrictKey"/>; "" = the
-    ///                              city view, which keeps vanilla's estimates and needs none)
-    /// Each payer's monthly taxable base (paid over its resolved charged rate, <see cref="TaxRateResolver"/>) is summed
-    /// per row every ~2 s while the Economy panel is open and a district is shown; the estimates are rebuilt from those
-    /// bases whenever a rate changes, so a slider moves its estimate at once.
+    ///                              zones: [4], total }: the district's rows as the city books its payers' charges
+    ///                              (<see cref="DistrictTaxEstimate"/>, <see cref="PayerTaxParts"/>); area "" = none
+    ///   setTaxEstimateArea    trigger(string area)  the district the tab shows (a <see cref="DistrictKey"/> or
+    ///                              "outside"; "" = the city view, which keeps vanilla's estimates and needs none)
+    /// Each payer's parts at its resolved rates (<see cref="TaxRateResolver"/>) are summed per row every ~2 s while the
+    /// Economy panel is open and a district is shown, and within <see cref="kRateChangeFrames"/> of a rate change.
     /// </summary>
     public partial class DistrictTaxEstimateUISystem : UISystemBase
     {
         private const int kRefreshFrames = 120;
+        /// <summary>After a rate change, the next pass is at most this many frames away (a dragged slider changes it every frame).</summary>
+        private const int kRateChangeFrames = 10;
 
         private GamePanelUISystem m_PanelSystem;
         private TaxEngineSystem m_TaxEngine;
@@ -45,8 +46,8 @@ namespace FiscalOverhaul
 
         private string m_Area = DistrictKey.City;
         private string m_BasesArea = DistrictKey.City;
-        private readonly double[] m_ItemBases = new double[TaxRateModel.BlockSize];
-        private readonly double[] m_DensityBases = new double[TaxRateModel.DensityCells];
+        private readonly double[] m_Items = new double[TaxRateModel.BlockSize];
+        private readonly double[] m_Density = new double[TaxRateModel.DensityCells];
         private DistrictTaxEstimates m_Estimates;
         private int m_FramesSinceRefresh = kRefreshFrames;
         private int m_LastVersion = -1;
@@ -74,14 +75,14 @@ namespace FiscalOverhaul
             area = area ?? DistrictKey.City;
             if (area == m_Area) return;
             m_Area = area;
-            m_FramesSinceRefresh = kRefreshFrames; // the new district's bases at once
+            m_FramesSinceRefresh = kRefreshFrames; // the new district's estimates at once
         }
 
         [Preserve]
         protected override void OnUpdate()
         {
             bool shown = m_PanelSystem.activePanel is EconomyPanel && m_Area != DistrictKey.City && m_TaxEngine.Mode == TaxEngineMode.Engine;
-            if (!shown || !TryArea(m_Area, out Entity district, out int areaIndex, out int areaVersion))
+            if (!shown || !TryArea(m_Area, out Entity district, out bool outside))
             {
                 m_FramesSinceRefresh = kRefreshFrames;
                 if (m_Estimates != null)
@@ -93,44 +94,38 @@ namespace FiscalOverhaul
                 return;
             }
 
-            bool changed = DensityTaxState.Version != m_LastVersion;
-            if (++m_FramesSinceRefresh >= kRefreshFrames)
+            if (DensityTaxState.Version != m_LastVersion)
             {
-                m_FramesSinceRefresh = 0;
-                RefreshBases(district, areaIndex, areaVersion);
-                m_BasesArea = m_Area;
-                changed = true;
+                m_LastVersion = DensityTaxState.Version;
+                m_FramesSinceRefresh = System.Math.Max(m_FramesSinceRefresh, kRefreshFrames - kRateChangeFrames);
             }
-            if (!changed) return;
-            m_LastVersion = DensityTaxState.Version;
-            int[] cityRates = TaxRateResolver.CityRates(m_TaxSystem);
-            TaxLimits limits = TaxRateResolver.LimitsFrom(m_TaxSystem.GetTaxParameterData());
-            TaxRateTable table = DensityTaxState.Table.Rates;
-            int[] itemRates = DistrictTaxEstimate.DistrictItemRates(table, areaIndex, areaVersion, cityRates, limits);
-            int[] densityRates = TaxRateModel.DistrictDensityRates(table, areaIndex, areaVersion, DensityTaxState.Enabled);
-            m_Estimates = DistrictTaxEstimate.Compute(m_ItemBases, m_DensityBases, itemRates, densityRates);
+            if (++m_FramesSinceRefresh < kRefreshFrames) return;
+            m_FramesSinceRefresh = 0;
+            Refresh(district, outside);
+            m_BasesArea = m_Area;
+            m_Estimates = DistrictTaxEstimate.Compute(m_Items, m_Density);
             m_Binding.Update();
         }
 
-        /// <summary>A district key the tab may show, as its entity and its <see cref="TaxRateTable"/> area; false for the city, Outside or a gone district.</summary>
-        private bool TryArea(string key, out Entity district, out int areaIndex, out int areaVersion)
+        /// <summary>
+        /// A key the tab may show: a live district's entity, or Outside Districts (<paramref name="outside"/>: the
+        /// payers whose building is in no district). False for the city or a gone district.
+        /// </summary>
+        private bool TryArea(string key, out Entity district, out bool outside)
         {
             district = Entity.Null;
-            areaIndex = TaxRateTable.CityArea;
-            areaVersion = 0;
+            outside = key == DistrictKey.Outside;
+            if (outside) return true;
             if (!DistrictKey.TryParse(key, out int index, out int version)) return false;
             district = new Entity { Index = index, Version = version };
-            if (!EntityManager.Exists(district) || !EntityManager.HasComponent<District>(district)
-                || EntityManager.HasComponent<Deleted>(district) || EntityManager.HasComponent<Temp>(district)) return false;
-            areaIndex = index;
-            areaVersion = version;
-            return true;
+            return EntityManager.Exists(district) && EntityManager.HasComponent<District>(district)
+                && !EntityManager.HasComponent<Deleted>(district) && !EntityManager.HasComponent<Temp>(district);
         }
 
-        private void RefreshBases(Entity district, int areaIndex, int areaVersion)
+        private void Refresh(Entity district, bool outside)
         {
-            var itemBases = new NativeArray<double>(TaxRateModel.BlockSize, Allocator.TempJob);
-            var densityBases = new NativeArray<double>(TaxRateModel.DensityCells, Allocator.TempJob);
+            var items = new NativeArray<double>(TaxRateModel.BlockSize, Allocator.TempJob);
+            var density = new NativeArray<double>(TaxRateModel.DensityCells, Allocator.TempJob);
             NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
             TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, m_ResourceSystem.GetPrefabs(), wages, Allocator.TempJob);
             TaxParameterData parameters = m_TaxSystem.GetTaxParameterData();
@@ -145,20 +140,21 @@ namespace FiscalOverhaul
                     m_CommercialType = GetComponentTypeHandle<ServiceAvailable>(true),
                     m_Rates = rates,
                     m_District = district,
+                    m_Outside = outside,
                     m_JobLevelLimits = parameters.m_JobLevelTaxLimits,
                     m_ResourceLimits = parameters.m_ResourceTaxLimits,
-                    m_ItemBases = itemBases,
-                    m_DensityBases = densityBases,
+                    m_Items = items,
+                    m_Density = density,
                 };
                 // One single-threaded pass every ~2 s while a district view is open; the binding writes it this frame.
                 job.Schedule(m_PayerQuery, Dependency).Complete();
-                for (int i = 0; i < m_ItemBases.Length; i++) m_ItemBases[i] = itemBases[i];
-                for (int i = 0; i < m_DensityBases.Length; i++) m_DensityBases[i] = densityBases[i];
+                for (int i = 0; i < m_Items.Length; i++) m_Items[i] = items[i];
+                for (int i = 0; i < m_Density.Length; i++) m_Density[i] = density[i];
             }
             finally
             {
-                itemBases.Dispose();
-                densityBases.Dispose();
+                items.Dispose();
+                density.Dispose();
                 rates.Dispose(default);
                 wages.Dispose();
             }
@@ -231,12 +227,15 @@ namespace FiscalOverhaul
         }
 
         /// <summary>
-        /// Per row of the shown district: the summed taxable base of its payers, each payer's monthly tax paid over the
-        /// rate the engine charges it (<see cref="TaxRateResolver.ChargedRate"/>'s maths, as if it had income).
+        /// Per row of the shown district: its payers' monthly parts (<see cref="PayerTaxParts"/>, at the rates the engine
+        /// charges them, as if they had income): the income part on the level/resource row, the density part on the density row.
         /// </summary>
         [BurstCompile]
         private struct SumJob : IJobChunk
         {
+            /// <summary>Vanilla TaxSystem.kUpdatesPerDay: a payer is charged 32 times a month.</summary>
+            private const int kChargesPerMonth = 32;
+
             [ReadOnly] public EntityTypeHandle m_EntityType;
             [ReadOnly] public ComponentTypeHandle<TaxPayer> m_TaxPayerType;
             [ReadOnly] public ComponentTypeHandle<PropertyRenter> m_RenterType;
@@ -244,10 +243,11 @@ namespace FiscalOverhaul
             [ReadOnly] public ComponentTypeHandle<ServiceAvailable> m_CommercialType;
             public TaxRateResolver m_Rates;
             public Entity m_District;
+            public bool m_Outside;
             public int2 m_JobLevelLimits;
             public int2 m_ResourceLimits;
-            public NativeArray<double> m_ItemBases;
-            public NativeArray<double> m_DensityBases;
+            public NativeArray<double> m_Items;
+            public NativeArray<double> m_Density;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -260,17 +260,17 @@ namespace FiscalOverhaul
                 for (int i = 0; i < taxPayers.Length; i++)
                 {
                     Entity property = renters[i].m_Property;
-                    if (property == Entity.Null || m_Rates.m_Keys.District(property) != m_District) continue;
+                    if (property == Entity.Null) continue;
+                    // Outside Districts: a building in no district; else the shown district's buildings.
+                    if (m_Rates.m_Keys.District(property) != (m_Outside ? Entity.Null : m_District)) continue;
                     TaxPayer payer = taxPayers[i];
-                    if (payer.m_AverageTaxPaid <= 0) continue;
                     m_Rates.Adjustments(entities[i], property, kind, out int incomeDelta, out int densityTax);
-                    int charged = EffectiveTaxRate.Compute(payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, 1);
-                    double taxableBase = DensityTaxTable.TaxableBase(payer.m_AverageTaxPaid, charged);
-                    if (taxableBase <= 0) continue;
+                    PayerTaxParts parts = PayerTaxParts.Of(payer.m_AverageTaxPaid, payer.m_UntaxedIncome, payer.m_AverageTaxRate, densityTax, incomeDelta, limits.x, limits.y, kChargesPerMonth);
+                    if (parts.Base <= 0) continue;
 
-                    if (isHousehold) m_Rates.AddHouseholdBase(entities[i], taxableBase, m_ItemBases);
-                    else if (m_Rates.TryCompanyRow(entities[i], kind, out TaxZone zone, out int key)) m_ItemBases[TaxRateModel.DeltaIndex(zone, key)] += taxableBase;
-                    if (m_Rates.m_Keys.TryDensityCell(property, isHousehold, out int cell)) m_DensityBases[cell] += taxableBase;
+                    if (isHousehold) m_Rates.AddHouseholdAmount(entities[i], parts.IncomePart, m_Items);
+                    else if (m_Rates.TryCompanyRow(entities[i], kind, out TaxZone zone, out int key)) m_Items[TaxRateModel.DeltaIndex(zone, key)] += parts.IncomePart;
+                    if (m_Rates.m_Keys.TryDensityCell(property, isHousehold, out int cell)) m_Density[cell] += parts.DensityPart;
                 }
             }
         }
