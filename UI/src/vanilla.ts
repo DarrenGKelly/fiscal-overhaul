@@ -14,6 +14,15 @@ export const BudgetItemDetail: any = getModule(`${ECONOMY}/budget-page/budget-it
 /** Taxation slider row: props { min, max, rate, income, className?, primary?, disabled?, onValueChanged }. */
 export const TaxSlider: any = getModule(`${ECONOMY}/taxation-page/tax-slider.tsx`, "TaxSlider");
 
+/** A tax group's resource/education row: props { areaType: TaxAreaType, resource: TaxResource } (taxation.areaResources$). */
+export const TaxationItem: any = getModule(`${ECONOMY}/taxation-page/taxation-item.tsx`, "TaxationItem");
+
+/**
+ * TaxationGroup's class names, read by it on every render (`toggleButton`, `hint`, `content` among them): the live
+ * object, so the density sections can hide vanilla's own expander (taxation/tax-sections.tsx).
+ */
+export const taxationGroupClasses: Record<string, string> | undefined = getModule(`${ECONOMY}/taxation-page/taxation-group.module.scss`, "classes");
+
 /** The Taxation page's class names; `totalValue` is the ESTIMATED TOTAL NumberField's className (and its only class). */
 export const taxationPageClasses: { totalValue?: string } | undefined = getModule(`${ECONOMY}/taxation-page/taxation-page.module.scss`, "classes");
 

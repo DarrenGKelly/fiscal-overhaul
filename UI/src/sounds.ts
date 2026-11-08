@@ -15,7 +15,7 @@ export const SOUNDS = {
   openList: "select-dropdown",
   /** Picking a choice from the district list. */
   pickFromList: "select-item",
-  /** Expanding or collapsing the density tax rows on the Taxation tab. */
+  /** Expanding or collapsing rows: the density tax rows on the Taxation tab, a Budget tab category's subcategories. */
   expandRows: "expand-panel",
 } as const;
 
