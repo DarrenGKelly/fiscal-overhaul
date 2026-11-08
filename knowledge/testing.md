@@ -78,6 +78,7 @@ below the same way every time, and leaves step 5, judging, to you:
 - **The points** are client offsets in a 2560x1440 window, in one table in `tools/game-run-common.ps1`, each marked
   `measured` (clicked in a run) or `derived` (read off a reference shot). `-Point Name=x,y` corrects one for a run;
   a corrected point goes back into the table.
+  The Economy tabs sit in the order Budget, Taxation, Services, Production, Loans ([UI/src/economy/tab-order.ts](../UI/src/economy/tab-order.ts)), so `TaxationTab` is the 2nd slot (x 1008) and `ServicesTab` the 3rd (x 1280).
 
 The manual sequence (steps 1 to 6 and [the commands below](#on-windows-without-computer-use)) is the reference for
 what the script does, and the way to work when it fails.
@@ -101,6 +102,11 @@ what the script does, and the way to work when it fails.
 6. **Close.** Quit from the game's menu (Escape closes the panel, Escape again opens the menu: Exit, then Exit to
    Desktop); a hung instance you launched: `Stop-Process -Name Cities2`. Confirm `./tools/check-batch-status.ps1`
    says `Game: not running`. Close only an instance you launched.
+
+**Trap: a subscribed copy of the mod wins.** If the user is subscribed to the mod on Paradox Mods (a
+`pdx_mods` cache such as `...\LocalLow\Colossal Order\Cities Skylines II\.cache\Mods\pdx_mods\166297_*`), the game
+registers two UI modules with id `FiscalOverhaul` and the subscribed one wins, so the check sees the old UI. Look in
+`Modding.log` for a single registration, and have the user disable the subscription in the playset.
 
 ### On Windows without computer use
 
