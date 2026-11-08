@@ -3,7 +3,7 @@
 // into one row and line per service. No game imports, so vitest runs it in Node.
 import { BudgetHistory, BudgetItemLike, SeriesDef, ServiceUpkeepRow } from "../chart/chart-math";
 import { childColor, childKey } from "./budget-rows";
-import { BudgetKind } from "./district-select";
+import { BudgetKind } from "./budget-district";
 
 /** Game.City.ExpenseSource.ServiceUpkeep: the source the per-service rows split. */
 export const SERVICE_UPKEEP_SOURCE = 5;
