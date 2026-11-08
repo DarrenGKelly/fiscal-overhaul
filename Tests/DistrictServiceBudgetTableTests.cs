@@ -145,5 +145,35 @@ namespace FiscalOverhaul.Tests
             table.Load(DistrictServiceBudgetTable<int>.FormatVersion, entries);
             Assert.Equal(150, table.Effective(Police, 2, 100));
         }
+    
+        [Fact]
+        public void KnownService_IsStored()
+        {
+            var table = NewTable();
+            table.IsKnownService = k => k == Police;
+            Assert.Equal(120, table.Set(Police, 7, 120));
+            Assert.True(table.TryGet(Police, 7, out _));
+        }
+
+        [Fact]
+        public void UnknownService_IsNotStored()
+        {
+            var table = NewTable();
+            table.IsKnownService = k => k == Police;
+            Assert.Equal(0, table.Set("Police Service", 7, 120));
+            Assert.False(table.HasAny);
+        }
+
+        [Fact]
+        public void PruneServices_RemovesUnknownKeysOnly()
+        {
+            var table = NewTable();
+            table.Set(Police, 7, 120);
+            table.Set("Junk", 7, 80);
+            Assert.Equal(1, table.PruneServices(k => k == Police));
+            Assert.True(table.TryGet(Police, 7, out _));
+            Assert.False(table.TryGet("Junk", 7, out _));
+            Assert.Equal(0, table.PruneServices(k => k == Police));
+        }
     }
 }

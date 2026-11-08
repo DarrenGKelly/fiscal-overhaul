@@ -98,6 +98,11 @@ namespace FiscalOverhaul
         {
             if (string.IsNullOrEmpty(service)) return 0;
             if (!isOutside && !IsLiveDistrict(district)) return 0;
+            if (!IsKnownService(service))
+            {
+                Mod.log.Warn($"District service budget: unknown service '{service}' ignored");
+                return 0;
+            }
             int stored = m_Table.Set(service, isOutside ? Entity.Null : district, budget);
             if (LogPasses) Mod.log.Info($"District service budget: {service} in {(isOutside ? "outside" : district.ToString())} = {(stored == 0 ? "city %" : stored + "%")} ({m_Table.Count} overrides; applies: {Applies})");
             return stored;
@@ -109,6 +114,9 @@ namespace FiscalOverhaul
             m_Table.Clear();
             if (LogPasses) Mod.log.Info("District service budgets reset");
         }
+
+        /// <summary>True when <paramref name="service"/> is the prefab name of a city service.</summary>
+        public bool IsKnownService(string service) => ResolveService(service) != Entity.Null;
 
         /// <summary>The service prefab entity a service key names (its prefab name), or Entity.Null.</summary>
         public Entity ResolveService(string service)
@@ -179,6 +187,14 @@ namespace FiscalOverhaul
         {
             bool districtsChanged = !m_ChangedDistrictQuery.IsEmptyIgnoreFilter;
             if ((districtsChanged || m_JustLoaded) && m_Table.HasAny) m_Table.Prune(IsLiveDistrict);
+            if (m_JustLoaded && m_Table.HasAny && !m_ServiceQuery.IsEmptyIgnoreFilter)
+            {
+                var names = new HashSet<string>();
+                using (NativeArray<Entity> services = m_ServiceQuery.ToEntityArray(Allocator.Temp))
+                    for (int i = 0; i < services.Length; i++) names.Add(m_PrefabSystem.GetPrefabName(services[i]));
+                int dropped = m_Table.PruneServices(names.Contains);
+                if (dropped > 0) Mod.log.Warn($"District service budgets: dropped {dropped} override(s) with an unknown service key");
+            }
 
             bool applies = Applies;
             bool fullTrigger = m_JustLoaded || districtsChanged || applies != m_LastApplies
