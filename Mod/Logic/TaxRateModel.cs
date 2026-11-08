@@ -211,6 +211,46 @@ namespace FiscalOverhaul.Logic
             return wageByLevel[level];
         }
 
+        /// <summary>
+        /// THE resident rate (happiness, home choice, demand): the city's rate for one education level plus the home
+        /// district's difference at that level only (<see cref="DistrictDeltas"/>) plus the home's density tax, inside
+        /// the job-level limits (<see cref="EffectiveTaxRate.Compute"/>, as the engine charges a household with income).
+        /// All 0 gives <paramref name="vanillaLevelRate"/> exactly. Burst-safe: <c>TaxRateResolver</c> calls it per citizen.
+        /// </summary>
+        public static int ResidentRate(int vanillaLevelRate, int levelDelta, int densityTax, int min, int max)
+            => EffectiveTaxRate.Compute(vanillaLevelRate, densityTax, levelDelta, min, max, 1);
+
+        /// <summary>
+        /// The rate a resident of each education level pays in a home of <paramref name="densityCell"/> (-1: none) in an
+        /// area (the city: <see cref="TaxRateTable.CityArea"/>, 0), the managed composition of what the resolver does
+        /// in its jobs: <see cref="DistrictDeltas"/>, <see cref="DistrictDensityRates"/>, <see cref="ResidentRate"/>.
+        /// </summary>
+        public static int[] ResidentRates(TaxRateTable table, int area, int areaVersion, IReadOnlyList<int> rates, TaxLimits limits, bool densityEnabled, int densityCell)
+        {
+            int[] deltas = DistrictDeltas(table, area, areaVersion, rates, limits);
+            int[] density = DistrictDensityRates(table, area, areaVersion, densityEnabled);
+            int densityTax = densityCell >= 0 && densityCell < DensityCells ? density[densityCell] : 0;
+            var result = new int[JobLevels];
+            for (int level = 0; level < JobLevels; level++)
+                result[level] = ResidentRate(CityItemRate(rates, TaxZone.Residential, level), deltas[DeltaIndex(TaxZone.Residential, level)], densityTax, limits.JobLevelMin, limits.JobLevelMax);
+            return result;
+        }
+
+        /// <summary>
+        /// The rate the engine charges a household (the managed twin of <c>TaxRateResolver.ChargedRate</c>): its stored
+        /// vanilla rate plus the wage-weighted district difference over its workers' levels
+        /// (<see cref="HouseholdDelta"/>) plus its home's density tax, clamped by <see cref="EffectiveTaxRate.Compute"/>.
+        /// </summary>
+        public static int HouseholdChargedRate(TaxRateTable table, int area, int areaVersion, IReadOnlyList<int> rates, TaxLimits limits, bool densityEnabled, int densityCell, int storedRate, IReadOnlyList<int> workerLevels, IReadOnlyList<int> wageByLevel, int untaxedIncome)
+        {
+            int[] deltas = DistrictDeltas(table, area, areaVersion, rates, limits);
+            var levelDeltas = new int[JobLevels];
+            for (int level = 0; level < JobLevels; level++) levelDeltas[level] = deltas[DeltaIndex(TaxZone.Residential, level)];
+            int[] density = DistrictDensityRates(table, area, areaVersion, densityEnabled);
+            int densityTax = densityCell >= 0 && densityCell < DensityCells ? density[densityCell] : 0;
+            int incomeDelta = area == TaxRateTable.CityArea && areaVersion == 0 ? 0 : HouseholdDelta(levelDeltas, workerLevels, wageByLevel);
+            return EffectiveTaxRate.Compute(storedRate, densityTax, incomeDelta, limits.JobLevelMin, limits.JobLevelMax, untaxedIncome);
+        }
         public static int Clamp(int value, int min, int max) => value < min ? min : value > max ? max : value;
     }
 }

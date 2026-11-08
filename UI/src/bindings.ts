@@ -102,6 +102,8 @@ export const TAX_TYPE_RESOURCE_RATE = 3;
  */
 export function setTaxRate(type: number, zone: number, key: number, area: string, value: number) {
   trigger(GROUP, "setTaxRate", type, zone, area ? `${key}@${area}` : `${key}`, value);
+}
+
 /** Options > District service budgets (BETA) with Simulation changes on. Off: the Services tab is vanilla. */
 export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
 

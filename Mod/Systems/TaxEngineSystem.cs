@@ -189,12 +189,8 @@ namespace FiscalOverhaul
 
             // The jobs get their own copies of the rates (the resolver's arrays), freed with them: the main thread can
             // change the table (a slider, Options) while they run.
-            var wages = new NativeArray<int>(TaxRateModel.JobLevels, Allocator.TempJob);
-            if (!m_EconomyParameterQuery.IsEmptyIgnoreFilter)
-            {
-                EconomyParameterData economy = m_EconomyParameterQuery.GetSingleton<EconomyParameterData>();
-                for (int level = 0; level < TaxRateModel.JobLevels; level++) wages[level] = economy.GetWage(level);
-            }
+            NativeArray<int> wages = TaxRateResolver.Wages(m_EconomyParameterQuery, Allocator.TempJob);
+
             TaxRateResolver rates = TaxRateResolver.Create(this, m_TaxSystem, prefabs, wages, Allocator.TempJob);
 
             JobHandle residential = Schedule(m_ResidentialTaxPayerGroup, IncomeSource.TaxResidential, m_TaxPaidMultiplier.x, parameters.m_JobLevelTaxLimits, updateFrame, prefabs, rates);

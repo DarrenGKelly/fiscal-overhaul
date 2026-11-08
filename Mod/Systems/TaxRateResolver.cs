@@ -22,7 +22,7 @@ namespace FiscalOverhaul
 
     /// <summary>
     /// THE effective-rate computation, shared by everything that needs the rate a payer is really charged (the tax
-    /// engine; later the demand view, happiness and home choice): the payer's vanilla rate
+    /// engine, the demand view, happiness, home choice and the Taxation tab's estimate): the payer's vanilla rate
     /// (<c>TaxPayer.m_AverageTaxRate</c>, blended from the city's rates by the income systems) plus
     /// <list type="bullet">
     /// <item>its district's income-tax difference: for a household the wage-weighted mean, over its workers' education
@@ -45,6 +45,8 @@ namespace FiscalOverhaul
         [ReadOnly] public NativeArray<int> m_Density;
         /// <summary>The weight of each education level in a household's mean: its wage (EconomyParameterData.GetWage).</summary>
         [ReadOnly] public NativeArray<int> m_WageByLevel;
+        /// <summary>Vanilla TaxSystem's 92 rates as they were when the resolver was built (the deltas are against them).</summary>
+        [ReadOnly] public NativeArray<int> m_CityRates;
         public TaxKeyResolver m_Keys;
         [ReadOnly] public BufferLookup<HouseholdCitizen> m_HouseholdCitizens;
         [ReadOnly] public ComponentLookup<Worker> m_Workers;
@@ -90,6 +92,7 @@ namespace FiscalOverhaul
                 m_Deltas = deltas,
                 m_Density = density,
                 m_WageByLevel = wageByLevel,
+                m_CityRates = new NativeArray<int>(cityRates, allocator),
                 m_Keys = TaxKeyResolver.Create(system),
                 m_HouseholdCitizens = system.GetBufferLookup<HouseholdCitizen>(true),
                 m_Workers = system.GetComponentLookup<Worker>(true),
@@ -106,6 +109,22 @@ namespace FiscalOverhaul
             m_DistrictBlocks.Dispose(dependency);
             m_Deltas.Dispose(dependency);
             m_Density.Dispose(dependency);
+            m_CityRates.Dispose(dependency);
+        }
+
+        /// <summary>
+        /// The wage per education level (EconomyParameterData.GetWage), the household weights: main thread; all 0 when
+        /// the query has no singleton yet. The caller disposes it (after the resolver's jobs).
+        /// </summary>
+        public static NativeArray<int> Wages(EntityQuery economyParameterQuery, Allocator allocator)
+        {
+            var wages = new NativeArray<int>(TaxRateModel.JobLevels, allocator);
+            if (!economyParameterQuery.IsEmptyIgnoreFilter)
+            {
+                EconomyParameterData economy = economyParameterQuery.GetSingleton<EconomyParameterData>();
+                for (int level = 0; level < TaxRateModel.JobLevels; level++) wages[level] = economy.GetWage(level);
+            }
+            return wages;
         }
 
         /// <summary>Vanilla TaxSystem's rate array as plain ints (main thread).</summary>
@@ -138,18 +157,8 @@ namespace FiscalOverhaul
         public void Adjustments(Entity payer, Entity property, TaxPayerKind kind, out int incomeDelta, out int densityTax)
         {
             incomeDelta = 0;
-            densityTax = 0;
-            if (property == Entity.Null) return;
             bool isHousehold = kind == TaxPayerKind.Household;
-            int block = -1;
-            if (!m_DistrictBlocks.IsEmpty)
-            {
-                Entity district = m_Keys.District(property);
-                if (district != Entity.Null && m_DistrictBlocks.TryGetValue(district, out int b)) block = b;
-            }
-            if (m_Keys.TryDensityCell(property, isHousehold, out int cell))
-                densityTax = m_Density[(block + 1) * TaxRateModel.DensityCells + cell];
-            if (block < 0) return;
+            if (!Locate(property, isHousehold, out int block, out densityTax) || block < 0) return;
             int start = block * TaxRateModel.BlockSize;
             if (isHousehold)
             {
@@ -172,6 +181,51 @@ namespace FiscalOverhaul
             Adjustments(payer, property, kind, out int incomeDelta, out int densityTax);
             return EffectiveTaxRate.Compute(taxPayer.m_AverageTaxRate, densityTax, incomeDelta, rateLimits.x, rateLimits.y, taxPayer.m_UntaxedIncome);
         }
+
+        /// <summary>
+        /// Finds <paramref name="property"/>'s district block (-1: none, or a district with no override) and the density
+        /// tax its building pays. False when it adds nothing at all (no property, no district override and no density
+        /// tax), so a caller can keep vanilla's own result.
+        /// </summary>
+        public bool Locate(Entity property, bool isHousehold, out int block, out int densityTax)
+        {
+            block = -1;
+            densityTax = 0;
+            if (property == Entity.Null) return false;
+            if (!m_DistrictBlocks.IsEmpty)
+            {
+                Entity district = m_Keys.District(property);
+                if (district != Entity.Null && m_DistrictBlocks.TryGetValue(district, out int b)) block = b;
+            }
+            if (m_Keys.TryDensityCell(property, isHousehold, out int cell))
+                densityTax = m_Density[(block + 1) * TaxRateModel.DensityCells + cell];
+            return block >= 0 || densityTax != 0;
+        }
+
+        /// <summary>
+        /// The residential rate a resident at education <paramref name="level"/> of a home pays (happiness, home
+        /// choice, demand): <paramref name="vanillaLevelRate"/> (the city's rate for the level) plus the home's district
+        /// difference at that level only, plus its density tax, inside the job-level <paramref name="limits"/>
+        /// (<see cref="TaxRateModel.ResidentRate"/>). <paramref name="block"/> and <paramref name="densityTax"/> are
+        /// <see cref="Locate"/>'s.
+        /// </summary>
+        public int ResidentRate(int block, int densityTax, int level, int vanillaLevelRate, int2 limits)
+        {
+            int levelDelta = 0;
+            if (block >= 0 && level >= 0 && level < TaxRateModel.JobLevels)
+                levelDelta = m_Deltas[block * TaxRateModel.BlockSize + TaxRateModel.DeltaIndex(TaxZone.Residential, level)];
+            return TaxRateModel.ResidentRate(vanillaLevelRate, levelDelta, densityTax, limits.x, limits.y);
+        }
+
+        /// <summary><see cref="ResidentRate(int, int, int, int, int2)"/> for a home entity (Entity.Null: the vanilla rate).</summary>
+        public int ResidentRate(Entity property, int level, int vanillaLevelRate, int2 limits)
+        {
+            if (!Locate(property, true, out int block, out int densityTax)) return vanillaLevelRate;
+            return ResidentRate(block, densityTax, level, vanillaLevelRate, limits);
+        }
+
+        /// <summary>The city's residential rate for an education level, as vanilla computes it from the resolver's rates.</summary>
+        public int CityResidentRate(int level) => TaxSystem.GetResidentialTaxRate(level, m_CityRates);
 
         /// <summary>Whether an industrial payer's output weighs nothing, so vanilla books its tax as Office.</summary>
         public bool IsWeightless(Entity payer) => TryOutput(payer, out _, out bool weightless) && weightless;
