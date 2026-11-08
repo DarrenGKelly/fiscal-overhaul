@@ -1,4 +1,3 @@
-import { formatMoney } from "../chart/chart-math";
 import { localize, Translate, UiKey } from "../l10n";
 // Mapping between the game's tax area indices and the mod's density tax table (Mod/Logic/DensityTaxTable.cs).
 
@@ -31,22 +30,12 @@ export function offsetSummary(active: number, translate: Translate | null): stri
   return localize(translate, active === 1 ? "OneOffsetSet" : "OffsetsSet", { COUNT: active });
 }
 
-/** A row's payer count, " · 1,234 payers", or nothing while it has none. */
-export function payersSuffix(payers: number, translate: Translate | null): string {
-  return payers > 0 ? ` · ${localize(translate, "Payers", { COUNT: formatCount(payers) })}` : "";
-}
-
 /**
  * The expand/collapse arrow, as the vanilla foldout draws it: a Media/Glyphs icon (the game's font, Overpass, has no
  * arrow glyphs and shows a tofu box).
  */
 export function arrowFor(open: boolean): string {
   return open ? "Media/Glyphs/ThickStrokeArrowDown.svg" : "Media/Glyphs/ThickStrokeArrowRight.svg";
-}
-
-/** A count with thousands separators ("1,234,567"), not locale-dependent: Gameface's Intl is patchy (formatMoney's grouping). */
-export function formatCount(n: number): string {
-  return formatMoney(n).replace("\u00a2", "");
 }
 
 // Totals. Vanilla's zone totals (each group's header slider income, the `areaTaxIncomes` binding) and ESTIMATED TOTAL
