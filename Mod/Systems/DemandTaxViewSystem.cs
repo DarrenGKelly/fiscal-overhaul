@@ -107,7 +107,7 @@ namespace FiscalOverhaul
                 World.GetOrCreateSystemManaged<IndustrialDemandSystem>(),
             };
 
-            // The payers TaxSystem charges (TaxSystem.OnCreate's queries, game version 1.6.0f1), read-only and without
+            // The payers TaxSystem charges (TaxSystem.OnCreate's queries, game version 1.6.3f1), read-only and without
             // the update-frame filter: every payer counts.
             m_HouseholdQuery = GetEntityQuery(ComponentType.ReadOnly<TaxPayer>(), ComponentType.ReadOnly<Household>(), ComponentType.Exclude<Deleted>(), ComponentType.Exclude<Temp>());
             m_CommercialQuery = GetEntityQuery(ComponentType.ReadOnly<TaxPayer>(), ComponentType.ReadOnly<ServiceAvailable>(), ComponentType.Exclude<Deleted>(), ComponentType.Exclude<Temp>());

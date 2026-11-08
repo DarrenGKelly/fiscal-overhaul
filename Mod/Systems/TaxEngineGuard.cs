@@ -68,7 +68,7 @@ namespace FiscalOverhaul
 
         /// <summary>
         /// The vanilla demand systems whose private <c>m_TaxSystem</c> field <see cref="DemandTaxViewSystem"/> points at
-        /// its view. Each reads only GetTaxRates() and AddReader() through it (game version 1.6.0f1:
+        /// its view. Each reads only GetTaxRates() and AddReader() through it (game version 1.6.3f1:
         /// ResidentialDemandSystem.cs:487/502, CommercialDemandSystem.cs:610/630, IndustrialDemandSystem.cs:1173/1204).
         /// </summary>
         public static readonly Type[] DemandSystemTypes =
