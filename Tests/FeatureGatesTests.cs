@@ -97,6 +97,67 @@ namespace FiscalOverhaul.Tests
             Assert.False(FeatureGates.AppliesDensityTaxes(simulationChanges: false, densityTaxesEnabled: true));
         }
 
+        [Theory]
+        [InlineData(true, false)]  // master on: the switches under it are live
+        [InlineData(false, true)]  // master off: greyed out, they'd have no effect
+        public void DisablesSimulationSwitches_ExactlyWhileTheMasterIsOff(bool master, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.DisablesSimulationSwitches(master));
+        }
+
+        // Every switch under the master: on with the master on, off with the master off (sub on in both).
+
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        public void Master_GatesDensityTaxes(bool master, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.AppliesDensityTaxes(master, densityTaxesEnabled: true));
+        }
+
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        public void Master_GatesDistrictServiceBudgets_TheOverridesTheSelectorAndTheFees(bool master, bool expected)
+        {
+            Assert.Equal(expected, FeatureGates.AppliesDistrictServiceBudgets(master, featureEnabled: true, hasAnyOverride: true));
+            Assert.Equal(expected, FeatureGates.ShowsDistrictServiceBudgets(master, featureEnabled: true));
+            Assert.Equal(expected, FeatureGates.BuildsDistrictServiceFees(master, featureEnabled: true, economyPanelOpen: true));
+        }
+
+        [Theory]
+        [InlineData(true, TaxEngineMode.Engine)]
+        [InlineData(false, TaxEngineMode.Vanilla)]
+        public void Master_GatesRunOnUntestedGameVersion(bool master, TaxEngineMode expected)
+        {
+            // An untested version with Run on untested on: the engine runs only under the master.
+            Assert.Equal(expected, TaxEngineGuardLogic.Decide(versionKnown: false, structureOk: true, forceUntested: true, masterOn: master));
+        }
+
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        public void Master_GatesTheTaxEngine_DistrictRatesHappinessHomeChoiceAndDemand(bool master, bool expected)
+        {
+            // District tax overrides charge only in Engine mode; happiness, home choice and demand follow that mode.
+            var mode = TaxEngineGuardLogic.Decide(versionKnown: true, structureOk: true, forceUntested: false, masterOn: master);
+            Assert.Equal(expected, mode == TaxEngineMode.Engine);
+            Assert.Equal(expected, TaxEngineGuardLogic.RunsHappiness(mode, happinessStructureOk: true, foreignDisabled: false));
+            Assert.Equal(expected, TaxEngineGuardLogic.RunsHomeChoice(mode, foreignDisabled: false));
+            Assert.Equal(expected, DemandSwapLogic.UseView(structureOk: true, engineCharging: mode == TaxEngineMode.Engine, faulted: false));
+        }
+
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        public void TheCoreFeatures_DontTakeTheMaster_TheirOwnSwitchDecides(bool budgetChart, bool expected)
+        {
+            // Budget chart and district recording read the game only: no master parameter, their own switches decide.
+            Assert.Equal(expected, FeatureGates.RecordsDistrictBudget(budgetChart, districtBudgetEnabled: true));
+            Assert.Equal(expected, FeatureGates.RecordsServiceUpkeep(budgetChart));
+            Assert.Equal(expected, FeatureGates.BuildsPanelData(budgetChart, economyPanelOpen: true));
+        }
+
         [Fact]
         public void TheServicesTable_IsBuiltWheneverThePanelIsOpen_FeatureOrNot()
         {

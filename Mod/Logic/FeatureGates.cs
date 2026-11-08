@@ -26,6 +26,12 @@ namespace FiscalOverhaul.Logic
         /// <summary>Default of the per-district service budget switch: off, it is a BETA feature.</summary>
         public const bool DistrictServiceBudgetDefault = false;
 
+        /// <summary>
+        /// Whether Options greys out the switches under the master (density taxes, district service budgets, run on
+        /// untested game version): while simulation changes are off, when none of them has any effect.
+        /// </summary>
+        public static bool DisablesSimulationSwitches(bool simulationChanges) => !simulationChanges;
+
         /// <summary>Whether density tax offsets are charged: the feature on and simulation changes allowed.</summary>
         public static bool AppliesDensityTaxes(bool simulationChanges, bool densityTaxesEnabled) => simulationChanges && densityTaxesEnabled;
 
