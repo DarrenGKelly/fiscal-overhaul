@@ -2,13 +2,13 @@ namespace FiscalOverhaul.Logic
 {
     /// <summary>
     /// The tax term of a household's score for a home, at the rate that home is charged: vanilla
-    /// <c>PropertyUtils.GetPropertyScore</c> (PropertyUtils.cs:490-561, game version 1.6.0f1) adds <c>2 × the average tax
+    /// <c>PropertyUtils.GetPropertyScore</c> (PropertyUtils.cs:490-561, game version 1.6.3f1) adds <c>2 × the average tax
     /// happiness bonus of the household's adults</c> (:511, :524, :552-555, :560), each bonus at the CITY rate for the
     /// adult's education level. TaxFindPropertySystem calls vanilla's score and corrects it by the difference between
     /// that term at the home's rate (the vanilla rate plus the home's density and district adjustments,
     /// <see cref="TaxHappinessMath.ResidentRate"/>) and at the city rate. Pure int/float maths, Burst-safe.
     ///
-    /// Copied from PropertyUtils.GetPropertyScore (:511, :521-525, :552-555, :560), game version 1.6.0f1: the adults'
+    /// Copied from PropertyUtils.GetPropertyScore (:511, :521-525, :552-555, :560), game version 1.6.3f1: the adults'
     /// bonus sum, its integer average (C# truncating division, only when there is an adult) and the weight 2.
     /// </summary>
     public struct TaxPropertyScoreMath

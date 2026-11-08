@@ -212,7 +212,7 @@ compares the best candidate found against its current home with `PropertyUtils.G
 (`PropertyUtils.cs:511-560`), at the **city** rate.
 
 - `TaxFindPropertySystem` (`Mod/Systems/`) is a copy of its update: `PreparePropertyJob`, `FindPropertyJob`, `OnCreate`
-  and `OnUpdate` (headers name each source range, game version 1.6.0f1; changes marked `CHANGED`/`ADDED`; vanilla's
+  and `OnUpdate` (headers name each source range, game version 1.6.3f1; changes marked `CHANGED`/`ADDED`; vanilla's
   debug counters and distributions are left out). Vanilla's public structs, statics and `PropertyUtils` are called,
   not copied. `UpdateBefore<…, HouseholdFindPropertySystem>` with its interval (16), so it inherits its offset.
 - **The one change**: both scores go through `Score`: vanilla's `GetPropertyScore`, then its tax term recomputed at the

@@ -46,13 +46,13 @@ namespace FiscalOverhaul
     /// PathfindSetupSystem) at the city rate; only the final comparison here (candidate against the current home) is at
     /// the home's rate.
     ///
-    /// Copied from Game.Simulation.HouseholdFindPropertySystem, game version 1.6.0f1: PreparePropertyJob (:54-207),
+    /// Copied from Game.Simulation.HouseholdFindPropertySystem, game version 1.6.3f1: PreparePropertyJob (:54-207),
     /// FindPropertyJob (:209-656), the constants (:848-854), OnCreate (:960-1047) and OnUpdate (:1072-1209). Changes are
     /// marked CHANGED or ADDED; the debug counters and distributions (vanilla's DebugWatchValues) are left out.
     /// </summary>
     public partial class TaxFindPropertySystem : GameSystemBase
     {
-        // Copied from Game.Simulation.HouseholdFindPropertySystem.PreparePropertyJob (:54-207), game version 1.6.0f1,
+        // Copied from Game.Simulation.HouseholdFindPropertySystem.PreparePropertyJob (:54-207), game version 1.6.3f1,
         // unchanged.
         [BurstCompile]
         private struct PreparePropertyJob : IJobChunk
@@ -209,7 +209,7 @@ namespace FiscalOverhaul
             }
         }
 
-        // Copied from Game.Simulation.HouseholdFindPropertySystem.FindPropertyJob (:209-656), game version 1.6.0f1.
+        // Copied from Game.Simulation.HouseholdFindPropertySystem.FindPropertyJob (:209-656), game version 1.6.3f1.
         // Changes: the two PropertyUtils.GetPropertyScore calls (:533, :602) are Score (ADDED), vanilla's score with
         // its tax term at the home's charged rate; the debug counters are left out.
         [BurstCompile]
@@ -701,7 +701,7 @@ namespace FiscalOverhaul
             }
         }
 
-        // Copied from HouseholdFindPropertySystem (:848-854), game version 1.6.0f1: the update interval is
+        // Copied from HouseholdFindPropertySystem (:848-854), game version 1.6.3f1: the update interval is
         // GetUpdateInterval below; the per-update caps and the cool-down are vanilla's public statics, read from there.
 
         private EntityQuery m_HouseholdQuery;
@@ -753,7 +753,7 @@ namespace FiscalOverhaul
             return 16;
         }
 
-        // Copied from Game.Simulation.HouseholdFindPropertySystem.OnCreate (:960-1047), game version 1.6.0f1. Changes:
+        // Copied from Game.Simulation.HouseholdFindPropertySystem.OnCreate (:960-1047), game version 1.6.3f1. Changes:
         // no debug data; vanilla's system, the tax engine and the stats array (ADDED).
         [Preserve]
         protected override void OnCreate()
@@ -906,7 +906,7 @@ namespace FiscalOverhaul
             m_Stats[2] = 0;
         }
 
-        // Copied from Game.Simulation.HouseholdFindPropertySystem.OnUpdate (:1072-1209), game version 1.6.0f1. Changes:
+        // Copied from Game.Simulation.HouseholdFindPropertySystem.OnUpdate (:1072-1209), game version 1.6.3f1. Changes:
         // the mode check first; type handles and lookups from SystemBase instead of the generated TypeHandle; no debug
         // counters or SumDebugCountersJob; the home adjustments, rate limits, key lookups and stats passed to the job.
         [Preserve]
