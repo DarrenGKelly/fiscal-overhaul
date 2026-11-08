@@ -51,11 +51,6 @@ export function districtOverride(rows: OverrideRow[] | null | undefined, area: s
   return rows?.find((r) => r.area === area && r.type === type && r.zone === zone && r.key === key)?.value;
 }
 
-/** Whether the district has any override ("Use city rates" has something to reset). */
-export function hasDistrictOverrides(rows: OverrideRow[] | null | undefined, area: string): boolean {
-  return !!area && area !== CITY_KEY && !!rows?.some((r) => r.area === area);
-}
-
 /** The district's zone rate: its own, else the city's. */
 export function districtZoneRate(rows: OverrideRow[] | null | undefined, area: string, zone: number, cityZoneRate: number): number {
   return districtOverride(rows, area, TYPE_ZONE_RATE, zone, 0) ?? cityZoneRate;
@@ -129,4 +124,104 @@ export function rowRate(
     default:
       return shown(cityRate, cityRate);
   }
+}
+
+// A row's reset button and slider marker (common/slider-reset.ts): the value the row goes back to.
+
+/** Vanilla's default rates (C# TaxRateModel.DefaultZoneRate ..., sent in the taxRates binding). */
+export interface TaxDefaultsLike {
+  zoneRate: number;
+  itemOffset: number;
+  density: number;
+}
+
+/** TaxSystem.SetDefaults: the base rate 10, every offset 0. Used until the binding arrives. */
+export const VANILLA_TAX_DEFAULTS: TaxDefaultsLike = { zoneRate: 10, itemOffset: 0, density: 0 };
+
+/** A row's reset: the value it goes back to, whether it is away from it (the button shows), and which reset it is. */
+export interface RowReset {
+  target: number;
+  differs: boolean;
+  kind: "default" | "city";
+}
+
+/** The override's stored key: a zone rate is stored under key 0. */
+const storedKey = (target: RowTarget) => (target.type === TYPE_ZONE_RATE ? 0 : target.key);
+
+/**
+ * What a row's reset does. Entire City ("default"): a zone row back to vanilla's default rate, an education/resource
+ * row to its default offset from the zone's current rate (provisional: offset 0, so it follows the zone slider), a
+ * density row to 0; `cityRate` is the row's city value. A district ("city"): the row's own override removed, so the
+ * target is what the district has without it (the city's value; for a level/resource row under a district zone
+ * override, the district's zone rate plus the city's offset), and it differs only while that override is stored.
+ * `cityRate`/`cityZoneRate` as in rowRate; min/max the row's limits (the target is kept inside them).
+ */
+export function rowReset(
+  target: RowTarget,
+  area: string,
+  rows: OverrideRow[] | null | undefined,
+  cityRate: number,
+  cityZoneRate: number,
+  min: number,
+  max: number,
+  defaults: TaxDefaultsLike = VANILLA_TAX_DEFAULTS,
+): RowReset {
+  const clamp = (v: number) => Math.max(min, Math.min(max, v));
+  if (!area || area === CITY_KEY) {
+    let value: number;
+    switch (target.type) {
+      case TYPE_ZONE_RATE:
+        value = clamp(defaults.zoneRate);
+        break;
+      case TYPE_RESOURCE_RATE:
+        value = clamp(cityZoneRate + defaults.itemOffset);
+        break;
+      default:
+        value = clamp(defaults.density);
+    }
+    return { target: value, differs: cityRate !== value, kind: "default" };
+  }
+  const key = storedKey(target);
+  const own = districtOverride(rows, area, target.type, target.zone, key);
+  const without = rows?.filter((r) => !(r.area === area && r.type === target.type && r.zone === target.zone && r.key === key));
+  const value = rowRate(target, area, without, cityRate, cityZoneRate, min, max).rate;
+  return { target: value, differs: own !== undefined, kind: "city" };
+}
+
+// A district view's estimates (C# DistrictTaxEstimateUISystem). Until they are for the shown district, every one is 0.
+
+export interface DistrictEstimatesLike {
+  area: string;
+  items: { zone: number; key: number; estimate: number }[];
+  density: { zone: number; density: number; estimate: number }[];
+  zones: number[];
+  total: number;
+}
+
+function forArea(data: DistrictEstimatesLike | null | undefined, area: string): DistrictEstimatesLike | null {
+  return data && area && area !== CITY_KEY && data.area === area ? data : null;
+}
+
+/**
+ * A row's estimate in a district view: a zone header (TYPE_ZONE_RATE) gets the zone's total (its rows and its density
+ * rows), an education/resource row its own, a density row its own.
+ */
+export function districtRowEstimate(data: DistrictEstimatesLike | null | undefined, area: string, target: RowTarget): number {
+  const d = forArea(data, area);
+  if (!d) return 0;
+  switch (target.type) {
+    case TYPE_ZONE_RATE:
+      return d.zones?.[target.zone] ?? 0;
+    case TYPE_RESOURCE_RATE:
+      return d.items?.find((r) => r.zone === target.zone && r.key === target.key)?.estimate ?? 0;
+    case TYPE_DENSITY:
+      return d.density?.find((c) => c.zone === target.zone && c.density === target.key)?.estimate ?? 0;
+    default:
+      return 0;
+  }
+}
+
+/** ESTIMATED TOTAL in a district view: the district's total. */
+export function districtTotalEstimate(data: DistrictEstimatesLike | null | undefined, area: string): number {
+  return forArea(data, area)?.total ?? 0;
 }

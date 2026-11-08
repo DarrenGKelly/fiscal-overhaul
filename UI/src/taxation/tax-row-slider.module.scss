@@ -1,0 +1,6 @@
+// A Taxation tab slider inside its reset frame (tax-row-slider.tsx): the slider column's right padding (vanilla
+// 22rem) widened to hold the 28rem reset button before the estimate column's divider.
+
+.slider > div:first-child {
+  padding-right: 40rem;
+}

@@ -1,0 +1,49 @@
+// A slider row's reset button (reset-button.tsx): a 28rem round hit area, the glyph tinted like vanilla's icon
+// buttons (text colour, brighter on hover).
+
+.button {
+  position: relative;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 50%;
+  --iconColor: var(--textColor);
+  pointer-events: auto;
+}
+
+.shown:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  --iconColor: var(--textColorHover, #ffffff);
+}
+
+.dimmed {
+  opacity: 0.35;
+}
+
+.hidden {
+  visibility: hidden;
+}
+
+.arrow {
+  position: absolute;
+  left: 3rem;
+  top: 3rem;
+  width: 22rem;
+  height: 22rem;
+}
+
+// The city glyph sits inside the arrow's circle.
+.city {
+  position: absolute;
+  left: 9rem;
+  top: 9rem;
+  width: 10rem;
+  height: 10rem;
+}
+
+// Only when vanilla's TintedIcon is missing.
+.mask {
+  background-color: var(--iconColor);
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
