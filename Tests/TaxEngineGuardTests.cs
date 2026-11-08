@@ -93,5 +93,25 @@ namespace FiscalOverhaul.Tests
             // With the defaults, an unknown version stays vanilla.
             Assert.Equal(TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("2.0.0f1", Known, true, FeatureGates.RunOnUntestedGameVersionDefault, FeatureGates.SimulationChangesDefault));
         }
+
+        [Fact]
+        public void Happiness_RunsOnlyWithTheEngine()
+        {
+            Assert.True(TaxEngineGuardLogic.RunsHappiness(TaxEngineMode.Engine, happinessStructureOk: true, foreignDisabled: false));
+            Assert.False(TaxEngineGuardLogic.RunsHappiness(TaxEngineMode.Vanilla, true, false));
+            Assert.False(TaxEngineGuardLogic.RunsHappiness(TaxEngineMode.Blocked, true, false));
+        }
+
+        [Fact]
+        public void Happiness_StructureBad_IsVanilla()
+        {
+            Assert.False(TaxEngineGuardLogic.RunsHappiness(TaxEngineMode.Engine, happinessStructureOk: false, foreignDisabled: false));
+        }
+
+        [Fact]
+        public void Happiness_AnotherModDisabledVanilla_BacksOff()
+        {
+            Assert.False(TaxEngineGuardLogic.RunsHappiness(TaxEngineMode.Engine, happinessStructureOk: true, foreignDisabled: true));
+        }
     }
 }
