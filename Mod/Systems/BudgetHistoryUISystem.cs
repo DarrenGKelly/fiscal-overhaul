@@ -25,7 +25,7 @@ namespace FiscalOverhaul
     ///   setSpan             trigger(int months)  months &lt;= 0 = all history
     ///   districtBudgetEnabled bool  district recording on (<see cref="FeatureGates.RecordsDistrictBudget"/>): the UI shows
     ///                       the district selector, even for a city without districts
-    ///   districts           raw   [{ key, name }] the city's districts by name (empty while district budgets are off)
+    ///   (the selector's district list, `districts`, is <see cref="DistrictListUISystem"/>'s)
     ///   setDistrict         trigger(string key)  "" = Entire City, "outside", or a key from districts; with a district the
     ///                       history also has { district, nowIncome: number[14], nowExpense: number[15] }
     ///   history.services    [{ name, start, values: number[] }] the Service Upkeep row split per service (prefab name,
@@ -50,7 +50,6 @@ namespace FiscalOverhaul
         private ServiceUpkeepSystem m_ServiceUpkeepSystem;
         private NameSystem m_NameSystem;
         private EntityQuery m_DistrictQuery;
-        private RawValueBinding m_DistrictsBinding;
         private Setting m_Setting;
         private string m_DistrictKey = DistrictKey.City;
         private string m_LastDistrictKey;
@@ -76,7 +75,6 @@ namespace FiscalOverhaul
             m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             m_DistrictQuery = GetEntityQuery(ComponentType.ReadOnly<Game.Areas.District>(), ComponentType.Exclude<Temp>());
             AddBinding(m_DistrictsEnabledBinding = new ValueBinding<bool>(kGroup, "districtBudgetEnabled", false));
-            AddBinding(m_DistrictsBinding = new RawValueBinding(kGroup, "districts", WriteDistricts));
             AddBinding(new TriggerBinding<string>(kGroup, "setDistrict", key => m_DistrictKey = key ?? DistrictKey.City));
             AddBinding(m_EnabledBinding = new ValueBinding<bool>(kGroup, "budgetChartEnabled", true));
             AddBinding(m_HistoryBinding = new RawValueBinding(kGroup, "history", WriteHistory));
@@ -113,7 +111,6 @@ namespace FiscalOverhaul
             m_LastDistrictSamples = districtSamples;
             m_LastDistrictCount = districtCount;
             m_HistoryBinding.Update();
-            m_DistrictsBinding.Update();
         }
 
         private void WriteHistory(IJsonWriter writer)
@@ -324,31 +321,6 @@ namespace FiscalOverhaul
             nowExpense = DistrictBudgetMath.Spread(live, false, kExpenseSources, 0.0);
             for (int i = 0; i < kIncomeSources; i++) income[i] = BudgetHistoryMath.WithLiveNow(incomeSlots[i], nowIncome[i]);
             for (int i = 0; i < kExpenseSources; i++) expense[i] = BudgetHistoryMath.WithLiveNow(expenseSlots[i], nowExpense[i]);
-        }
-
-        private void WriteDistricts(IJsonWriter writer)
-        {
-            var choices = new List<KeyValuePair<string, string>>();
-            if (DistrictsEnabled())
-            {
-                using (NativeArray<Entity> entities = m_DistrictQuery.ToEntityArray(Allocator.Temp))
-                {
-                    foreach (Entity e in entities)
-                        choices.Add(new KeyValuePair<string, string>(DistrictKey.Format(e.Index, e.Version), m_NameSystem.GetRenderedLabelName(e) ?? string.Empty));
-                }
-                choices.Sort((a, b) => string.Compare(a.Value, b.Value, StringComparison.OrdinalIgnoreCase));
-            }
-            writer.ArrayBegin(choices.Count);
-            foreach (var choice in choices)
-            {
-                writer.TypeBegin("FiscalOverhaul.DistrictChoice");
-                writer.PropertyName("key");
-                writer.Write(choice.Key);
-                writer.PropertyName("name");
-                writer.Write(choice.Value);
-                writer.TypeEnd();
-            }
-            writer.ArrayEnd();
         }
 
         private static void WriteSeriesSet(IJsonWriter writer, double[][] set, int length, int[] picked)

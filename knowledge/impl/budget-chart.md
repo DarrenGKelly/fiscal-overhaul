@@ -120,8 +120,9 @@ each point's parts are whole numbers summing exactly to the row as written; a ne
 
 ### Bindings
 
-`BudgetHistoryUISystem` publishes `districtBudgetEnabled` (recording on: `FeatureGates.RecordsDistrictBudget`) and
-`districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
+`BudgetHistoryUISystem` publishes `districtBudgetEnabled` (recording on: `FeatureGates.RecordsDistrictBudget`); the
+list, `districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name), is `DistrictListUISystem`'s, shared with the
+Services tab and `[]` while no district feature is on (`FeatureGates.PublishesDistrictList`). It takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
 unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and `nowIncome[14]` /
 `nowExpense[15]` (a district's live values, expenses positive; `null` for Entire City: every view writes the same
 properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0. Every view also

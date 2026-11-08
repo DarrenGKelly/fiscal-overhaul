@@ -102,7 +102,8 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   position (vanilla indexes features by enum value); other tab bars pass through. The Switch Tab key/gamepad cycle keeps
   the vanilla order: an accepted limitation.
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
-  `BudgetItemDetail`, `TaxSlider`, `TaxationItem`) and their props as read from the bundle. **After a game patch, check those
+  `BudgetItemDetail`, `TaxSlider`, `TaxationItem`, and for the Services tab `Section`, `SliderItem`, `BudgetItem`, `Button`,
+  `useLegacyInterfaceActive`, the service detail's classes) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.
 - **Scroll bars:** Gameface draws none for `overflow: auto` (it scrolls by wheel, with no sign there is more). Wrap the
   content in vanilla's `Scrollable` (`game-ui/common/scrolling/scrollable.tsx`, in `vanilla.ts`) with a rem
