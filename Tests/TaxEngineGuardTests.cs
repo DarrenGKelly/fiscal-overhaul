@@ -91,5 +91,20 @@ namespace FiscalOverhaul.Tests
         {
             Assert.False(TaxEngineGuardLogic.RunsHappiness(TaxEngineMode.Engine, happinessStructureOk: true, foreignDisabled: true));
         }
+
+        [Fact]
+        public void HomeChoice_RunsExactlyWhileTheEngineCharges()
+        {
+            Assert.True(TaxEngineGuardLogic.RunsHomeChoice(TaxEngineMode.Engine, foreignDisabled: false));
+            Assert.False(TaxEngineGuardLogic.RunsHomeChoice(TaxEngineMode.Vanilla, false));
+            Assert.False(TaxEngineGuardLogic.RunsHomeChoice(TaxEngineMode.Blocked, false));
+        }
+
+        [Fact]
+        public void HomeChoice_AnotherModDisabledVanilla_BacksOff()
+        {
+            Assert.False(TaxEngineGuardLogic.RunsHomeChoice(TaxEngineMode.Engine, foreignDisabled: true));
+            Assert.True(TaxEngineGuardLogic.RunsHomeChoice(TaxEngineMode.Engine, foreignDisabled: false));
+        }
     }
 }

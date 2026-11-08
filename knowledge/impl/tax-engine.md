@@ -1,12 +1,13 @@
 ---
 type: Implementation
 title: Tax engine
-description: The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, happiness at each citizen's home rate (a copy of CitizenHappinessSystem's update), how buildings are classified, what it does not affect (demand), storage and the Taxation tab rows.
+description: The mod's own tax charge — a copy of vanilla TaxSystem's charge that adds each payer's density and district adjustments, the game-version guard and the Simulation changes switch, happiness at each citizen's home rate (a copy of CitizenHappinessSystem's update), households choosing homes by each home's rate (a copy of HouseholdFindPropertySystem's update), how buildings are classified, what it does not affect (demand), storage and the Taxation tab rows.
 resource:
   - Mod/Systems/TaxEngineSystem.cs
   - Mod/Systems/TaxEngineGuard.cs
   - Mod/Systems/TaxKeyResolver.cs
   - Mod/Systems/TaxHappinessSystem.cs
+  - Mod/Systems/TaxFindPropertySystem.cs
   - Mod/Systems/DensityClassifier.cs
   - Mod/Systems/DensityTaxUISystem.cs
   - Mod/Systems/DensityTaxState.cs
@@ -14,6 +15,7 @@ resource:
   - Mod/Logic/EffectiveTaxRate.cs
   - Mod/Logic/TaxEngineGuardLogic.cs
   - Mod/Logic/TaxHappinessMath.cs
+  - Mod/Logic/TaxPropertyScoreMath.cs
   - Mod/Logic/TaxPayerZone.cs
   - Mod/Logic/DensityTaxTable.cs
   - Mod/Logic/TaxRateTable.cs
@@ -26,7 +28,8 @@ resource:
 
 User decisions (2026-11-03): density is **another adjustment** on top of the vanilla rate (zone rate + education/product
 offset), capped at ±5 points (`DensityTaxTable.MaxOffset`); district adjustments are relative to the city rate, capped
-±10. They change revenue, demand (through the [demand view](#demand)) and citizen happiness ([§ Happiness](#happiness)). User decisions (2026-11-07): the mod
+±10. They change revenue, demand (through the [demand view](#demand)), citizen happiness ([§ Happiness](#happiness)) and where
+households choose to live ([§ Where people move](#where-people-move)). User decisions (2026-11-07): the mod
 charges tax with its own copy of vanilla's charge (copying decompiled game code is fine: minimal copies, each with a
 header naming the source class, method, line range and game version); on an unknown game version it falls back to
 vanilla with a warning unless the player forces it; a "Simulation changes" master switch turns every simulation change
@@ -232,6 +235,39 @@ the UI call directly; household net income (vanilla's income estimates elsewhere
 moving away (`CompanyMoveAway`); the Taxes factor in the city info panel is the city average of the per-citizen
 bonuses, so it moves with the share of citizens under an adjustment.
 
+## Where people move
+
+Households prefer lower-tax homes (a user decision: the cheaper partial of per-district demand, with district
+happiness above and an info-only district demand figure).
+
+Vanilla `HouseholdFindPropertySystem` (every 16 frames) starts a pathfind for a household looking for a home, then
+compares the best candidate found against its current home with `PropertyUtils.GetPropertyScore` (`:533` current home,
+`:602` candidate) and moves, stays or leaves. The score's tax term is `2 ×` the adults' average tax happiness bonus
+(`PropertyUtils.cs:511-560`), at the **city** rate.
+
+- `TaxFindPropertySystem` (`Mod/Systems/`) is a copy of its update: `PreparePropertyJob`, `FindPropertyJob`, `OnCreate`
+  and `OnUpdate` (headers name each source range, game version 1.6.0f1; changes marked `CHANGED`/`ADDED`; vanilla's
+  debug counters and distributions are left out). Vanilla's public structs, statics and `PropertyUtils` are called,
+  not copied. `UpdateBefore<…, HouseholdFindPropertySystem>` with its interval (16), so it inherits its offset.
+- **The one change**: both scores go through `Score`: vanilla's `GetPropertyScore`, then its tax term recomputed at the
+  home's rate (the vanilla rate for each adult's education level plus that property's density and district Residential
+  adjustments, `TaxHappinessMath.ResidentRate`, inside the job-level limits) and the difference added
+  (`TaxPropertyScoreMath`, `Mod/Logic/`, tested: vanilla's integer average and weight 2). A home with no adjustment,
+  and a shelter (park or abandoned building: its residents are homeless and pay the vanilla rate), score exactly as
+  vanilla. So a +5 home loses against an otherwise equal 0 home, and its residents look for a better one sooner.
+- **When it runs**: exactly while the tax engine charges, `TaxEngineGuardLogic.RunsHomeChoice(engineMode,
+  foreignDisabled)` (tested). While it runs `HouseholdFindPropertySystem.Enabled = false`; anything else turns it back
+  on, live (every update, and `Mod.ApplyFeatureSwitches` after the engine's). It touches no private vanilla state (only
+  vanilla's debug counters are private and read elsewhere), so there is no structure check of its own; if vanilla was
+  already disabled by someone else, it backs off for the session.
+- Mod.log: `TaxHomeChoice: running|vanilla (…)` on each change, and about every 512 updates
+  `TaxHomeChoice: N of M home scores moved by the home's tax rate (summed delta D)` (D < 0: homes scored lower).
+
+**Known limits**: the candidates the pathfinder offers are pre-scored in `CitizenPathfindSetup.SetupFindHome` (inside
+`PathfindSetupSystem`, which can't be replaced alone) at the city rate, so which home is found first ignores the
+adjustments; only the final current-vs-candidate comparison sees them. The household income it checks against rent
+(`EconomyUtils.GetHouseholdIncome`) is still at the city rate.
+
 ## Follow-ups
 
 - Check in game that all-zero adjustments match vanilla's monthly tax income within 1%, and that a non-zero density
@@ -241,3 +277,5 @@ bonuses, so it moves with the share of citizens under an adjustment.
   Simulation changes off gives vanilla demand.
 - Check in game that the happiness Taxes factor with all-zero adjustments equals vanilla's, and that +5 in one district
   lowers its residents' wellbeing over a couple of in-game days.
+- Check in game that households leave or avoid +5 high-density residential faster than 0-adjusted buildings, and that
+  `TaxHomeChoice` lines in Mod.log show moved scores only while an adjustment is set.
