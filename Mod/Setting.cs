@@ -38,6 +38,20 @@ namespace FiscalOverhaul
         public bool EnableDistrictBudget { get; set; } = FeatureGates.DistrictBudgetDefault;
 
         /// <summary>
+        /// Master switch for every change the mod makes to the simulation (today: the tax engine, which charges the
+        /// density and district adjustments). Off: vanilla TaxSystem charges tax again, live; the stored rates are kept.
+        /// </summary>
+        [SettingsUISection(kSection, kFeaturesGroup)]
+        public bool EnableSimulationChanges { get; set; } = FeatureGates.SimulationChangesDefault;
+
+        /// <summary>
+        /// Off (default): on a game version the tax engine wasn't checked against, taxes stay vanilla and the Taxation tab
+        /// warns. On: the engine runs anyway. Never overrides a failed structure check.
+        /// </summary>
+        [SettingsUISection(kSection, kFeaturesGroup)]
+        public bool RunOnUntestedGameVersion { get; set; } = FeatureGates.RunOnUntestedGameVersionDefault;
+
+        /// <summary>
         /// Serialized <see cref="DensityTaxTable"/>: the template a city without stored tax rates is seeded from once
         /// (a new city, or a save from before rates were kept per save; <see cref="TaxRatesSystem"/>). The Taxation tab
         /// edits the loaded city's own rates, not this. Not shown directly.
@@ -64,6 +78,8 @@ namespace FiscalOverhaul
             EnableBudgetChart = FeatureGates.BudgetChartDefault;
             EnableDensityTaxes = FeatureGates.DensityTaxesDefault;
             EnableDistrictBudget = FeatureGates.DistrictBudgetDefault;
+            EnableSimulationChanges = FeatureGates.SimulationChangesDefault;
+            RunOnUntestedGameVersion = FeatureGates.RunOnUntestedGameVersionDefault;
             DensityTaxOffsets = string.Empty;
         }
     }

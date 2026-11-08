@@ -12,6 +12,12 @@ namespace FiscalOverhaul.Logic
         /// <summary>Default of the per-district budget switch: on (it only records while the budget chart is on too).</summary>
         public const bool DistrictBudgetDefault = true;
 
+        /// <summary>Default of the "Simulation changes" master switch: on. Off turns every simulation change off (vanilla).</summary>
+        public const bool SimulationChangesDefault = true;
+
+        /// <summary>Default of "Run on untested game version": off, so an unknown game version gets vanilla simulation.</summary>
+        public const bool RunOnUntestedGameVersionDefault = false;
+
         /// <summary>
         /// Whether DistrictBudgetSystem records a sample: the per-district view is part of the budget chart, so it
         /// records only while both switches are on, whether or not the panel is open.
