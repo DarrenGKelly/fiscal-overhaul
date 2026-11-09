@@ -38,7 +38,7 @@ part the clamp lets through. The base is the untaxed income **the engine last ch
 untaxed income and the engine tick of its last charge), and only a payer charged in the last 1/32 month counts
 (`ChargeWindow.IsCurrent`: within the last 16 engine ticks). That is the base the ledger books from, so a settled
 booking window's density booked equals the estimate, and it is restated at the payer's rates **now**, so a moved slider
-moves the estimate at once (within the 10-frame refresh) and the next charge leaves it where it is. The engine, like
+moves the estimate at once (within the 10-frame refresh) and the next charge leaves it where it is. Each part is the engine's own rounded per-charge tax (`DensityTaxBooking.Tax`, vanilla's `GetTax`) at each rate, split as a charge is (`DensityTaxBooking.Parts`), × 32, not base × rate: on small untaxed incomes the per-charge rounding is a large share of the tax, and base × rate read 5-7% above the booking (issue #83). The engine, like
 vanilla, skips a payer with no untaxed income and never resets its `m_AverageTaxPaid`: a household that stopped
 earning keeps its last payment for good. The earlier base, paid over the rate charged (`PaymentRate`, now gone),
 counted those payers and ran about 1.65x the booking in game. A payer with no income at its charge, or a loss, adds
@@ -175,7 +175,7 @@ Density rows do the same themselves. Entire City is unchanged.
 Outside) view shows its own row estimates, zone totals and ESTIMATED TOTAL. `DistrictTaxEstimateUISystem` publishes
 `districtTaxEstimates = { area, items[{ zone, key, estimate }], density[{ zone, density, estimate }], zones[4], total }`
 for the area `setTaxEstimateArea(area)` names (a district key or "outside"; "" = none). Its job sums the area's
-payers' `PayerTaxParts` (the same booking as the city's density cells): the income part (base × rate without density,
+payers' `PayerTaxParts` (the same booking as the city's density cells): the income part (the rounded tax at the rate without density,
 the district's overrides included) on the payer's level/resource row (a household's split over its workers' education
 levels by wage, none: level 0; a company's on its output resource, Office for a weightless one), the density part on
 its density row (`DistrictTaxEstimate.AddHousehold`/`AddCompany`, `Compute`: rows rounded, each zone the sum of its

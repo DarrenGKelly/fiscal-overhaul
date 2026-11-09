@@ -17,17 +17,18 @@ namespace FiscalOverhaul.Logic
         /// <summary>The rate the engine charges it: with its density tax too, clamped.</summary>
         public int ChargedRate;
 
-        /// <summary>The income tax part of a month: base × rate without density / 100.</summary>
-        public double IncomePart => Base * RateWithoutDensity / 100.0;
+        /// <summary>The income tax part of a month: the tax at the rate without density tax.</summary>
+        public double IncomePart;
 
         /// <summary>
         /// The district part of a month: what its district's (or Outside's) income-tax overrides add to vanilla's tax,
-        /// base × (without − vanilla) / 100; the city books it as the zone's tax income (vanilla's estimate leaves it out).
+        /// the tax without density − the tax at the vanilla rate; the city books it as the zone's tax income (vanilla's
+        /// estimate leaves it out).
         /// </summary>
-        public double DistrictPart => Base * (RateWithoutDensity - VanillaRate) / 100.0;
+        public double DistrictPart;
 
-        /// <summary>The density tax part of a month (negative: a subsidy): base × (charged − without) / 100.</summary>
-        public double DensityPart => Base * (ChargedRate - RateWithoutDensity) / 100.0;
+        /// <summary>The density tax part of a month (negative: a subsidy): the tax at the charged rate − the tax without density.</summary>
+        public double DensityPart;
 
         /// <summary>
         /// The parts of a payer charged <paramref name="vanillaRate"/> (<c>TaxPayer.m_AverageTaxRate</c>) plus
@@ -35,13 +36,24 @@ namespace FiscalOverhaul.Logic
         /// <paramref name="max"/>], from the untaxed income the tax engine last charged it
         /// (<see cref="ChargeWindow"/>: only a charge in the last 1/32 month counts), at the monthly scale
         /// (× <paramref name="chargesPerMonth"/>): the base the engine books from, so the parts are what the city books,
-        /// restated at the rates now (a slider moved since the charge moves them at once). No income charged (none, a
-        /// loss, or no recent charge): base 0, nothing to book.
+        /// restated at the rates now (a slider moved since the charge moves them at once). Each part is the engine's own
+        /// per-charge tax (<see cref="DensityTaxBooking.Tax"/>, vanilla's rounded <c>TaxSystem.GetTax</c>) at each rate,
+        /// split as <see cref="DensityTaxBooking.Parts"/> splits a charge, × <paramref name="chargesPerMonth"/>: what the
+        /// booking sums, rounding included (base × rate reads 5-7% off on small incomes, issue #83). No income charged
+        /// (none, a loss, or no recent charge): base 0, nothing to book.
         /// </summary>
         public static PayerTaxParts FromCharge(int chargedUntaxedIncome, int vanillaRate, int densityTax, int incomeDelta, int min, int max, int chargesPerMonth)
         {
             var p = Rates(vanillaRate, densityTax, incomeDelta, min, max);
-            if (chargedUntaxedIncome > 0) p.Base = (double)chargedUntaxedIncome * chargesPerMonth;
+            if (chargedUntaxedIncome <= 0) return p;
+            p.Base = (double)chargedUntaxedIncome * chargesPerMonth;
+            int vanillaTax = DensityTaxBooking.Tax(p.VanillaRate, chargedUntaxedIncome);
+            int withoutTax = DensityTaxBooking.Tax(p.RateWithoutDensity, chargedUntaxedIncome);
+            int chargedTax = DensityTaxBooking.Tax(p.ChargedRate, chargedUntaxedIncome);
+            DensityTaxBooking.Parts(vanillaTax, withoutTax, chargedTax, out int district, out int density);
+            p.IncomePart = (double)withoutTax * chargesPerMonth;
+            p.DistrictPart = (double)district * chargesPerMonth;
+            p.DensityPart = (double)density * chargesPerMonth;
             return p;
         }
 
@@ -55,6 +67,9 @@ namespace FiscalOverhaul.Logic
             var p = Rates(vanillaRate, densityTax, incomeDelta, min, max);
             if (p.ChargedRate > 0) p.Base = DensityTaxTable.TaxableBase(monthlyPaid, p.ChargedRate);
             else if (untaxedIncome > 0) p.Base = (double)untaxedIncome * chargesPerMonth;
+            p.IncomePart = p.Base * p.RateWithoutDensity / 100.0;
+            p.DistrictPart = p.Base * (p.RateWithoutDensity - p.VanillaRate) / 100.0;
+            p.DensityPart = p.Base * (p.ChargedRate - p.RateWithoutDensity) / 100.0;
             return p;
         }
 

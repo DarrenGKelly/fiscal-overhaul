@@ -72,5 +72,34 @@ namespace FiscalOverhaul.Tests
             Assert.Equal(-1600, now.DensityPart, 6); // 1000 x 32 x -5%
             Assert.NotEqual(3200, now.DensityPart, 6); // not the +10 charge's part
         }
+
+        [Fact]
+        public void SmallIncomes_EstimateIncludesTheChargesRounding()
+        {
+            // Issue #83: payers with small untaxed incomes, where each charge's rounding is a large share of it.
+            int[] untaxed = { 13, 7, 21, 9, 33, 4, 17, 26, 11, 5, 19, 8, 29, 14, 3, 23 };
+            const int stored = 10, density = 5, delta = 3;
+            var ledger = new TaxBookingLedger();
+            double density_ = 0, district_ = 0;
+            for (int f = 0; f < untaxed.Length; f++)
+            {
+                int u = untaxed[f];
+                int without = EffectiveTaxRate.Compute(stored, 0, delta, Min, Max, u);
+                int charged = EffectiveTaxRate.Compute(stored, density, delta, Min, Max, u);
+                DensityTaxBooking.Parts(DensityTaxBooking.Tax(stored, u), DensityTaxBooking.Tax(without, u),
+                    DensityTaxBooking.Tax(charged, u), out int district, out int part);
+                ledger.AddSums(f, TaxZone.Residential, district, part > 0 ? part : 0, part < 0 ? part : 0, 0);
+                PayerTaxParts p = PayerTaxParts.FromCharge(u, stored, density, delta, Min, Max, Charges);
+                density_ += p.DensityPart;
+                district_ += p.DistrictPart;
+            }
+            ledger.Monthly(TaxZone.Residential, out long bookedDistrict, out long bookedDensity, out _);
+            Assert.Equal(bookedDensity, density_, 6);
+            Assert.Equal(bookedDistrict, district_, 6);
+            // Fail case: the unrounded base x rate is not what is booked.
+            long sum = 0;
+            foreach (int u in untaxed) sum += u;
+            Assert.NotEqual(sum * Charges * density / 100.0, density_, 6);
+        }
     }
 }
