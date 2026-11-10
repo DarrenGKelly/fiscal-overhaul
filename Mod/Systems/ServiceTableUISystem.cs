@@ -16,8 +16,9 @@ namespace FiscalOverhaul
 {
     /// <summary>
     /// The Services tab table's data beyond vanilla's serviceBudget bindings (group "fiscalOverhaul"), built only while
-    /// the Economy panel is open (<see cref="FeatureGates.BuildsServiceTable"/>; the table is always the Services tab),
+    /// the table is on and the Economy panel is open (<see cref="FeatureGates.BuildsServiceTable"/>),
     /// the district fee shares only while the district view is offered (<see cref="FeatureGates.BuildsDistrictServiceFees"/>):
+    ///   servicesTableEnabled bool <see cref="Setting.EnableServicesTable"/>; false = the UI shows the vanilla Services tab
     ///   serviceFeeDefaults   raw  [{ resource, fee }]: vanilla's default fee per PlayerResource
     ///                             (ServiceFeeParameterData m_Default, what resetService sets): a fee slider's reset target
     ///   districtServiceFees  raw  [{ service, district, resource, income }] (<see cref="DistrictServiceFees"/>): each
@@ -38,6 +39,7 @@ namespace FiscalOverhaul
         private EntityQuery m_FeeParameterQuery;
         private RawValueBinding m_DefaultsBinding;
         private RawValueBinding m_FeesBinding;
+        private ValueBinding<bool> m_EnabledBinding;
         private bool m_LastShows;
         private int m_Frames = kRefreshFrames;
 
@@ -45,6 +47,7 @@ namespace FiscalOverhaul
 
         private bool Shows => m_Setting != null && FeatureGates.ShowsDistrictServiceBudgets(m_Setting.EnableSimulationChanges, m_Setting.EnableDistrictServiceBudget);
         private bool m_LastOpen;
+        private bool TableEnabled => m_Setting == null || m_Setting.EnableServicesTable;
 
         [Preserve]
         protected override void OnCreate()
@@ -59,17 +62,20 @@ namespace FiscalOverhaul
             m_FeeParameterQuery = GetEntityQuery(ComponentType.ReadOnly<ServiceFeeParameterData>());
             AddBinding(m_DefaultsBinding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "serviceFeeDefaults", WriteDefaults));
             AddBinding(m_FeesBinding = new RawValueBinding(BudgetHistoryUISystem.kGroup, "districtServiceFees", WriteFees));
+            AddBinding(m_EnabledBinding = new ValueBinding<bool>(BudgetHistoryUISystem.kGroup, "servicesTableEnabled", FeatureGates.ServicesTableDefault));
         }
 
         [Preserve]
         protected override void OnUpdate()
         {
             bool open = m_PanelSystem.activePanel is EconomyPanel;
+            bool table = TableEnabled;
+            m_EnabledBinding.Update(table);
             bool shows = Shows;
             // Switched off: send the empty fee list once (the table is city-only now).
             if (m_LastShows && !shows) m_FeesBinding.Update();
             m_LastShows = shows;
-            if (!FeatureGates.BuildsServiceTable(open))
+            if (!FeatureGates.BuildsServiceTable(table, open))
             {
                 m_LastOpen = false;
                 m_Frames = kRefreshFrames; // at once when the panel opens again
@@ -80,7 +86,7 @@ namespace FiscalOverhaul
             if (++m_Frames < kRefreshFrames) return;
             m_Frames = 0;
             m_DefaultsBinding.Update();
-            if (FeatureGates.BuildsDistrictServiceFees(m_Setting != null && m_Setting.EnableSimulationChanges, m_Setting != null && m_Setting.EnableDistrictServiceBudget, open))
+            if (FeatureGates.BuildsDistrictServiceFees(m_Setting != null && m_Setting.EnableSimulationChanges, m_Setting != null && m_Setting.EnableDistrictServiceBudget, table, open))
                 m_FeesBinding.Update();
         }
 

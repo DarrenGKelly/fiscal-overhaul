@@ -142,7 +142,14 @@ Production and Loans, or a tab whose feature is off, its slot stays empty so the
 feature off there is no slot (`reservesPickerSlot`). The city option is the **city's name** (vanilla
 `toolbarBottom.cityName`; `cityLabel` falls back to "Entire City" while it is blank).
 
-`district/district-selector.tsx` (`compact` in the header: 18rem name, clipped with an ellipsis): `‹ [name] ›`, span buttons on the rows' value-field box
+While the picker shows, a **frame** (a filled outline, `.tab-group-frame`) surrounds it and the tabs it drives
+[picker | Budget Taxation Services], 6rem out on every side (a user request: the choice applies to those three tabs).
+The picker is **as tall as a tab**. Both are measured (`PickerRoom` in `economy-tab-bar.tsx`, `tab-group-frame.ts`):
+the tab buttons after the room marker up to the divider, after each render and for a few frames (`keepMeasuring`; no
+ResizeObserver), the padding scaled by a `100rem` probe. Production and Loans show no frame (their slot is empty).
+
+`district/district-selector.tsx` (`compact` in the header: a 26rem bold name, above the tabs' `--fontSizeL` labels for
+hierarchy, a user request; centred by a line-height of the measured tab height; clipped with an ellipsis): `‹ [name] ›`, span buttons on the rows' value-field box
 (vanilla `NumberField`'s secondary background, `rgba(6,10,16,.7)` with 8rem corners: `$value-field-bg`), so the name
 and both arrows read as controls; the name is bold (scoped under `.district-selector` so the later
 `.span-button` rule doesn't shrink it). The arrows are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the

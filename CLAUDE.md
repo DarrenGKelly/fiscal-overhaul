@@ -55,12 +55,12 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
 
 - **C# side publishes, UI side draws.** `Mod/Systems/*UISystem.cs` expose bindings in the `"fiscalOverhaul"` group
   (`budgetChartEnabled`, `history`, `setSpan`, `districtBudgetEnabled`, `districts`, `setDistrict`, `densityTaxesEnabled`, `densityTaxes`,
-  `setDensityTax`, `districtServiceBudgetEnabled`, `districtServiceBudgets`, `setDistrictServiceBudget`, `taxEngineWarning`, `taxRates`, `setTaxRate`, `resetDistrictTaxRates`, `logTiming`) and compute
+  `setDensityTax`, `servicesTableEnabled`, `districtServiceBudgetEnabled`, `districtServiceBudgets`, `setDistrictServiceBudget`, `taxEngineWarning`, `taxRates`, `setTaxRate`, `resetDistrictTaxRates`, `logTiming`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
 - **Feature switches:** Options > Fiscal Overhaul turns each feature off live: off is vanilla behaviour and vanilla UI;
   the stored offsets, overrides and district histories are kept. Three groups: **Features**, the core that only changes
-  the UI or reads the game (`Setting.EnableBudgetChart`, `EnableDistrictBudget`; both default on); **Simulation
+  the UI or reads the game (`Setting.EnableBudgetChart`, `EnableDistrictBudget`, `EnableServicesTable`; all default on); **Simulation
   changes**, the master `EnableSimulationChanges` (default on) first, then every switch that changes the vanilla
   simulation (`EnableDensityTaxes`, `EnableDistrictServiceBudget`, both BETA and default off, and
   `RunOnUntestedGameVersion`), greyed out while the master is off; **Reset**, the reset buttons. Master off turns every

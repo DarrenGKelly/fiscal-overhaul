@@ -140,6 +140,8 @@ namespace FiscalOverhaul.Tests
                 en["FiscalOverhaul.Options.Desc.ResetDensityTaxes"]);
             Assert.Equal("Record district budgets", en["FiscalOverhaul.Options.Label.EnableDistrictBudget"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictBudget"));
+            Assert.Equal("Enable services table", en["FiscalOverhaul.Options.Label.EnableServicesTable"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableServicesTable"));
             Assert.Equal("Simulation changes", en["FiscalOverhaul.Options.Label.EnableSimulationChanges"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableSimulationChanges"));
             Assert.Equal("District service budgets (BETA)", en["FiscalOverhaul.Options.Label.EnableDistrictServiceBudget"]);
@@ -147,7 +149,7 @@ namespace FiscalOverhaul.Tests
             Assert.Equal("Reset district service budgets", en["FiscalOverhaul.Options.Label.ResetDistrictServiceBudgets"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.ResetDistrictServiceBudgets"));
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Warning.ResetDistrictServiceBudgets"));
-            Assert.Equal(23, CountOptionKeys(en));
+            Assert.Equal(25, CountOptionKeys(en));
             // The master's description says what turning it off disables, and that the switches under it grey out.
             var master = en["FiscalOverhaul.Options.Desc.EnableSimulationChanges"];
             foreach (var part in new[] { "density taxes", "district tax rates", "happiness", "budget slider", "greyed out" })

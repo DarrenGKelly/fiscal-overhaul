@@ -35,6 +35,14 @@ export interface DistrictFeatures {
 }
 
 /**
+ * Whether the Services tab offers districts: District service budgets on, and the table on (Options > Enable services
+ * table). The vanilla Services tab has no district view.
+ */
+export function servicesDistrictsOn(districtServiceBudgetsOn: boolean, servicesTableOn: boolean): boolean {
+  return districtServiceBudgetsOn && servicesTableOn;
+}
+
+/**
  * The header picker for the selected tab: its choices and the choice it shows, or null where it is hidden (Production,
  * Loans, or a tab whose district feature is off). Each tab keeps its own rules: every one offers the city, the
  * districts and Outside Districts; Taxation shows only with a district and while the tax engine charges. A shared

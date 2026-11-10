@@ -12,6 +12,9 @@ namespace FiscalOverhaul.Logic
         /// <summary>Default of the per-district budget switch: on (it only records while the budget chart is on too).</summary>
         public const bool DistrictBudgetDefault = true;
 
+        /// <summary>Default of the Services table switch (the Services tab's UI changes): on. Off: the vanilla Services tab.</summary>
+        public const bool ServicesTableDefault = true;
+
         /// <summary>Default of "Run on untested game version": off, so an unknown game version gets vanilla simulation.</summary>
         public const bool RunOnUntestedGameVersionDefault = false;
 
@@ -49,17 +52,17 @@ namespace FiscalOverhaul.Logic
         public static bool ShowsDistrictServiceBudgets(bool simulationChanges, bool featureEnabled) => simulationChanges && featureEnabled;
 
         /// <summary>
-        /// Whether the Services table's data (vanilla's default fees) is built: whenever the Economy panel is open. The
-        /// table is always the Services tab (a user decision), District service budgets or not.
+        /// Whether the Services table's data (vanilla's default fees) is built: the table on (Options > Enable services
+        /// table) and the Economy panel open, District service budgets or not. Off, the Services tab is vanilla's.
         /// </summary>
-        public static bool BuildsServiceTable(bool economyPanelOpen) => economyPanelOpen;
+        public static bool BuildsServiceTable(bool servicesTableEnabled, bool economyPanelOpen) => servicesTableEnabled && economyPanelOpen;
 
         /// <summary>
-        /// Whether the Services table's district fee shares are built: the panel open and the district view offered
-        /// (<see cref="ShowsDistrictServiceBudgets"/>). Off, the table is city-only and needs none.
+        /// Whether the Services table's district fee shares are built: the table built (<see cref="BuildsServiceTable"/>)
+        /// and the district view offered (<see cref="ShowsDistrictServiceBudgets"/>). Otherwise none are needed.
         /// </summary>
-        public static bool BuildsDistrictServiceFees(bool simulationChanges, bool featureEnabled, bool economyPanelOpen)
-            => economyPanelOpen && ShowsDistrictServiceBudgets(simulationChanges, featureEnabled);
+        public static bool BuildsDistrictServiceFees(bool simulationChanges, bool featureEnabled, bool servicesTableEnabled, bool economyPanelOpen)
+            => BuildsServiceTable(servicesTableEnabled, economyPanelOpen) && ShowsDistrictServiceBudgets(simulationChanges, featureEnabled);
 
         /// <summary>
         /// Whether the district list (the selector's choices) is published: any tab that shows the selector needs it —

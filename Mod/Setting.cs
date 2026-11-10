@@ -38,6 +38,13 @@ namespace FiscalOverhaul
         [SettingsUISection(kSection, kFeaturesGroup)]
         public bool EnableDistrictBudget { get; set; } = FeatureGates.DistrictBudgetDefault;
 
+        /// <summary>
+        /// Off: the Services tab is the vanilla page (service list, detail, info column) and the table's data isn't built;
+        /// District service budgets then has no district view (its stored budgets still apply).
+        /// </summary>
+        [SettingsUISection(kSection, kFeaturesGroup)]
+        public bool EnableServicesTable { get; set; } = FeatureGates.ServicesTableDefault;
+
         // ---- Simulation changes: the master first, then every switch under it. ----
 
         /// <summary>
@@ -114,6 +121,7 @@ namespace FiscalOverhaul
             EnableBudgetChart = FeatureGates.BudgetChartDefault;
             EnableDensityTaxes = FeatureGates.DensityTaxesDefault;
             EnableDistrictBudget = FeatureGates.DistrictBudgetDefault;
+            EnableServicesTable = FeatureGates.ServicesTableDefault;
             EnableSimulationChanges = FeatureGates.SimulationChangesDefault;
             EnableDistrictServiceBudget = FeatureGates.DistrictServiceBudgetDefault;
             RunOnUntestedGameVersion = FeatureGates.RunOnUntestedGameVersionDefault;

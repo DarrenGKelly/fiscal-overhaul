@@ -21,11 +21,14 @@ export const DistrictSelector = ({
   selected,
   onSelect,
   compact = false,
+  height = null,
 }: {
   options: DistrictOption[];
   selected: string;
   onSelect: (key: string) => void;
   compact?: boolean;
+  /** The header's picker: drawn this tall in px (a tab's height, measured); null: its own height. */
+  height?: number | null;
 }) => {
   const [open, setOpen] = useState(false);
   // The list draws through vanilla's Portal, above the panel: inside the header it would sit under the panel content
@@ -49,12 +52,12 @@ export const DistrictSelector = ({
   };
 
   return (
-    <div className={`${styles.districtBar} ${compact ? styles.compact : ""}`}>
+    <div className={`${styles.districtBar} ${compact ? styles.compact : ""}`} style={height ? { height: `${height}px` } : undefined}>
       <div className={styles.districtSelector}>
         <div className={`${styles.spanButton} ${styles.districtArrowButton}`} onClick={() => step(-1)}>
           <img className={`${styles.districtArrow} ${styles.districtArrowLeft}`} src={ARROW} />
         </div>
-        <div ref={nameRef} className={`${styles.spanButton} ${styles.districtName}`} onClick={() => {
+        <div ref={nameRef} className={`${styles.spanButton} ${styles.districtName}`} style={height ? { lineHeight: `${height}px` } : undefined} onClick={() => {
             playSound(SOUNDS.openList);
             toggle();
           }}>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CITY_KEY, OUTSIDE_KEY } from "../district/district-select";
 import { orderEconomyTabs } from "./tab-order";
-import { DistrictFeatures, economyTabBarChildren, headerPicker, isDistrictTab, reservesPickerSlot, TAB, withTabGroupDivider } from "./header-picker";
+import { DistrictFeatures, economyTabBarChildren, headerPicker, isDistrictTab, reservesPickerSlot, servicesDistrictsOn, TAB, withTabGroupDivider } from "./header-picker";
 
 const FEATURES = ["City Budget", "Loan", "Taxation", "Service Budgets", "Production Panel"];
 const tab = (id: number) => ({ props: { tab: id, feature: FEATURES[id] } });
@@ -114,5 +114,12 @@ describe("economyTabBarChildren", () => {
     const out = economyTabBarChildren(vanilla, null, DIVIDER);
     expect(out).not.toContain(PICKER);
     expect(ids(out)).toEqual([0, 2, 3, "|", 4, 1]);
+  });
+});
+describe("servicesDistrictsOn", () => {
+  it("the Services tab offers districts with District service budgets and the table on", () => expect(servicesDistrictsOn(true, true)).toBe(true));
+  it("not with the table off (the vanilla tab has no district view), nor with the budgets off", () => {
+    expect(servicesDistrictsOn(true, false)).toBe(false);
+    expect(servicesDistrictsOn(false, true)).toBe(false);
   });
 });
