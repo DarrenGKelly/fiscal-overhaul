@@ -199,11 +199,11 @@ try {
     Write-Host '--- the Budget rows'' check squares ---'
     # Each row is read at its own square: the totals at x 389, the rows under them at 418.
     $points = Merge-GameRunPoints @()
-    $squares = Join-Path $root 'rows\squares.png'
+    $squares = Join-Path $root 'rows/squares.png'
     $green = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(113, 241, 168))
     New-Png $squares 2560 1440 { param($g) foreach ($row in $GameRunBudgetRows) { $g.FillRectangle($green, $points[$row].X - 5, $points[$row].Y - 5, 10, 10) } }
     Check ((Get-UncheckedRows $squares $points).Count -eq 0) 'every square filled at its own x: no row reads off'
-    $totalsOnly = Join-Path $root 'rows	otals-only.png'
+    $totalsOnly = Join-Path $root 'rows/totals-only.png'
     New-Png $totalsOnly 2560 1440 { param($g) $g.FillRectangle($green, 384, 380, 10, 700) }
     $off = Get-UncheckedRows $totalsOnly $points
     Check ($off -contains 'RowTaxes' -and $off -notcontains 'RowRevenues' -and $off -notcontains 'RowBalance') 'fail case: only the totals'' column filled: the indented rows read off' ($off -join ', ')
@@ -296,8 +296,8 @@ try {
     $seen = [IO.File]::ReadAllText($env:FO_STUB_SEEN)
     Check ($seen -match '"EnableDensityTaxes": true' -and $seen -match '"DensityTaxOffsets": "2,1,-1,0,0,0,0,0,0,0,0,0"') '... the game loaded with density taxes on and the default offsets' $seen
     Check ([IO.File]::ReadAllText($settings) -eq $FixtureSettings -and -not (Test-Path -LiteralPath "$settings.store-screenshots-backup")) '... and the settings file is back byte for byte afterwards'
-    Check ($r.Output -match 'rows off at first: none' -and $r.Calls -notmatch '(?m)^click 540,') '... rows already on are not clicked (a click would turn one off)' $r.Calls
-    Check ($r.Calls -match '(?m)^click 1628,441$' -and $r.Calls -match '(?m)^click 1382,441$' -and $r.Calls -match '(?m)^click 629,568$' -and $r.Calls -match '(?m)^click 918,1092$') '... the district arrow and name, By density and Options at origin + offset' $r.Calls
+    Check ($r.Output -match 'rows off at first: none' -and $r.Calls -notmatch '(?m)^click (489|518),') '... rows already on are not clicked (a click would turn one off)' $r.Calls
+    Check ($r.Calls -match '(?m)^click 864,356$' -and $r.Calls -match '(?m)^click 668,356$' -and $r.Calls -match '(?m)^click 600,620$' -and $r.Calls -match '(?m)^click 1596,356$' -and $r.Calls -match '(?m)^click 918,1092$') '... the header picker''s arrow and name, the Density section, the Services tab and Options at origin + offset' $r.Calls
     Check ($r.Calls -match '(?m)^click 1696,446$') '... density taxes switched back off on the Options page' $r.Calls
     Check ($r.Calls -notmatch '(?m)^key Space$') '... never a Space on a paused save' $r.Calls
     $files = @(Get-ChildItem -LiteralPath (Join-Path $repo 'Mod\Properties\Screenshots') -File | ForEach-Object { $_.Name } | Sort-Object)
@@ -311,7 +311,7 @@ try {
     $before = Get-RepoState
     $r = Invoke-Store @('-SkipDeploy', '-ModsPath', $mods, '-CheckDir', $checkDir) @{ FO_STUB_ROWS_OFF = '1' }
     Check ($r.ExitCode -eq 1 -and $r.Output -match 'rows still off after clicking them: RowRevenues') 'fail case: rows that read off after the clicks make the run red' $r.Output
-    Check ($r.Calls -match '(?m)^click 540,503$' -and $r.Calls -match '(?m)^click 540,1078$') '... after clicking every row that read off (Revenues to Monthly Balance)' $r.Calls
+    Check ($r.Calls -match '(?m)^click 489,445$' -and $r.Calls -match '(?m)^click 489,1022$' -and $r.Calls -match '(?m)^click 518,500$') '... after clicking every row that read off (Revenues to Monthly Balance)' $r.Calls
     Check ((Get-RepoState) -eq $before) '... installing nothing'
     Check ([IO.File]::ReadAllText($settings) -eq $FixtureSettings) '... putting the settings file back'
     Check (-not (Test-FakeRunning) -and $r.Output -match 'Game: not running') '... and stopping the game it launched' $r.Output
