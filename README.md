@@ -4,7 +4,7 @@ A Cities: Skylines II mod that reworks the Economy panel: a line chart of your c
 the Budget tab's bar chart, a Services tab that shows what each service costs and earns, and tax rates per district,
 all driven by one district picker. Optional beta features add density taxes and per-district service budgets.
 
-![The Budget tab's line chart](Mod/Properties/Screenshots/01-budget-chart-v1-2-0.png)
+![The Budget tab's line chart](Mod/Properties/Screenshots/01-budget-chart-v1-3-0.png)
 
 ## Features
 
@@ -32,13 +32,13 @@ all driven by one district picker. Optional beta features add density taxes and 
   under the whole city only. District history is recorded from the first time the mod runs on a save, 32 times a
   month, and kept in the save.
 
-![The tooltip and span stats](Mod/Properties/Screenshots/02-budget-tooltip-v1-2-0.png)
+![The tooltip and span stats](Mod/Properties/Screenshots/02-budget-tooltip-v1-3-0.png)
 
-![Hovering a budget row shows the game's own detail panel for it](Mod/Properties/Screenshots/05-budget-vanilla-detail-v1-2-0.png)
+![Hovering a budget row shows the game's own detail panel for it](Mod/Properties/Screenshots/05-budget-vanilla-detail-v1-3-0.png)
 
-![One district's budget, picked with the header's district picker](Mod/Properties/Screenshots/06-budget-district-v1-2-0.png)
+![One district's budget, picked with the header's district picker](Mod/Properties/Screenshots/06-budget-district-v1-3-0.png)
 
-![The district list: the city, each district, and Outside Districts](Mod/Properties/Screenshots/07-budget-district-list-v1-2-0.png)
+![The district list: the city, each district, and Outside Districts](Mod/Properties/Screenshots/07-budget-district-list-v1-3-0.png)
 
 ### Services tab: costs and fee revenue in one table
 
@@ -51,7 +51,7 @@ all driven by one district picker. Optional beta features add density taxes and 
   gives) or a fee's effects.
 - Prefer the vanilla tab? Turn off **Enable services table** in Options.
 
-![The Services table, with the info column explaining the hovered service](Mod/Properties/Screenshots/08-services-table-v1-2-0.png)
+![The Services table, with the info column explaining the hovered service](Mod/Properties/Screenshots/08-services-table-v1-3-0.png)
 
 ### Taxation tab: tax rates per district
 
@@ -62,7 +62,7 @@ all driven by one district picker. Optional beta features add density taxes and 
 - **Reset buttons and markers** on every row: a district's row goes back to the city's rate, the city's to the game's
   default.
 
-![The Taxation tab in one district's view](Mod/Properties/Screenshots/09-taxation-district-v1-2-0.png)
+![The Taxation tab in one district's view](Mod/Properties/Screenshots/09-taxation-district-v1-3-0.png)
 
 ### Density taxes (BETA)
 
@@ -73,7 +73,7 @@ A beta feature, **off by default**: turn it on with **Enable density taxes (BETA
 - Demand, happiness and households choosing homes react to it as to any tax, and the Taxation tab estimates what each
   density rate brings in.
 
-![Density tax rates on the Taxation tab, with density taxes enabled](Mod/Properties/Screenshots/03-taxation-density-v1-2-0.png)
+![Density tax rates on the Taxation tab, with density taxes enabled](Mod/Properties/Screenshots/03-taxation-density-v1-3-0.png)
 
 ### District service budgets (BETA)
 
@@ -100,7 +100,7 @@ The mod has its own page in the game's Options menu, in three groups:
     versions; on any other, taxes stay vanilla (the Taxation tab says so) unless you tick this.
 - **Reset**: district service budgets, and density tax rates, each after a confirmation.
 
-![The Options page: the feature, simulation and reset groups](Mod/Properties/Screenshots/04-options-v1-2-0.png)
+![The Options page: the feature, simulation and reset groups](Mod/Properties/Screenshots/04-options-v1-3-0.png)
 
 ## Install
 

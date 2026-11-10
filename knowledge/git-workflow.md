@@ -57,6 +57,9 @@ before any branching or code. What it needs from this project:
    what you changed.
 5. `git push -u origin feature/<name>`, then `gh pr create --base autodev --title "<summary>" --body-file <file>`:
    what changed, what to try in game, the tests run, one `Fixes #<n>` per issue it closes (`Part of #<n>` for a slice).
+   The title is a plain summary, **never `vX.Y.Z - …`**: that form is for PRs into `master`, and `promote.py` skips
+   version-titled commits as master's own (synced) ones, so such a PR drops out of the promotion's Included list and
+   its `Fixes` lines (v1.3.0: #90 and #94).
 6. **Land it yourself:** `./tools/land-pr.ps1 <number>`. It refuses a base other than `autodev`, a PR that isn't open,
    unpushed commits or uncommitted changes, a conflicting PR, one whose merge with `origin/autodev` puts a doc over its
    [size budget](knowledge-format.md#size-budgets) (or that no working python can check: `-SkipBudget`, only when the

@@ -84,7 +84,9 @@ link by hand (any version suffix): the install renames them.
   keeps showing the old one. Each set carries a version suffix: `01-budget-chart-v1-2-0.png`. The version is
   `ModVersion`, or, when a `v*` tag at or above it says that one is already released, the next patch after the
   highest tag (the version the next promotion will usually stamp). `publish.ps1` refuses a changed picture under a
-  released name.
+  released name. The tags must be in the checkout that runs it: a checkout fed by a git bundle (the Windows PC from
+  Linux) has none, so pass `-Version` there; a minor release the user picks (1.3.0) is also `-Version`, and
+  `-FromDir <run>\raw -Version X.Y.Z` renames a set already taken without the game.
 - **`tools/store-screenshots.ps1`** takes the set (`Get-Help ./tools/store-screenshots.ps1 -Full`): the same claim,
   launch, paused check and quit as `in-game-check.ps1`; before the launch it sets the mod's settings file
   (`FiscalOverhaul.coc` in the game's LocalLow folder: the chart, district recording, the services table, simulation
