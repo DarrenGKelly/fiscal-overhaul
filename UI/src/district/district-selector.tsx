@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { cycle, dividerBefore, DistrictOption, listAnchor } from "./district-select";
+import { useEffect, useRef, useState } from "react";
+import { closesOnPress, cycle, dividerBefore, DistrictOption, listAnchor } from "./district-select";
 import styles from "./district-selector.module.scss";
 import { Portal, Scrollable, usePortalContainer } from "vanilla";
 import { playSound } from "bindings";
@@ -35,7 +35,18 @@ export const DistrictSelector = ({
   // (the header's stacking context comes before the content's). Placed under the name when it opens.
   const container = usePortal();
   const nameRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  // While open, a press anywhere but the name and the list closes it: another tab (the picker stays mounted in the
+  // header across tabs), the panel or the map.
+  useEffect(() => {
+    if (!open) return;
+    const onPress = (e: MouseEvent) => {
+      if (closesOnPress(e.target, [nameRef.current, listRef.current])) setOpen(false);
+    };
+    document.addEventListener("mousedown", onPress, true);
+    return () => document.removeEventListener("mousedown", onPress, true);
+  }, [open]);
   const toggle = () => {
     const name = nameRef.current;
     if (!open && name) setAt(listAnchor(name.getBoundingClientRect(), container?.getBoundingClientRect() ?? null));
@@ -68,7 +79,7 @@ export const DistrictSelector = ({
         </div>
         {open && inPortal(
           at,
-          <div className={styles.districtList} style={at && Portal ? { left: `${at.left}px`, top: `${at.top}px` } : undefined}>
+          <div ref={listRef} className={styles.districtList} style={at && Portal ? { left: `${at.left}px`, top: `${at.top}px` } : undefined}>
             <Scrollable className={styles.districtScroll} trackVisibility="scrollable">
               {options.map((o, i) => (
                 <div
