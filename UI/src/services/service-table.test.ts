@@ -13,9 +13,12 @@ import {
   visibleEstimates,
   feeFromSlider,
   feeReset,
+  feeRevenue,
   feeRows,
   feeToSlider,
-  serviceEstimate,
+  hasFeeSlider,
+  serviceCost,
+  serviceNet,
   tableDistrict,
 } from "./service-table";
 
@@ -40,15 +43,15 @@ const data = { budgets, fees };
 
 describe("feeRows", () => {
   const list = [fee(), fee({ resource: 5, adjustable: false })];
-  it("shows only the adjustable fees, as vanilla does", () => {
-    expect(feeRows(list, false).map((f) => f.resource)).toEqual([0]);
-    expect(feeRows(list, true, "disabled").map((f) => f.resource)).toEqual([0]);
+  it("shows every fee, so each fee's revenue has a row; only an adjustable one has a slider", () => {
+    expect(feeRows(list, false).map((f) => f.resource)).toEqual([0, 5]);
+    expect(feeRows(list, true, "disabled").map((f) => f.resource)).toEqual([0, 5]);
+    expect(list.map(hasFeeSlider)).toEqual([true, false]);
   });
   it("shows none without fees, or in a district view when hidden there", () => {
     expect(feeRows(undefined, false)).toEqual([]);
-    expect(feeRows([fee({ adjustable: false })], false)).toEqual([]);
     expect(feeRows(list, true, "hidden")).toEqual([]);
-    expect(feeRows(list, false, "hidden")).toHaveLength(1);
+    expect(feeRows(list, false, "hidden")).toHaveLength(2);
   });
 });
 
@@ -106,17 +109,46 @@ describe("feeReset", () => {
   });
 });
 
-describe("serviceEstimate", () => {
+describe("serviceNet", () => {
   it("city view: vanilla's NET as the service list shows it", () => {
-    expect(serviceEstimate({ key: POWER, budget: -1234 }, CITY_KEY, data)).toBe(-1234);
+    expect(serviceNet({ key: POWER, budget: -1234 }, CITY_KEY, data)).toBe(-1234);
   });
   it("district view: the area's fee share minus its upkeep", () => {
-    expect(serviceEstimate({ key: POWER, budget: -1234 }, NORTH, data)).toBe(600 - 3000);
-    expect(serviceEstimate({ key: WATER, budget: 0 }, NORTH, data)).toBe(250 + 150 - 1000);
-    expect(serviceEstimate({ key: WATER, budget: 0 }, OUTSIDE_KEY, data)).toBe(0);
+    expect(serviceNet({ key: POWER, budget: -1234 }, NORTH, data)).toBe(600 - 3000);
+    expect(serviceNet({ key: WATER, budget: 0 }, NORTH, data)).toBe(250 + 150 - 1000);
+    expect(serviceNet({ key: WATER, budget: 0 }, OUTSIDE_KEY, data)).toBe(0);
   });
   it("district view is not vanilla's city figure", () => {
-    expect(serviceEstimate({ key: POWER, budget: -1234 }, NORTH, data)).not.toBe(-1234);
+    expect(serviceNet({ key: POWER, budget: -1234 }, NORTH, data)).not.toBe(-1234);
+  });
+});
+
+describe("serviceCost (a service row shows only its cost)", () => {
+  // NET -1234 = fees 900 + exports 300 - imports 434 - upkeep 2000.
+  const power = { key: POWER, budget: -1234, fees: [fee({ incomeInternal: 900, incomeExports: 300 })] };
+  it("city view: the NET less the fee revenue, i.e. upkeep and imports", () => {
+    expect(serviceCost(power, CITY_KEY, data)).toBe(-2434);
+    expect(serviceCost({ key: WATER, budget: -500 }, CITY_KEY, data)).toBe(-500);
+  });
+  it("city view: never the NET when the service has fee revenue", () => {
+    expect(serviceCost(power, CITY_KEY, data)).not.toBe(-1234);
+  });
+  it("district view: the area's upkeep only, not its fee share", () => {
+    expect(serviceCost(power, NORTH, data)).toBe(-3000);
+    expect(serviceCost(power, NORTH, data)).not.toBe(600 - 3000);
+    expect(serviceCost({ key: WATER, budget: 0 }, OUTSIDE_KEY, data)).toBe(0);
+  });
+});
+
+describe("feeRowEstimate (a fee row shows its revenue, positive)", () => {
+  it("city view: the fee's internal and export income", () => {
+    expect(feeRowEstimate(fee({ incomeInternal: 900, incomeExports: 300 }), POWER, CITY_KEY, data)).toBe(1200);
+    expect(feeRevenue(fee({ incomeInternal: 900 }))).toBe(900);
+  });
+  it("district view: the area's share of that fee, not the city's", () => {
+    expect(feeRowEstimate(fee({ resource: 11 }), WATER, NORTH, data)).toBe(150);
+    expect(feeRowEstimate(fee({ resource: 11 }), WATER, NORTH, data)).not.toBe(900);
+    expect(feeRowEstimate(fee({ resource: 6 }), WATER, OUTSIDE_KEY, data)).toBe(0);
   });
 });
 
@@ -139,7 +171,7 @@ describe("estimateTotal", () => {
   ];
   it("is the sum of the service rows, city view", () => expect(estimateTotal(services, CITY_KEY, data)).toBe(-500));
   it("is the sum of the district's rows, so the rows add up to the total", () => {
-    const rows = services.map((s) => serviceEstimate(s, NORTH, data));
+    const rows = services.map((s) => serviceNet(s, NORTH, data));
     expect(estimateTotal(services, NORTH, data)).toBe(rows[0] + rows[1]);
     expect(estimateTotal(services, NORTH, data)).toBe(600 - 3000 + 400 - 1000);
   });
@@ -161,19 +193,19 @@ describe("tableDistrict", () => {
   });
 });
 
-describe("visibleEstimates (regression: the fee sub-rows' figures were not in the total)", () => {
+describe("visibleEstimates (the visible column adds up to the footer)", () => {
   const services = [
     { key: POWER, budget: -31191, fees: [fee({ incomeInternal: 14104 })] },
-    { key: WATER, budget: -6766, fees: [fee({ resource: 6, incomeInternal: 6207 }), fee({ resource: 11, adjustable: false })] },
+    { key: WATER, budget: -6766, fees: [fee({ resource: 6, incomeInternal: 6207 }), fee({ resource: 11, adjustable: false, incomeInternal: 500 })] },
   ];
   const sum = (column: (number | null)[]) => column.reduce<number>((t, v) => t + (v ?? 0), 0);
   it("the visible column adds up to the footer, city and district view", () => {
     expect(sum(visibleEstimates(services, CITY_KEY, data))).toBe(estimateTotal(services, CITY_KEY, data));
     expect(sum(visibleEstimates(services, NORTH, data))).toBe(estimateTotal(services, NORTH, data));
   });
-  it("draws each service's NET and a blank per adjustable fee row, never the fee income", () => {
-    expect(visibleEstimates(services, CITY_KEY, data)).toEqual([-31191, null, -6766, null]);
-    expect(visibleEstimates(services, CITY_KEY, data)).not.toContain(14104);
-    expect(feeRowEstimate()).toBeNull();
+  it("draws each service's cost, then each fee's revenue (a non-adjustable fee too), never the NET", () => {
+    expect(visibleEstimates(services, CITY_KEY, data)).toEqual([-31191 - 14104, 14104, -6766 - 6207 - 500, 6207, 500]);
+    expect(visibleEstimates(services, CITY_KEY, data)).not.toContain(-31191);
+    expect(visibleEstimates(services, NORTH, data)).toEqual([-3000, 600, -1000, 250, 150]);
   });
 });

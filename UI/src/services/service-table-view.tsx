@@ -1,5 +1,6 @@
 // The Services tab as a table like the Taxation tab's (with District service budgets on): Type | Budget / Fee |
-// Estimate, one row per service with its budget slider and NET, a sub-row per adjustable fee, and an estimated total.
+// Estimate, one row per service with its budget slider and cost, a sub-row per fee with its revenue (a slider when
+// adjustable), and an estimated total; vanilla's info column at the right explains the hovered row.
 // Always the Services tab (a user decision). The city view sets vanilla's budget and fees; with District service
 // budgets (BETA) on, a district view (the header's picker) sets the area's budget and shows the city's fees
 // read-only. Off: the table, city-only.
@@ -29,6 +30,8 @@ import {
   NumberField,
   Scrollable,
   Section,
+  ServiceItemDetail,
+  servicePageClasses,
   taxationGroupClasses,
   taxationItemClasses,
   taxationPageClasses,
@@ -36,6 +39,7 @@ import {
   useLegacyInterfaceActive,
 } from "vanilla";
 import { clampBudget, isDistrictView, MAX_BUDGET, MIN_BUDGET, serviceKey } from "./district-services";
+import { afterLeave, infoTarget, ServiceInfoTarget } from "./service-info";
 import {
   budgetReset,
   budgetValue,
@@ -48,7 +52,8 @@ import {
   feeReset,
   feeRows,
   feeToSlider,
-  serviceEstimate,
+  hasFeeSlider,
+  serviceCost,
   ServiceLike,
   SliderReset,
   tableDistrict,
@@ -102,11 +107,24 @@ const slider = {
   estimateColumn: taxSliderClasses?.estimateColumn ?? styles.estimateColumn,
   estimateValue: taxSliderClasses?.estimateValue ?? styles.estimateValue,
 };
+// Vanilla passes Entity.Null to the info column while nothing is selected; its details lookup needs an entity.
+const NULL_ENTITY = { index: 0, version: 0 };
 const RowBox = ActiveFocusDiv ?? "div";
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
-/** ServicePage override: our table always replaces vanilla's page (service list, detail, info column). */
+/** ServicePage override: our table always replaces vanilla's service list and detail; vanilla's info column stays. */
 export const ServiceTablePage = () => <ServiceTable />;
+
+/** The hover handlers a row part passes to its element: enter shows it in the info column, leave clears it. */
+interface InfoHover {
+  enter: (target: ServiceInfoTarget) => void;
+  leave: (target: ServiceInfoTarget) => void;
+}
+
+const hoverProps = (hover: InfoHover, target: ServiceInfoTarget) => ({
+  onMouseEnter: () => hover.enter(target),
+  onMouseLeave: () => hover.leave(target),
+});
 
 /** The header picker's choice (economy/economy-tab-bar.tsx) as the Services tab sees it: "" city, a district, "outside". */
 function useServiceDistrict(): string {
@@ -127,6 +145,8 @@ const ServiceTable = () => {
   const keyed = (services ?? []).map((s) => ({ key: serviceKey(s.entity), budget: s.budget }));
   const total = estimateTotal(keyed, district, data);
   const tr = translate as Translate;
+  const [info, setInfo] = useState<ServiceInfoTarget | null>(null);
+  const hover = useMemo<InfoHover>(() => ({ enter: (t) => setInfo(t), leave: (t) => setInfo((cur) => afterLeave(cur, t)) }), []);
   return (
     <div className={page.page}>
       <div className={page.main}>
@@ -142,7 +162,7 @@ const ServiceTable = () => {
         >
           <Scrollable className={page.scrollable}>
             {(services ?? []).map((s) => (
-              <ServiceGroup key={serviceKey(s.entity)} service={s} district={district} data={data} translate={tr} />
+              <ServiceGroup key={serviceKey(s.entity)} service={s} district={district} data={data} translate={tr} hover={hover} />
             ))}
           </Scrollable>
           <div className={page.tableLines}>
@@ -161,6 +181,9 @@ const ServiceTable = () => {
           </div>
         </Section>
       </div>
+      {ServiceItemDetail && (
+        <ServiceItemDetail service={info?.service ?? NULL_ENTITY} itemId={info?.item ?? null} className={servicePageClasses?.infoColumn ?? styles.infoColumn} />
+      )}
     </div>
   );
 };
@@ -174,10 +197,11 @@ interface GroupProps {
   district: string;
   data: { budgets: any; fees: any };
   translate: Translate;
+  hover: InfoHover;
 }
 
-/** One service: its header row (icon, name, budget slider, NET) and a sub-row per adjustable fee. */
-const ServiceGroup = ({ service, district, data, translate }: GroupProps) => {
+/** One service: its header row (icon, name, budget slider, cost) and a sub-row per fee (its revenue). */
+const ServiceGroup = ({ service, district, data, translate, hover }: GroupProps) => {
   const details = useMapValue(serviceBindings.serviceDetails$, service.entity);
   const defaults = useValue(serviceFeeDefaults$);
   const legacy = useLegacyInterfaceActive ? useLegacyInterfaceActive() : false;
@@ -187,7 +211,9 @@ const ServiceGroup = ({ service, district, data, translate }: GroupProps) => {
   const city = details?.budgetPercentage ?? 100;
   const reset = budgetReset(data.budgets, key, district, city);
   const value = budgetValue(data.budgets, key, district, city);
-  const estimate = serviceEstimate({ key, budget: service.budget }, district, data);
+  const estimate = serviceCost({ key, budget: service.budget, fees: details?.fees }, district, data);
+  const nameTarget = infoTarget(service.entity, { kind: "service" });
+  const sliderTarget = infoTarget(service.entity, { kind: "budget", adjustable: !!details?.budgetAdjustable });
   const setBudget = (v: number) => {
     const budget = clampBudget(v);
     if (districtView) setDistrictServiceBudget(key, district, budget);
@@ -201,9 +227,12 @@ const ServiceGroup = ({ service, district, data, translate }: GroupProps) => {
   return (
     <div className={group.group}>
       <RowBox className={group.header}>
-        <img className={cx(group.icon, locked && group.iconDisabled)} src={service.icon} />
-        <div className={cx(group.title, locked && "disabled")}>{name}</div>
+        <img className={cx(group.icon, locked && group.iconDisabled)} src={service.icon} {...hoverProps(hover, nameTarget)} />
+        <div className={cx(group.title, locked && "disabled")} {...hoverProps(hover, nameTarget)}>
+          {name}
+        </div>
         <ServiceSlider
+          hover={hoverProps(hover, sliderTarget)}
           className={group.slider}
           primary
           slider={
@@ -222,6 +251,7 @@ const ServiceGroup = ({ service, district, data, translate }: GroupProps) => {
         <FeeRow
           key={fee.resource}
           fee={fee}
+          entity={service.entity}
           service={key}
           district={district}
           defaultFee={feeDefault(defaults, fee.resource)}
@@ -229,6 +259,8 @@ const ServiceGroup = ({ service, district, data, translate }: GroupProps) => {
           locked={locked}
           legacy={legacy}
           translate={translate}
+          data={data}
+          hover={hover}
         />
       ))}
     </div>
@@ -237,6 +269,7 @@ const ServiceGroup = ({ service, district, data, translate }: GroupProps) => {
 
 interface FeeRowProps {
   fee: FeeLike;
+  entity: ServiceLike["entity"];
   service: string;
   district: string;
   defaultFee: number | null;
@@ -244,27 +277,37 @@ interface FeeRowProps {
   locked: boolean;
   legacy: boolean;
   translate: Translate;
+  data: { budgets: any; fees: any };
+  hover: InfoHover;
 }
 
-/** A fee sub-row, drawn as a Taxation education/resource row. City-wide: read-only (disabled) in a district view. */
-const FeeRow = ({ fee, service, district, defaultFee, fees, locked, legacy, translate }: FeeRowProps) => {
+/**
+ * A fee sub-row, drawn as a Taxation education/resource row, with the fee's revenue; a slider only for an adjustable
+ * fee. City-wide: read-only (disabled) in a district view.
+ */
+const FeeRow = ({ fee, entity, service, district, defaultFee, fees, locked, legacy, translate, data, hover }: FeeRowProps) => {
   const reset = feeReset(fee, defaultFee, district);
+  const adjustable = hasFeeSlider(fee);
   const readOnly = isDistrictView(district);
   const label = translate(`EconomyPanel.SERVICES_RESOURCE_FEE_LABEL[${fee.name}]`, fee.name) ?? fee.name;
   return (
-    <RowBox className={item.row}>
+    <RowBox className={item.row} {...hoverProps(hover, infoTarget(entity, { kind: "fee", name: fee.name }))}>
       <div className={item.icon} />
       <div className={cx(item.title, (locked || readOnly) && "disabled")}>{label}</div>
       <ServiceSlider
         className={item.slider}
-        slider={{
-          value: feeToSlider(fee.fee, fee.min, fee.max),
-          min: 0,
-          max: FEE_SLIDER_MAX,
-          gradient: legacy ? FEE_GRADIENT_LEGACY : FEE_GRADIENT,
-          onChange: (v: number) => serviceBindings.setServiceFee(fee.resource, feeFromSlider(v, fee.min, fee.max)),
-        }}
-        estimate={feeRowEstimate()}
+        slider={
+          adjustable
+            ? {
+                value: feeToSlider(fee.fee, fee.min, fee.max),
+                min: 0,
+                max: FEE_SLIDER_MAX,
+                gradient: legacy ? FEE_GRADIENT_LEGACY : FEE_GRADIENT,
+                onChange: (v: number) => serviceBindings.setServiceFee(fee.resource, feeFromSlider(v, fee.min, fee.max)),
+              }
+            : null
+        }
+        estimate={feeRowEstimate(fee, service, district, data)}
         disabled={locked || readOnly}
         reset={reset}
         onReset={() => defaultFee !== null && serviceBindings.setServiceFee(fee.resource, defaultFee)}
@@ -285,10 +328,12 @@ interface SliderSpec {
 interface ServiceSliderProps {
   className: string;
   primary?: boolean;
-  /** Null: no slider (a service whose budget isn't adjustable), only its estimate. */
+  /** Null: no slider (a service whose budget or a fee that isn't adjustable), only its estimate. */
   slider: SliderSpec | null;
-  /** Null: a blank estimate column (a fee row: its income is in the service's NET). */
+  /** Null: a blank estimate column. */
   estimate: number | null;
+  /** The info column's hover handlers for the slider part (the fee rows set theirs on the whole row). */
+  hover?: { onMouseEnter: () => void; onMouseLeave: () => void };
   disabled: boolean;
   reset: SliderReset;
   onReset: () => void;
@@ -313,7 +358,7 @@ function locateSlider(frame: HTMLElement): FrameLayout {
  * A slider row in TaxSlider's own DOM and classes (so it lines up with the Taxation tab's columns), with the
  * service sliders' gradients and a whole-% label; its reset button and target marker over it.
  */
-const ServiceSlider = ({ className, primary, slider: spec, estimate, disabled, reset, onReset, translate }: ServiceSliderProps) => {
+const ServiceSlider = ({ className, primary, slider: spec, estimate, disabled, reset, onReset, translate, hover }: ServiceSliderProps) => {
   // The value being dragged, shown until the binding comes back with it (a round trip through C#).
   const [pending, setPending] = useState<number | null>(null);
   const shown = spec ? Math.round(spec.value) : null;
@@ -326,7 +371,7 @@ const ServiceSlider = ({ className, primary, slider: spec, estimate, disabled, r
   const visibility = resetVisibility(reset.differs && !disabled && !!spec);
   const tooltip = localize(translate, reset.kind === "city" ? "ResetServiceToCity" : "ResetServiceToDefault");
   const row = (
-    <div className={cx(slider.root, primary && slider.primary, styles.slider)}>
+    <div className={cx(slider.root, primary && slider.primary, styles.slider)} {...hover}>
       <div className={slider.column}>
         <div className={cx(slider.rate, disabled && "disabled")}>{value === null ? "" : `${value}%`}</div>
         {spec && GradientSlider ? (
