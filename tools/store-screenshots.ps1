@@ -10,7 +10,7 @@
       1. Refuses (exit 2) unless the game is free ("Game: not running"). Deploys this checkout with tools/build.ps1
          (-Ref passes through; -SkipDeploy keeps the Mods folder).
       2. Sets the mod's settings file (FiscalOverhaul.coc in the game's LocalLow folder) for the shots - the chart,
-         district recording and density taxes on, the density offsets -Offsets - after copying it aside; the copy
+         district recording, the services table, simulation changes and density taxes on, the density offsets -Offsets - after copying it aside; the copy
          goes back, byte for byte, once the game has exited (red or green). A copy left by a killed run is put back
          first.
       3. Launches through Steam, resumes the last save (use one with districts and a year of history: Odiham),
@@ -22,11 +22,13 @@
            05-budget-vanilla-detail hovering the Taxes row
            06-budget-district       one click on the district selector's right arrow (the first district)
            07-budget-district-list  the name box clicked: the list open (closed again, back to Entire City after)
-           03-taxation-density      Taxation, Residential's By density open, showing the offsets
+           03-taxation-density      Taxation, Residential's Density section open, showing the offsets
+           09-taxation-district     the header picker's right arrow: Taxation in the first district's view (back after)
+           08-services-table        Services, the Electricity row hovered: the table and the info column
            04-options               Escape, Escape, Options, Fiscal Overhaul, density taxes switched back off
       5. Quits the instance it launched (always, in a finally) and confirms "Game: not running".
       6. Crops each panel shot to the 16:9 box (285,193)-(2275,1312), the Options shot whole, scales to 1920x1080,
-         and only when all seven exist installs them: <base>-v<X-Y-Z>.png in Mod/Properties/Screenshots/, the
+         and only when all nine exist installs them: <base>-v<X-Y-Z>.png in Mod/Properties/Screenshots/, the
          Screenshot entries and README links renamed (the page order kept), the old files of each base removed.
          The version is ModVersion, or the next patch after the highest v* tag when that tag is at or above it
          (-Version overrides): new names, so Paradox Mods doesn't serve its cached copies of the old ones.
@@ -112,7 +114,7 @@ foreach ($shot in $StoreShotSet) { $newNames[$shot.Base] = Get-StoreFileName $sh
 if ($FromDir) {
     $FromDir = [IO.Path]::GetFullPath($FromDir, (Get-Location).Path)
     $missing = @($StoreShotSet | Where-Object { -not (Test-Path -LiteralPath (Join-Path $FromDir "$($_.Base).png")) } | ForEach-Object { "$($_.Base).png" })
-    if ($missing) { Stop-Refused "-FromDir $FromDir lacks $($missing -join ', '): it needs all seven full-scale captures." }
+    if ($missing) { Stop-Refused "-FromDir $FromDir lacks $($missing -join ', '): it needs all $($StoreShotSet.Count) full-scale captures." }
 }
 if (-not $CheckDir) { $CheckDir = Join-Path ([IO.Path]::GetTempPath()) ('fo-store-screenshots-' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }
 $CheckDir = [IO.Path]::GetFullPath($CheckDir, (Get-Location).Path)
@@ -125,7 +127,7 @@ if ($DryRun) {
     exit 0
 }
 
-# --- install: crop and scale, then move into place and rename the references (all seven, or nothing) ---
+# --- install: crop and scale, then move into place and rename the references (the whole set, or nothing) ---
 function Install-StoreSet {
     $staging = Join-Path $CheckDir 'final'
     New-Item -ItemType Directory -Force $staging | Out-Null
@@ -230,7 +232,7 @@ try {
     Save-Raw '01-budget-chart'
     Invoke-GameMove $session 'ChartPoint' -Hover
     Save-Raw '02-budget-tooltip'
-    Invoke-GameMove $session 'RowTaxes' -Hover
+    Invoke-GameMove $session 'TaxesHover' -Hover
     Save-Raw '05-budget-vanilla-detail'
     Invoke-GameMove $session 'Neutral'
     Invoke-GameClick $session 'DistrictNext'
@@ -249,6 +251,17 @@ try {
     Invoke-GameClick $session 'ResidentialDensity'
     Invoke-GameMove $session 'Neutral'
     Save-Raw '03-taxation-density'
+    Invoke-GameClick $session 'DistrictNext'
+    Invoke-GameMove $session 'Neutral'
+    Save-Raw '09-taxation-district'
+    Invoke-GameClick $session 'DistrictPrev'
+    Invoke-GameMove $session 'Neutral'
+    Save-Check $session 'taxation-back' 'Taxation back on the city view'
+
+    # --- Services ---
+    Invoke-GameClick $session 'ServicesTab'
+    Invoke-GameMove $session 'ServiceElectricity' -Hover
+    Save-Raw '08-services-table'
 
     # --- Options ---
     Invoke-GameControl focus | Out-Null

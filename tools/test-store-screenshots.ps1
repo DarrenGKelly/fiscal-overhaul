@@ -10,8 +10,8 @@
     FO_GAME_LAUNCH starts a renamed ping.exe as the "game". What must hold, each with a pass and a fail case: the
     version the names carry (ModVersion, the next patch after a released tag, -Version), the suffixed names and their
     base, the config and README rewrites (order kept, other entries untouched), the settings rewrite, the crop box and
-    scale; the argument refusals; -FromDir installs all seven or nothing; the refusal while a game runs; a green run
-    turns the rows on, takes the seven shots, installs them and puts the settings file back byte for byte; a red run
+    scale; the argument refusals; -FromDir installs the whole set or nothing; the refusal while a game runs; a green run
+    turns the rows on, takes the nine shots, installs them and puts the settings file back byte for byte; a red run
     (rows that stay off) installs nothing, puts the settings back and stops the game it launched; a killed run's
     settings copy is put back first.
         ./tools/test-store-screenshots.ps1     (exit 0 = all passed)
@@ -93,7 +93,7 @@ switch ($Command) {
         $g = [System.Drawing.Graphics]::FromImage($b)
         $g.Clear([System.Drawing.Color]::FromArgb(60, 73, 91))
         $g.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(74, 192, 240)), [int](1170 * $s), [int](4 * $s), [int](220 * $s), [int](44 * $s))
-        if (-not $env:FO_STUB_ROWS_OFF) { $g.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(113, 241, 168)), [int](370 * $s), [int](400 * $s), [int](40 * $s), [int](700 * $s)) }
+        if (-not $env:FO_STUB_ROWS_OFF) { $g.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(113, 241, 168)), [int](370 * $s), [int](380 * $s), [int](70 * $s), [int](700 * $s)) }
         $g.Dispose()
         $b.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
         $b.Dispose()
@@ -194,6 +194,19 @@ try {
     $parsed = $newSettings.Substring($newSettings.IndexOf('{')) | ConvertFrom-Json
     Check ($newSettings.StartsWith("FiscalOverhaul`n{") -and $parsed.EnableDensityTaxes -eq $true -and $parsed.EnableBudgetChart -eq $true -and $parsed.EnableDistrictBudget -eq $true -and $parsed.DensityTaxOffsets -eq '2,1,-1,0,0,0,0,0,0,0,0,0') 'the settings file gets the features on and the offsets' $newSettings
     Check ($parsed.SomethingElse -eq 7) '... keeping its other keys' $newSettings
+    Check ($parsed.EnableServicesTable -eq $true -and $parsed.EnableSimulationChanges -eq $true) '... the services table and simulation changes on too (08-services-table, 09-taxation-district)' $newSettings
+
+    Write-Host '--- the Budget rows'' check squares ---'
+    # Each row is read at its own square: the totals at x 389, the rows under them at 418.
+    $points = Merge-GameRunPoints @()
+    $squares = Join-Path $root 'rows\squares.png'
+    $green = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(113, 241, 168))
+    New-Png $squares 2560 1440 { param($g) foreach ($row in $GameRunBudgetRows) { $g.FillRectangle($green, $points[$row].X - 5, $points[$row].Y - 5, 10, 10) } }
+    Check ((Get-UncheckedRows $squares $points).Count -eq 0) 'every square filled at its own x: no row reads off'
+    $totalsOnly = Join-Path $root 'rows	otals-only.png'
+    New-Png $totalsOnly 2560 1440 { param($g) $g.FillRectangle($green, 384, 380, 10, 700) }
+    $off = Get-UncheckedRows $totalsOnly $points
+    Check ($off -contains 'RowTaxes' -and $off -notcontains 'RowRevenues' -and $off -notcontains 'RowBalance') 'fail case: only the totals'' column filled: the indented rows read off' ($off -join ', ')
     Check ((Set-StoreSettingsText '' '0,0,0,0,0,0,0,0,0,0,0,1') -match '"DensityTaxOffsets": "0,0,0,0,0,0,0,0,0,0,0,1"') 'no settings file yet: one is written'
     Check (Throws { Set-StoreSettingsText $FixtureSettings '1,2,3' } '12 comma-separated') 'fail case: offsets that aren''t 12 integers'
 
@@ -250,7 +263,7 @@ try {
     Check ($r.ExitCode -eq 2 -and $r.Output -match 'lacks 04-options\.png' -and (Get-RepoState) -eq $before) 'fail case: a missing capture installs nothing' $r.Output
     New-Png (Join-Path $rawDir '04-options.png') 2560 1440
     $r = Invoke-Store @('-FromDir', $rawDir, '-CheckDir', $checkDir)
-    Check ($r.ExitCode -eq 0) 'all seven captures install (exit 0)' $r.Output
+    Check ($r.ExitCode -eq 0) 'all the captures install (exit 0)' $r.Output
     $files = @(Get-ChildItem -LiteralPath (Join-Path $repo 'Mod\Properties\Screenshots') -File | ForEach-Object { $_.Name } | Sort-Object)
     $want = @(($StoreShotSet | ForEach-Object { "$($_.Base)-v1-1-1.png" }) + '99-extra.png' | Sort-Object)
     Check (($files -join ',') -eq ($want -join ',')) '... the new names in Screenshots/, the old files gone, an unrelated one kept' ($files -join "`n")
@@ -288,7 +301,7 @@ try {
     Check ($r.Calls -match '(?m)^click 1696,446$') '... density taxes switched back off on the Options page' $r.Calls
     Check ($r.Calls -notmatch '(?m)^key Space$') '... never a Space on a paused save' $r.Calls
     $files = @(Get-ChildItem -LiteralPath (Join-Path $repo 'Mod\Properties\Screenshots') -File | ForEach-Object { $_.Name } | Sort-Object)
-    Check (($files -join ',') -eq ($want -join ',')) '... the seven installed under the new names, the old ones removed' ($files -join "`n")
+    Check (($files -join ',') -eq ($want -join ',')) '... the set installed under the new names, the old ones removed' ($files -join "`n")
     Check (-not (Test-FakeRunning) -and $r.Output -match 'Game: not running') '... and the launched game stopped: Game: not running' $r.Output
     $manifest = Get-Content -Raw -LiteralPath (Join-Path $checkDir 'manifest.md')
     Check ($manifest -match 'Result: green' -and $manifest -match 'Version: 1\.1\.1' -and $manifest -match 'rows-on\.png' -and $manifest -match 'options-open\.png') '... with a manifest of the shots and the check shots' $manifest
