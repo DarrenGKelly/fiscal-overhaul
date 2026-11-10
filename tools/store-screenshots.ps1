@@ -49,8 +49,9 @@
     '2,1,-1,0,0,0,0,0,0,0,0,0'. A save keeps its own density rates, so this shows only on a save that has none yet;
     Odiham's own rates are what 03-taxation-density shows.
 .PARAMETER SimSeconds
-    How long the simulation runs before the Taxation shots (default 30): long enough for the tax engine to charge
-    the payers whose estimates the tab shows. 0 skips the run (every estimate then reads 0).
+    How long the simulation runs before the Taxation shots (default 200): a full round of the tax engine's charges
+    (16 ticks of 512 frames, a little over 2 minutes at 1x), so the estimates are settled rather than scaled up from
+    the first groups charged. 0 skips the run (every estimate then reads 0).
 .PARAMETER Version
     The X.Y.Z the new file names carry (default: see step 6).
 .PARAMETER KeepDensityOn
@@ -79,7 +80,7 @@ param(
     [switch]$SkipDeploy,
     [string]$Ref,
     [string]$Offsets = '2,1,-1,0,0,0,0,0,0,0,0,0',
-    [ValidateRange(0, 600)][int]$SimSeconds = 30,
+    [ValidateRange(0, 600)][int]$SimSeconds = 200,
     [string]$Version,
     [string[]]$Point = @(),
     [switch]$KeepDensityOn,
