@@ -57,7 +57,7 @@ $GameRunPoints = [ordered]@{
     ResidentialDensity = @{ X = 500; Y = 570;  Source = 'derived';  What = 'Taxation tab: Residential''s "Density" section toggle (under Resources)' }
     ServiceElectricity = @{ X = 516; Y = 596;  Source = 'derived';  What = 'Services tab: the Electricity row''s name, hovered for the info column' }
     OptionsModEntry   = @{ X = 283;  Y = 1048; Source = 'derived';  What = 'Options: the FISCAL OVERHAUL entry in the left list (moves with the installed mods)' }
-    OptionsDensity    = @{ X = 1596; Y = 396;  Source = 'derived';  What = 'Options > Fiscal Overhaul: the Enable density taxes (BETA) check box' }
+    OptionsDensity    = @{ X = 1596; Y = 739;  Source = 'derived';  What = 'Options > Fiscal Overhaul: the Enable density taxes (BETA) check box (the fifth, under Simulation changes)' }
     OptionsNeutral    = @{ X = 1900; Y = 1200; Source = 'derived';  What = 'an empty spot on the Options page: no hover' }
 }
 
@@ -387,6 +387,23 @@ function Assert-GamePaused($Session, [string]$CheckDir) {
     $again = Join-Path $CheckDir 'paused.png'
     Save-GameShot -Out $again -Scale 1 -Delay 1000
     if (-not (Test-PausedBanner $again)) { throw "the game isn't paused after one Space (no PAUSED banner in $again): look at loaded.png and paused.png" }
+}
+
+# Runs the simulation for $Seconds, then pauses it again, each step checked by the PAUSED banner: the Taxation tab's
+# estimates count only payers the tax engine charged lately, and a save that loads paused has charged none. Returns
+# the two check shots (running, paused again).
+function Invoke-SimulationRun($Session, [string]$CheckDir, [int]$Seconds) {
+    Invoke-GameControl focus | Out-Null
+    Invoke-GameControl key Space | Out-Null
+    $running = Join-Path $CheckDir 'sim-running.png'
+    Save-GameShot -Out $running -Scale 1 -Delay 1000
+    if (Test-PausedBanner $running) { throw "Space didn't start the simulation (the PAUSED banner is still in $running)" }
+    Start-Sleep -Seconds $Seconds
+    Invoke-GameControl key Space | Out-Null
+    $paused = Join-Path $CheckDir 'sim-paused.png'
+    Save-GameShot -Out $paused -Scale 1 -Delay 1000
+    if (-not (Test-PausedBanner $paused)) { throw "the game isn't paused again after the simulation run (no PAUSED banner in $paused)" }
+    return @($running, $paused)
 }
 
 # Quits the game this run launched, and only that: $Escapes presses of Escape reach the pause menu (2 with a panel

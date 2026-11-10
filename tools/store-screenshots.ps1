@@ -22,6 +22,7 @@
            05-budget-vanilla-detail hovering the Taxes row
            06-budget-district       one click on the district selector's right arrow (the first district)
            07-budget-district-list  the name box clicked: the list open (closed again, back to Entire City after)
+           (the simulation runs -SimSeconds, then pauses again: the Taxation estimates need payers charged lately)
            03-taxation-density      Taxation, Residential's Density section open, showing the offsets
            09-taxation-district     the header picker's right arrow: Taxation in the first district's view (back after)
            08-services-table        Services, the Electricity row hovered: the table and the info column
@@ -44,8 +45,12 @@
 .PARAMETER CheckDir
     Where the check shots, the raw full-scale captures (raw/) and manifest.md go. Default: a new folder under TEMP.
 .PARAMETER Offsets
-    The density offsets for 03-taxation-density: 12 integers, residential/commercial/industrial/office x
-    low/medium/high. Default '2,1,-1,0,0,0,0,0,0,0,0,0' (three set, as the first published shot had).
+    The density offsets template: 12 integers, residential/commercial/industrial/office x low/medium/high. Default
+    '2,1,-1,0,0,0,0,0,0,0,0,0'. A save keeps its own density rates, so this shows only on a save that has none yet;
+    Odiham's own rates are what 03-taxation-density shows.
+.PARAMETER SimSeconds
+    How long the simulation runs before the Taxation shots (default 30): long enough for the tax engine to charge
+    the payers whose estimates the tab shows. 0 skips the run (every estimate then reads 0).
 .PARAMETER Version
     The X.Y.Z the new file names carry (default: see step 6).
 .PARAMETER KeepDensityOn
@@ -74,6 +79,7 @@ param(
     [switch]$SkipDeploy,
     [string]$Ref,
     [string]$Offsets = '2,1,-1,0,0,0,0,0,0,0,0,0',
+    [ValidateRange(0, 600)][int]$SimSeconds = 30,
     [string]$Version,
     [string[]]$Point = @(),
     [switch]$KeepDensityOn,
@@ -247,6 +253,12 @@ try {
     Save-Check $session 'district-back' 'the list closed and Entire City selected again'
 
     # --- Taxation ---
+    if ($SimSeconds -gt 0) {
+        Write-Store "running the simulation $SimSeconds s for the Taxation estimates"
+        Invoke-SimulationRun $session $CheckDir $SimSeconds | Out-Null
+        $checks.Add([pscustomobject]@{ Name = 'sim-running.png'; What = 'no PAUSED banner: the simulation running' })
+        $checks.Add([pscustomobject]@{ Name = 'sim-paused.png'; What = 'the PAUSED banner back after the run' })
+    }
     Invoke-GameClick $session 'TaxationTab'
     Invoke-GameClick $session 'ResidentialDensity'
     Invoke-GameMove $session 'Neutral'
