@@ -172,6 +172,8 @@ plain "Play", mods enabled), screenshot with `gnome-screenshot -f <file>` (2560x
 but not Gameface's hover, so the chart tooltip and the row pop-out only appear after a few
 `xdotool mousemove_relative -- 8 -1` steps onto the target. Escape closes a panel first, then opens the pause menu
 (Exit, then Exit to desktop). Logs are under the Proton prefix ([cs2-ui-modding.md § Building](cs2-ui-modding.md#building)).
+`build.ps1` and `test.ps1` don't run here (no Node or .NET; build with `build-linux.sh`, run the unit tests in a clone
+on the Windows PC over SSH); `pwsh ./tools/land-pr.ps1 <n>` does.
 
 ## Tool tests
 

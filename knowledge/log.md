@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-09
+
+* **land-pr runs on the Linux PC** (`pwsh`): `git-common.ps1`'s path helpers follow the OS instead of forcing `\`; `test-land-pr.ps1` passes under both shells. [repo-structure.md § tools/](repo-structure.md#tools)
+
 ## 2026-11-08
 
 * **Services tab as a table** (playtest, user design): the tab is always a Taxation-style table (city-only with District service budgets off) (Type | Budget / Fee | Estimate, fee sub-rows, reset buttons and markers, NET per service and ESTIMATED TOTAL) in place of vanilla's list, detail and info column; a district view sets the area's budget, shows the city's fees read-only and the district's NET (fee share by usage, `districtServiceFees`, minus its upkeep). Closes #62. [impl/district-service-budgets.md](impl/district-service-budgets.md#ui)
