@@ -7,7 +7,8 @@
     state file and records 'pr merge' calls. Each landing has its refusal beside it: a PR into master, an
     unpushed local commit, uncommitted work, a conflicting PR, a merge with autodev that puts a doc over its
     size budget, a changed tool whose tools/test-<stem> fails (in the branch's worktree or a temporary one), a
-    machine with no python to check the budget (landed only with -SkipBudget). Run after changing the script:
+    machine with no python to check the budget (landed only with -SkipBudget), and git-common's path helpers on this
+    OS. Runs under Windows PowerShell and under pwsh on the Linux PC. Run after changing the script:
         ./tools/test-land-pr.ps1     (exit 0 = all passed)
 #>
 $ErrorActionPreference = 'Stop'
@@ -27,6 +28,15 @@ function Check([bool]$Condition, [string]$Description, [string]$Detail = '') {
         $script:failures++
     }
 }
+
+# git-common's path helpers follow the OS (regression: on the Linux PC they turned '/' into '\', so every git call
+# land-pr made failed with "cannot change to '\home\...'").
+$here = ConvertTo-NormalizedPath $PSScriptRoot
+$sep = [IO.Path]::DirectorySeparatorChar
+$wrong = if ($sep -eq '\') { '/' } else { '\' }
+Check ((Test-Path -LiteralPath $here) -and -not $here.Contains($wrong) -and -not $here.EndsWith("$sep")) 'ConvertTo-NormalizedPath keeps the OS separator and a real path' $here
+Check ((Test-PathUnder $PSScriptRoot (Split-Path -Parent $PSScriptRoot)) -and -not (Test-PathUnder (Split-Path -Parent $PSScriptRoot) $PSScriptRoot)) 'Test-PathUnder: a folder is under its parent, not the reverse'
+Check ((Test-PathUnder (Join-Path $PSScriptRoot 'x') $PSScriptRoot) -and -not (Test-PathUnder ($PSScriptRoot + 'x') $PSScriptRoot)) 'Test-PathUnder: a sibling sharing the prefix is not under it'
 
 function Git([string]$Path, [string[]]$Arguments) { (Invoke-Git -Path $Path -Arguments $Arguments).Text }
 function Write-File([string]$Path, [string]$Text) {
@@ -295,7 +305,13 @@ try {
     $fakeBin = Join-Path $root 'no-python'
     New-Item -ItemType Directory -Force $fakeBin | Out-Null
     foreach ($name in 'python3', 'python') {
-        Set-Content -LiteralPath (Join-Path $fakeBin "$name.cmd") -Value "@exit /b 1"
+        if ([IO.Path]::DirectorySeparatorChar -eq '\') { Set-Content -LiteralPath (Join-Path $fakeBin "$name.cmd") -Value "@exit /b 1" }
+        else {
+            # pwsh on Linux: an executable script that fails (LF endings, or sh can't read the shebang).
+            $fake = Join-Path $fakeBin $name
+            [IO.File]::WriteAllText($fake, "#!/bin/sh`nexit 1`n")
+            & chmod +x $fake
+        }
     }
     $savedPath = $env:PATH
     $env:PATH = $fakeBin + [IO.Path]::PathSeparator + $env:PATH
