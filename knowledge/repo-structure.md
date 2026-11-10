@@ -43,8 +43,12 @@ screenshots), `LICENSE` (MIT), `CHANGELOG.md` (Keep a Changelog; one entry per r
 | Folder | What |
 |---|---|
 | `budget/` | The replacement Budget tab page |
+| `district/` | The district selector and the one shared selected district, used by the Budget, Taxation and Services tabs |
+| `common/` | Pieces shared by the tabs: a slider row's reset button, target marker and their frame, with their pure logic (`slider-reset.ts`, tested) |
 | `chart/` | The line chart component and its pure maths (`chart-math.ts`, tested by vitest) |
+| `services/` | The Services tab table (`service-table-view.tsx`) and its pure logic (`service-table.ts`, `district-services.ts`, tested) |
 | `taxation/` | The density rows on the Taxation tab and their pure logic (`density.ts`, tested) |
+| `economy/` | Economy panel tab order (`tab-order.ts`, tested) |
 | `l10n.ts` | `localize()`: a UI string by key through the game's translate, English fallback (tested) |
 
 ## Tests/
@@ -63,12 +67,12 @@ changing the script ([testing.md § Tool tests](testing.md#tool-tests)).
 | `build-linux.sh` | On the Linux PC: builds a ref on the Windows PC over SSH (`build.ps1 -Ref <ref> -Zip`, origin fed from a git bundle made here) and installs the zip into the game's Proton Mods folder; `--ref`, `--configuration`. Refuses while the game runs. Tested by `test-build-linux.sh` |
 | `publish.ps1` | Publishes a release to Paradox Mods through the game's ModPublisher (`/publish`): builds a ref (default `origin/master`) in a temporary worktree, refuses an unready config, uploads (`-Mode Publish`, `NewVersion` or `Update`; the default follows ModId) and tags `v<version>`; `-DryRun`; `-AccessLevel Private` is an untagged test upload (`<version>-test.<n>`, `-TestSuffix`). Refuses while the game runs ([releasing.md](releasing.md)). Tested by `test-publish.ps1` |
 | `test.ps1` | Runs the unit tests: xunit (`dotnet test Tests`) and vitest (`npm test` in `UI/`); `-CSharpOnly`, `-UIOnly`, `-Filter`. Tested by `test-test.ps1` |
-| `git-common.ps1` | Helpers the PowerShell tools dot-source: paths, `Invoke-Git`, the repo context, the hooks-path warning, `Use-LocalToolchain` (the per-user Node and .NET 6), `Get-GameProcess` |
-| `land-pr.ps1` | Lands a PR into `autodev` ([git-workflow.md](git-workflow.md#autonomous-sessions-autodev)) |
+| `git-common.ps1` | Helpers the PowerShell tools dot-source: paths (following the OS: `\` on Windows, `/` under pwsh on Linux), `Invoke-Git`, the repo context, the hooks-path warning, `Use-LocalToolchain` (the per-user Node and .NET 6), `Get-GameProcess` |
+| `land-pr.ps1` | Lands a PR into `autodev` ([git-workflow.md](git-workflow.md#autonomous-sessions-autodev)); also runs under `pwsh` on the Linux PC |
 | `new-test-batch.ps1` | Builds a test batch branch from several branches; `-Check`, `-Blame` ([git-workflow.md § Test batches](git-workflow.md#test-batches)) |
 | `game-control.ps1` | Drives the game from the shell on Windows, no computer use ([testing.md § On Windows without computer use](testing.md#on-windows-without-computer-use)): `screenshot` (primary monitor, `-Region`, `-Window`, `-Scale`, `-Delay`), `click`, `move`, `move-relative`, `hover`, `key` (scan codes), `focus`/`window` (the game, or `-Title`), `windows`, `wait-process` (`-Title`, `-Gone`), `wait-loaded` (the save), `cursor`. Tested by `test-game-control.ps1` (no game needed; not in `$LandingPowerShellSuites`, as it moves the cursor) |
 | `in-game-check.ps1` | The in-game check as one script ([testing.md § The in-game check](testing.md#the-in-game-check)): refuses unless the game is free, deploys (`-SkipDeploy`, `-Ref`), launches through Steam, resumes the last save, keeps it paused, screenshots Budget, the chart tooltip and Taxation into `-Out` with a `manifest.md`, runs `-Steps` (a file of extra clicks, hovers, keys and shots), and always quits the instance it launched. `-Point Name=x,y` corrects a point, `-ListPoints`, `-DryRun`. Tested by `test-in-game-check.ps1` |
-| `store-screenshots.ps1` | The Paradox Mods screenshot set ([releasing.md § Screenshots](releasing.md#screenshots)): the same claim, launch and quit; sets the mod's settings file for the shots (density taxes on, `-Offsets`) and restores it; turns every Budget row on; takes the seven shots, crops and scales them to 1920x1080 and installs them as `<base>-v<X-Y-Z>.png`, renaming the `Screenshot` entries and README links and removing the old files. `-FromDir` re-crops captures already taken; `-Version`, `-DryRun`. Tested by `test-store-screenshots.ps1` |
+| `store-screenshots.ps1` | The Paradox Mods screenshot set ([releasing.md § Screenshots](releasing.md#screenshots)): the same claim, launch and quit; sets the mod's settings file for the shots (density taxes on, `-Offsets`) and restores it; turns every Budget row on; runs the simulation briefly before the Taxation shots (their estimates need charged payers); takes the nine shots, crops and scales them to 1920x1080 and installs them as `<base>-v<X-Y-Z>.png`, renaming the `Screenshot` entries and README links and removing the old files. `-FromDir` re-crops captures already taken; `-Version`, `-DryRun`. Tested by `test-store-screenshots.ps1` |
 | `game-run-common.ps1` | What those two dot-source: the named points (client offsets in the 2560x1440 window, measured or derived), the claim, launch, paused check and quit, the steps grammar, the crop, the store set's names and the config, README and settings rewrites |
 | `check-batch-status.ps1` | One sweep for an orchestrator: each branch against `origin/autodev`, worktree state, PRs, whether the game is running, and what the Mods folder holds |
 | `prune-worktrees.ps1` | Removes worktrees whose branch has landed and that are clean (`-Apply`; dry run without) |

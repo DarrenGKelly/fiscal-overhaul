@@ -1,0 +1,84 @@
+// The Economy panel's tab bar with the district picker (economy-tab-bar.tsx).
+//
+// Gameface trap: vanilla's tab bar (.tab-bar: a centred flex row of `flex: 0 1` buttons with a 200rem min-width) must
+// keep its own styles. Any style of ours on the bar itself (justify-content: flex-start; or padding-left with
+// position: relative) made every tab ~2.5e8 px wide ("An elements' size ... exceeds the maximum" in UI.log): one blue
+// bar, no labels, no clicks. So nothing here styles the bar. The picker and the divider are zero-width markers in the
+// row (basis 0, like the divider measured in game), each drawing its content absolutely, and the room after each is
+// the next tab's margin (`marker + button`, as vanilla's own `button + button` gap).
+
+// The picker's room before the tabs. The whole row [picker | Budget Taxation Services | Production Loans] stays
+// centred by vanilla and must fit the bar (about 1416rem inside at 16:9): 5 tabs x 200rem + gaps + the divider's gap
+// (~1056rem) leave ~360rem: the compact picker (district-selector.module.scss .compact) fills $picker-width, and
+// $picker-gap stays between it and Budget.
+$picker-width: 340rem;
+$picker-gap: 20rem;
+
+.picker-room {
+  flex: 0 0 0;
+  width: 0;
+  height: 0;
+  position: relative;
+}
+
+// The picker, out of the flex flow: at the row's left, centred on the row's middle (the marker sits there, height 0),
+// above the panel content so its list opens over the page. Kept (empty) while the picker hides on Production and
+// Loans, so the tabs never move. As tall as a tab (the height is measured, economy-tab-bar.tsx).
+.picker-slot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateY(-50%);
+  width: $picker-width;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  z-index: 20;
+}
+
+.picker-room + button {
+  margin-left: $picker-width + $picker-gap;
+}
+
+// The gap between [Budget | Taxation | Services] and [Production | Loans]: a zero-size marker, its line drawn
+// absolutely in the middle of the gap after it, which the next tab's margin makes.
+$divider-gap: 40rem;
+
+.tab-divider {
+  flex: 0 0 0;
+  width: 0;
+  height: 32rem;
+  position: relative;
+}
+
+.tab-divider-line {
+  position: absolute;
+  left: $divider-gap * 0.5 - 1rem;
+  top: 0;
+  width: 2rem;
+  height: 32rem;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.tab-divider + button {
+  margin-left: $divider-gap;
+}
+
+// The frame around [picker | Budget Taxation Services]: the district choice drives those three tabs. Drawn behind the
+// picker (z-index 20) from the room marker, its box measured from the tabs (tab-group-frame.ts); shown only while the
+// picker is, so Production and Loans keep the plain header.
+.tab-group-frame {
+  position: absolute;
+  pointer-events: none;
+  border: 2rem solid rgba(255, 255, 255, 0.22);
+  border-radius: 12rem;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+// 100rem wide, out of sight: the px per rem the frame's padding is scaled by.
+.rem-probe {
+  position: absolute;
+  width: 100rem;
+  height: 0;
+  visibility: hidden;
+}

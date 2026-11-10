@@ -87,6 +87,56 @@ namespace FiscalOverhaul.Logic
             return districtRate == 0 || districtRate == cityRate ? paid : paid * cityRate / districtRate;
         }
 
+        /// <summary>
+        /// One payer's weights for the tax and subsidy slots of its row. <paramref name="paid"/> is its monthly tax paid
+        /// (<c>m_AverageTaxPaid</c>), charged at <paramref name="chargedRate"/>; <paramref name="storedRate"/> is its
+        /// vanilla rate and <paramref name="withoutDensityRate"/> its rate without density tax (the tax engine's; all
+        /// three equal when the engine adds nothing). The tax engine books what it charges beyond vanilla exactly
+        /// (<see cref="DensityTaxBooking.BookZone"/>), so the paid amount splits pro rata by rate into its vanilla part
+        /// (restated at the city rate, <see cref="AtCityRate"/>, as vanilla's row is), its district part and its density
+        /// part (both counted as they are). The tax slot weighs the vanilla, district and positive density parts; a
+        /// negative density part weighs the subsidy slot, as the city books it. With nothing added: paid on the tax slot
+        /// (or −paid on the subsidy slot for a vanilla subsidy), exactly as before.
+        /// </summary>
+        public static void PayerTaxWeights(double paid, double districtRate, double cityRate, int storedRate, int withoutDensityRate, int chargedRate,
+            out double taxWeight, out double taxAtCity, out double subsidyWeight, out double subsidyAtCity)
+        {
+            taxWeight = taxAtCity = subsidyWeight = subsidyAtCity = 0;
+            if (paid == 0) return;
+            if ((chargedRate == storedRate && withoutDensityRate == storedRate) || chargedRate == 0)
+            {
+                double atCity = AtCityRate(paid, districtRate, cityRate);
+                if (paid > 0)
+                {
+                    taxWeight = paid;
+                    taxAtCity = atCity;
+                }
+                else
+                {
+                    subsidyWeight = -paid;
+                    subsidyAtCity = -atCity;
+                }
+                return;
+            }
+            double perPoint = paid / chargedRate;
+            double vanillaPaid = perPoint * storedRate;
+            double district = perPoint * (withoutDensityRate - storedRate);
+            double density = perPoint * (chargedRate - withoutDensityRate);
+            double positive = density > 0 ? density : 0;
+            taxWeight = vanillaPaid + district + positive;
+            taxAtCity = AtCityRate(vanillaPaid, districtRate, cityRate) + district + positive;
+            if (density < 0) subsidyWeight = subsidyAtCity = -density;
+        }
+
+        /// <summary>
+        /// Whether a payer's paid amount weighs in the tax split: always while vanilla charges (as before); while the
+        /// tax engine charges, only with a charge record in the last 1/32 month (<see cref="ChargeWindow.IsCurrent"/>):
+        /// a payer the engine skips (no untaxed income) keeps its last <c>m_AverageTaxPaid</c> for good, and the city
+        /// books nothing from it.
+        /// </summary>
+        public static bool PayerCounts(bool engineCharges, bool hasRecord, int recordTick, int nowTick)
+            => !engineCharges || (hasRecord && ChargeWindow.IsCurrent(recordTick, nowTick));
+
         /// <summary>vanillaRow / sumAtCityRate, or 0 when the denominator is 0. A district's tax = its payers' paid sum * this.</summary>
         public static double TaxScale(double vanillaRow, double sumAtCityRate)
         {
@@ -149,7 +199,8 @@ namespace FiscalOverhaul.Logic
     /// <summary>A capped per-district history of SourceCount-wide samples, with a flat encoding for the save.</summary>
     public class DistrictHistory
     {
-        public const int FormatVersion = 1;
+        /// <summary>2: with per-service upkeep weights (ServiceUpkeepSave.WriteDistricts); 1 (without) still loads.</summary>
+        public const int FormatVersion = 2;
 
         /// <summary>36 months of samples (provisional).</summary>
         public const int MaxSamples = 36 * BudgetHistoryMath.SamplesPerMonth;

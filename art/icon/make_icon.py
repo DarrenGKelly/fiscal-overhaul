@@ -148,24 +148,31 @@ def cent(d: ImageDraw.ImageDraw, cx: float, cy: float, size: float, colour: tupl
 
 
 def word(img: Image.Image, text: str, cx: float, baseline: float, cap: float, colour: tuple,
-         tracking: float = 0, outline: float = 0) -> None:
+         tracking: float = 0, outline: float = 0, colours: dict[int, tuple] | None = None
+         ) -> list[tuple[float, float, float, float]]:
     """A word in capitals centred on cx, sitting on baseline, letter-spaced by tracking (1024-space px),
-    with a soft dark shadow under it so it reads on the gradient at any size."""
+    with a soft dark shadow under it so it reads on the gradient at any size. colours overrides the colour of
+    the letters at those indices. Returns each letter's ink box in 1024-space."""
     f = font(cap)
     widths = [f.getlength(ch) for ch in text]
     total = sum(widths) + s(tracking) * (len(text) - 1)
     layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     x = s(cx) - total / 2
-    for ch, w in zip(text, widths):
-        d.text((x, s(baseline)), ch, font=f, fill=colour + (255,), anchor="ls",
+    boxes = []
+    for i, (ch, w) in enumerate(zip(text, widths)):
+        fill = (colours or {}).get(i, colour)
+        d.text((x, s(baseline)), ch, font=f, fill=fill + (255,), anchor="ls",
                stroke_width=s(outline), stroke_fill=INK + (255,))
+        x0, y0, x1, y1 = f.getbbox(ch, anchor="ls")
+        boxes.append(((x + x0) / SS, (s(baseline) + y0) / SS, (x + x1) / SS, (s(baseline) + y1) / SS))
         x += w + s(tracking)
     sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
     sh.putalpha(layer.getchannel("A").point(lambda v: v * 170 // 255))
     sh = sh.filter(ImageFilter.GaussianBlur(s(cap * 0.08)))
     img.alpha_composite(sh, (0, s(cap * 0.05)))
     img.alpha_composite(layer)
+    return boxes
 
 
 def coin(img: Image.Image, cx: float, cy: float, r: float) -> None:
@@ -195,12 +202,22 @@ def finish(img: Image.Image) -> Image.Image:
 
 # --- The chart: a rising income line over a falling-behind expense line ----------------------------------------
 
-INCOME_LINE = [(0, 0.786), (0.2, 0.634), (0.4, 0.679), (0.6, 0.411), (0.8, 0.259), (1, 0.036)]  # x, y as panel fractions
-EXPENSE_LINE = [(0, 0.920), (0.2, 0.884), (0.4, 0.848), (0.6, 0.804), (0.8, 0.764), (1, 0.696)]
+INCOME_LINE = [(0, 0.786), (0.2, 0.634), (0.4, 0.679), (0.6, 0.411), (0.8, 0.259), (0.955, 0.085)]  # panel fractions
+EXPENSE_LINE = [(0, 0.920), (0.2, 0.884), (0.4, 0.848), (0.6, 0.804), (0.8, 0.764), (0.955, 0.712)]
 
 
-def chart(img: Image.Image, left: float, top: float, right: float, bottom: float, rows: int, line: float) -> None:
-    """The Budget tab's chart in the box; line is the income line's width (the rest scales with it)."""
+def at_x(line: list[tuple[float, float]], x: float) -> float:
+    """The line's y at x, interpolated between its points."""
+    for (x0, y0), (x1, y1) in zip(line, line[1:]):
+        if x0 <= x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    raise ValueError(x)
+
+
+def chart(img: Image.Image, left: float, top: float, right: float, bottom: float, rows: int, line: float
+          ) -> list[tuple[float, float]]:
+    """The Budget tab's chart in the box; line is the income line's width (the rest scales with it). Each line
+    ends in an arrow head. Returns the income line in 1024-space."""
     grid(img, left, top, right, bottom, rows=rows, cols=5)
 
     def place(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
@@ -209,16 +226,63 @@ def chart(img: Image.Image, left: float, top: float, right: float, bottom: float
     income, expense = place(INCOME_LINE), place(EXPENSE_LINE)
     area(img, income, bottom, INCOME, 110)
     polyline(img, expense, EXPENSE, width=line * 0.65, glow=line * 0.4)
-    polyline(img, income, INCOME, width=line, glow=line * 0.56, dots=line * 0.74)
+    arrow(img, expense[-2], expense[-1], length=line * 1.2, half_width=line * 0.85, colour=EXPENSE)
+    polyline(img, income, INCOME, width=line, glow=line * 0.56)
+    arrow(img, income[-2], income[-1], length=line * 1.4, half_width=line * 1.05, colour=INCOME)
+    return income
 
 
-# --- Primary: the wordmark, FISCAL over a squat chart over OVERHAUL, with a small tax coin ----------------------
+def y_labels(img: Image.Image, right: float, top: float, bottom: float, labels: list[str], cap: float) -> None:
+    """Axis labels right-aligned at right, one per gridline from the zero axis up, as the mod labels its y axis
+    (formatMoneyShort in UI/src/chart/chart-math.ts: ¢0, ¢1M, ...)."""
+    d = ImageDraw.Draw(img)
+    f = font(cap)
+    n = len(labels) - 1
+    for i, text in enumerate(labels):
+        y = bottom - (bottom - top) * i / n
+        d.text((s(right), s(y)), text, font=f, fill=(255, 255, 255, 205), anchor="rm")
+
+
+def pointer(img: Image.Image, x: float, y: float, scale: float) -> None:
+    """A mouse pointer (the usual arrow cursor) with its tip at (x, y)."""
+    shape = [(0, 0), (0, 16), (3.8, 12.4), (6.6, 18.6), (9.2, 17.4), (6.5, 11.4), (11.6, 11.4)]
+    poly = [(x + px * scale, y + py * scale) for px, py in shape]
+    sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).polygon(pts([(px + scale * 0.8, py + scale * 1.2) for px, py in poly]), fill=(0, 0, 0, 150))
+    img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(s(scale * 0.8))))
+    ImageDraw.Draw(img).polygon(pts(poly), fill=WHITE + (255,), outline=INK + (255,), width=s(scale * 0.85))
+
+
+# --- Primary: the wordmark, FISCAL over a squat chart over OVERHAUL --------------------------------------------
+# The chart is hovered as in the mod: the white hover line runs up the chart and on through FISCAL's gold C,
+# turning it into the game's money sign, with the hover dot on the income line and the mouse pointer on it.
 
 def wordmark() -> Image.Image:
     img = background()
-    chart(img, 120, 292, 904, 770, rows=3, line=42)
-    coin(img, 210, 368, 100)
-    word(img, "FISCAL", 512, 222, cap=158, colour=WHITE, tracking=20)
+    left, top, right, bottom = 200, 292, 904, 770
+    income = chart(img, left, top, right, bottom, rows=3, line=42)
+    y_labels(img, left - 18, top, bottom, [f"{CENT}{v}" for v in ("0", "1M", "2M", "3M")], cap=30)
+    c_index = 3
+    boxes = word(img, "FISCAL", 512, 222, cap=158, colour=WHITE, tracking=20, colours={c_index: GOLD})
+    cx0, cy0, cx1, cy1 = boxes[c_index]
+    hx = (cx0 + cx1) / 2 + 3  # the C is open on the right: nudge the bar to its optical centre
+    hy = at_x(income, hx)
+    over = (cy1 - cy0) * 0.15  # the money sign's bar runs past the C's top and bottom
+    # the hover line: white, from the C's bar down to the zero axis (the mod draws it white at 45%; brighter
+    # and wider here so it reads at 64 px)
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ImageDraw.Draw(layer).line([(s(hx), s(cy1 + over)), (s(hx), s(bottom))], fill=(255, 255, 255, 150),
+                               width=s(6))
+    img.alpha_composite(layer)
+    # the bar through the C, in the C's gold, making the ¢
+    ImageDraw.Draw(img).rounded_rectangle([s(hx - 9), s(cy0 - over), s(hx + 9), s(cy1 + over)], radius=s(5),
+                                          fill=GOLD + (255,))
+    # the hover dot, in the line's colour, ringed in ink so it stands off the line
+    d = ImageDraw.Draw(img)
+    r = 28
+    d.ellipse([s(hx - r - 6), s(hy - r - 6), s(hx + r + 6), s(hy + r + 6)], fill=INK + (255,))
+    d.ellipse([s(hx - r), s(hy - r), s(hx + r), s(hy + r)], fill=INCOME + (255,))
+    pointer(img, hx + 16, hy + 20, scale=6.2)
     word(img, "OVERHAUL", 512, 958, cap=117, colour=GOLD, tracking=2)
     return finish(img)
 

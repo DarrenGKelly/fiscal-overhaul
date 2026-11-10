@@ -1,0 +1,10 @@
+// The district view of the Taxation tab (district-tax-view.tsx, density-totals.tsx).
+
+// A slider whose district value differs from the city's: a bar in the accent colour down its left edge. A left border
+// and a faint tint (the inset box-shadow this was first drew nothing in Gameface); the slider moves 4rem right.
+.overridden {
+  border-left-style: solid;
+  border-left-width: 4rem;
+  border-left-color: rgba(255, 196, 0, 0.9);
+  background-color: rgba(255, 196, 0, 0.08);
+}

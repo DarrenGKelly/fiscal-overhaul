@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
+import EN_US from "../../../l10n/en-US.json";
 import { Translate } from "../l10n";
+import * as density from "./density";
 import {
   arrowFor,
-  formatCount,
   cellsForArea,
   densityExtraForArea,
   densityExtraTotal,
   densityLabel,
   estimatedTotalValue,
-  offsetSummary,
-  payersSuffix,
   zoneForAreaIndex,
   zoneTotalIncome,
 } from "./density";
@@ -18,8 +17,6 @@ const french: Translate = (id, fallback) =>
   ({
     "FiscalOverhaul.UI.DensityLow": "Faible densité",
     "FiscalOverhaul.UI.DensityOther": "Densité {NUMBER}",
-    "FiscalOverhaul.UI.OffsetsSet": "{COUNT} ajustements",
-    "FiscalOverhaul.UI.Payers": "{COUNT} contribuables",
   })[id] ??
   fallback ??
   null;
@@ -54,30 +51,18 @@ describe("densityLabel", () => {
   });
 });
 
-describe("offsetSummary", () => {
-  it("reads as before in English", () => {
-    expect(offsetSummary(0, null)).toBe("no offsets");
-    expect(offsetSummary(1, null)).toBe("1 offset set");
-    expect(offsetSummary(3, null)).toBe("3 offsets set");
+describe("the Density tax header", () => {
+  it("has no count summary: no helper and no summary text (removed by request)", () => {
+    expect("rateSummary" in density).toBe(false);
+    expect("offsetSummary" in density).toBe(false);
+    for (const key of ["NoOffsets", "OneOffsetSet", "OffsetsSet", "OneRateSet", "RatesSet", "OneOverride", "Overrides"])
+      expect(Object.keys(EN_US)).not.toContain(`FiscalOverhaul.UI.${key}`);
   });
 
-  it("fills the count into the translation", () => {
-    expect(offsetSummary(3, french)).toBe("3 ajustements");
-    expect(offsetSummary(0, french)).toBe("no offsets");
-  });
-});
-
-describe("payersSuffix", () => {
-  it("shows the count with separators, and nothing for no payers", () => {
-    expect(payersSuffix(1234, null)).toBe(" · 1,234 payers");
-    expect(payersSuffix(0, null)).toBe("");
-  });
-
-  it("uses the translation", () => {
-    expect(payersSuffix(1234, french)).toBe(" · 1,234 contribuables");
+  it("still has its title", () => {
+    expect(EN_US["FiscalOverhaul.UI.SectionDensity"]).toBe("Density");
   });
 });
-
 describe("cellsForArea", () => {
   const cells = [
     { zone: 0, density: 0 },
@@ -112,16 +97,6 @@ describe("arrowFor", () => {
   });
 });
 
-describe("formatCount", () => {
-  it("groups thousands with commas", () => {
-    expect(formatCount(1234567)).toBe("1,234,567");
-    expect(formatCount(0)).toBe("0");
-  });
-  it("has no separator below 1000", () => {
-    expect(formatCount(999)).toBe("999");
-  });
-});
-
 // Residential (area 1 = zone 0): Medium +3 earns 21720, High −2 loses 5000; Low has no offset (its estimate is 0).
 // Commercial (area 2 = zone 1): Low +1 earns 800.
 const totalsCells = [
@@ -149,9 +124,10 @@ describe("densityExtraForArea", () => {
     expect(densityExtraForArea(totalsCells, 2, false, false)).toBe(0);
   });
 
-  it("is 0 with every offset 0, even if a stale estimate is left", () => {
-    const zeroed = [{ zone: 0, density: 1, offset: 0, estimate: 21720 }];
-    expect(densityExtraForArea(zeroed, 1, false, true)).toBe(0);
+  it("counts a cell at the city's 0 whose payers pay a district's density rate (booked as charged)", () => {
+    const districtOnly = [{ zone: 0, density: 1, offset: 0, estimate: 1200 }];
+    expect(densityExtraForArea(districtOnly, 1, false, true)).toBe(1200);
+    expect(densityExtraForArea([{ zone: 0, density: 1, offset: 0, estimate: 0 }], 1, false, true)).toBe(0);
   });
 
   it("is 0 for the city-wide area, a locked zone, a zone without offsets, or no data", () => {
@@ -227,5 +203,32 @@ describe("estimatedTotalValue", () => {
 
   it("changes nothing if the vanilla class can't be found (a renamed module after a patch)", () => {
     expect(estimatedTotalValue(4000, undefined, undefined, 17520)).toBe(4000);
+  });
+});
+
+describe("the district part in the totals", () => {
+  // Commercial (area 2 = zone 1): a district's income-tax override adds 600 a month to what vanilla estimates.
+  const parts = [0, 600, 0, 0];
+
+  it("a zone total with a district override is vanilla plus the district part", () => {
+    expect(density.zoneTotalIncome(5000, true, density.zoneExtra([], parts, 2, false, true))).toBe(5600);
+    expect(density.zoneTotalIncome(5000, true, density.zoneExtra([], parts, 2, false, true))).not.toBe(5000);
+    // With density taxes off too: the district part is charged whatever the density switch.
+    expect(density.zoneExtra(totalsCells, parts, 2, false, false)).toBe(600);
+  });
+
+  it("adds it on top of the density extra, and only to its own zone", () => {
+    expect(density.zoneExtra(totalsCells, parts, 2, false, true)).toBe(800 + 600);
+    expect(density.zoneExtra(totalsCells, parts, 1, false, true)).toBe(21720 - 5000);
+    expect(density.districtPartForArea(parts, 2, true)).toBe(0); // locked
+    expect(density.districtPartForArea(parts, 0, false)).toBe(0); // the city-wide area
+    expect(density.districtPartForArea(undefined, 2, false)).toBe(0);
+  });
+
+  it("ESTIMATED TOTAL adds every unlocked zone's part, matching the zone totals", () => {
+    const withOffice = [0, 600, 0, 300];
+    // Office (area 4) is locked in `areas`: its part isn't added, as its zone total isn't drawn.
+    expect(density.totalExtra(totalsCells, withOffice, areas, true)).toBe(21720 - 5000 + 800 + 600);
+    expect(density.totalExtra([], withOffice, areas, true)).not.toBe(900);
   });
 });

@@ -42,7 +42,7 @@ gh pr list --base autodev --state merged --limit 60 --json number,title,body -q 
 For every note, find the feature it's about and what was decided for it:
 
 - **The feature doc.** `knowledge/impl/` has one doc per feature ([budget-chart.md](../../../knowledge/impl/budget-chart.md),
-  [density-taxes.md](../../../knowledge/impl/density-taxes.md)) with the user's earlier decisions. A note that
+  [tax-engine.md](../../../knowledge/impl/tax-engine.md)) with the user's earlier decisions. A note that
   contradicts a decided behaviour is a **bug**; a note that changes one is a **decision** (step 3).
 - **The user's vocabulary.** Words like "the side panel" or "the filters" map to a component; one
   `git grep -il <term> origin/autodev -- UI/src Mod` is enough to name the thing in the issue. Don't read deeper: the

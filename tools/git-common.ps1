@@ -1,15 +1,23 @@
 <#
     Shared git and path helpers for the PowerShell tools (land-pr, prune-worktrees, check-batch-status,
-    new-test-batch, build, test, publish). Dot-source it; it only defines functions. Windows only (Cities: Skylines II
-    is), and Windows PowerShell 5.1 compatible (no ?? / ?: / ternaries, no Get-Date -AsUTC).
+    new-test-batch, build, test, publish). Dot-source it; it only defines functions. Written for Windows (Cities:
+    Skylines II is), and Windows PowerShell 5.1 compatible (no ?? / ?: / ternaries, no Get-Date -AsUTC). The path
+    helpers follow the OS, so the git-only tools (land-pr) also run under pwsh on the Linux PC.
 #>
 
-# Paths compare case-insensitively, with '\' separators.
-$RepoPathComparison = [StringComparison]::OrdinalIgnoreCase
+# Windows: paths compare case-insensitively, with '\' separators. Elsewhere (pwsh on Linux): case-sensitively, with '/'.
+$RepoPathSeparator = [IO.Path]::DirectorySeparatorChar
+$RepoPathComparison = if ($RepoPathSeparator -eq '\') { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
 
 function ConvertTo-NormalizedPath([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
-    return [IO.Path]::GetFullPath(($Path.Trim() -replace '/', '\')).TrimEnd('\')
+    $path = $Path.Trim()
+    if ($RepoPathSeparator -eq '\') { $path = $path -replace '/', '\' }
+    $full = [IO.Path]::GetFullPath($path)
+    $trimmed = $full.TrimEnd($RepoPathSeparator)
+    # The filesystem root keeps its separator ('/' on Linux).
+    if (-not $trimmed) { return $full }
+    return $trimmed
 }
 
 function Test-SamePath([string]$A, [string]$B) {
@@ -21,8 +29,8 @@ function Test-SamePath([string]$A, [string]$B) {
 
 # True when $Child is $Parent or lies under it.
 function Test-PathUnder([string]$Child, [string]$Parent) {
-    $childPath = (ConvertTo-NormalizedPath $Child) + '\'
-    $parentPath = (ConvertTo-NormalizedPath $Parent) + '\'
+    $childPath = (ConvertTo-NormalizedPath $Child).TrimEnd($RepoPathSeparator) + $RepoPathSeparator
+    $parentPath = (ConvertTo-NormalizedPath $Parent).TrimEnd($RepoPathSeparator) + $RepoPathSeparator
     return $childPath.StartsWith($parentPath, $RepoPathComparison)
 }
 

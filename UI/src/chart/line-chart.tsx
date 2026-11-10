@@ -1,6 +1,7 @@
 import { useLocalization } from "cs2/l10n";
 import { ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { localize } from "l10n";
+import { logTiming } from "bindings";
 import {
   formatMoney,
   formatPerMonth,
@@ -15,6 +16,7 @@ import {
   timeTicks,
   valueRange,
 } from "./chart-math";
+import { hasDrawableSize, LoadTimer, nextMeasure, nowMs, SLOW_MEASURE_MS } from "./load-timing";
 import styles from "./line-chart.module.scss";
 
 export interface ChartLine {
@@ -22,6 +24,8 @@ export interface ChartLine {
   label: string;
   color: string;
   values: number[];
+  /** The first point with data: the line starts there (a service split recorded only from then on). */
+  start?: number;
   /** Shown negated in the tooltip (expenses are plotted as positive amounts). */
   negateInTooltip?: boolean;
 }
@@ -78,21 +82,45 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
   const probeRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0, rem: 1 });
   const [hover, setHover] = useState<Hover | null>(null);
+  // The load timings (Mod.log "BudgetChart UI:" via logTiming): first data, first size, first draw, since mount.
+  const [timer] = useState(() => new LoadTimer(nowMs()));
+  const draws = useRef(0);
+  const measures = useRef(0);
 
   // No ResizeObserver in Gameface: measure after layout and poll cheaply for panel resizes.
   const measure = useCallback(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el) return { w: 0, h: 0, rem: 1 };
+    measures.current++;
     const w = el.clientWidth;
     const h = el.clientHeight;
     const rem = measureRem(probeRef.current);
     setSize((s) => (s.w === w && s.h === h && s.rem === rem ? s : { w, h, rem }));
+    return { w, h, rem };
   }, []);
-  useLayoutEffect(measure);
+  useLayoutEffect(() => {
+    measure();
+  });
+  // Gameface lays out once a frame: a just-mounted chart reads 0 wide here. Measure every frame until it has a size
+  // and while the panel settles (load-timing.ts nextMeasure), then poll slowly for resizes.
   useEffect(() => {
-    const id = window.setInterval(measure, 500);
-    return () => window.clearInterval(id);
+    let frame = 0;
+    let raf = 0;
+    let poll = 0;
+    const tick = () => {
+      const measured = measure();
+      if (nextMeasure(++frame, measured) === "frame") raf = requestAnimationFrame(tick);
+      else poll = window.setInterval(measure, SLOW_MEASURE_MS);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearInterval(poll);
+    };
   }, [measure]);
+
+  if (monthsAgo.length > 0) timer.mark("data", nowMs());
+  if (hasDrawableSize(size)) timer.mark("size", nowMs());
 
   const geometry = useMemo(() => {
     const [vMin, vMax] = valueRange(lines);
@@ -116,11 +144,14 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || size.w <= 0 || size.h <= 0) return;
-    canvas.width = size.w;
-    canvas.height = size.h;
+    if (!canvas || !hasDrawableSize(size)) return;
+    // Resizing reallocates the canvas: only when the size changed (clearRect wipes it otherwise).
+    if (canvas.width !== size.w) canvas.width = size.w;
+    if (canvas.height !== size.h) canvas.height = size.h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const drawStart = nowMs();
+    draws.current++;
     ctx.clearRect(0, 0, size.w, size.h);
 
     const { ticks, xTicks, y, px, x, PAD } = geometry;
@@ -170,25 +201,27 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
     // Lines: highlighted one last and thicker.
     const ordered = [...lines].sort((a, b) => (a.key === highlightKey ? 1 : 0) - (b.key === highlightKey ? 1 : 0));
     for (const line of ordered) {
-      if (line.values.length === 0) continue;
+      const first = line.start ?? 0;
+      if (line.values.length <= first) continue;
       const highlighted = line.key === highlightKey;
       ctx.strokeStyle = line.color;
       ctx.globalAlpha = highlightKey && !highlighted ? 0.55 : 1;
       ctx.lineWidth = Math.max(2, (highlighted ? 6 : 4) * rem);
       ctx.lineJoin = "round";
-      if (line.values.length === 1) {
+      if (line.values.length - first === 1) {
         // One point (a district with no samples yet, only its live Now): a dot, as a path of one point draws nothing.
         ctx.fillStyle = line.color;
         ctx.beginPath();
-        ctx.arc(px[0], y(line.values[0]), Math.max(3, (highlighted ? 7 : 5) * rem), 0, Math.PI * 2);
+        ctx.arc(px[first], y(line.values[first]), Math.max(3, (highlighted ? 7 : 5) * rem), 0, Math.PI * 2);
         ctx.fill();
         continue;
       }
       ctx.beginPath();
       line.values.forEach((v, i) => {
+        if (i < first) return;
         const lx = px[i];
         const ly = y(v);
-        if (i === 0) ctx.moveTo(lx, ly);
+        if (i === first) ctx.moveTo(lx, ly);
         else ctx.lineTo(lx, ly);
       });
       ctx.stroke();
@@ -199,7 +232,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
     if (hover) {
       const line = lines.find((l) => l.key === hover.key);
       const v = line?.values[hover.index];
-      if (line && v !== undefined) {
+      if (line && v !== undefined && hover.index >= (line.start ?? 0)) {
         const hx = px[hover.index];
         ctx.strokeStyle = "rgba(255,255,255,0.45)";
         ctx.lineWidth = gridWidth;
@@ -213,7 +246,17 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
         ctx.fill();
       }
     }
-  }, [geometry, lines, highlightKey, hover, size, translate]);
+
+    // One timing line per mount, at the first draw with data.
+    if (monthsAgo.length > 0 && timer.mark("draw", nowMs())) {
+      const text = timer.line(
+        `draw took ${Math.round(nowMs() - drawStart)} ms, ${draws.current} draws, ${measures.current} measures, ` +
+          `${size.w}x${size.h} px, rem ${size.rem.toFixed(2)}, ${lines.length} lines x ${monthsAgo.length} points`
+      );
+      console.log(`FiscalOverhaul BudgetChart: ${text}`);
+      logTiming(text);
+    }
+  }, [geometry, lines, highlightKey, hover, size, translate, monthsAgo, timer]);
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -241,7 +284,7 @@ export const LineChart = ({ lines, monthsAgo, highlightKey, onHoverLine, insetLe
   }, [onHoverLine]);
 
   const hoverLine = hover ? lines.find((l) => l.key === hover.key) : undefined;
-  const hoverValue = hover && hoverLine ? hoverLine.values[hover.index] : undefined;
+  const hoverValue = hover && hoverLine && hover.index >= (hoverLine.start ?? 0) ? hoverLine.values[hover.index] : undefined;
   const tooltipLeft = hover ? (hover.x > size.w - 280 * size.rem ? hover.x - 270 * size.rem : hover.x + 18 * size.rem) : 0;
 
   return (

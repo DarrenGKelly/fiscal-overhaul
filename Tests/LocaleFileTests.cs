@@ -125,20 +125,37 @@ namespace FiscalOverhaul.Tests
             Assert.Equal("Fiscal Overhaul", en["FiscalOverhaul.Options.Title"]);
             Assert.Equal("Main", en["FiscalOverhaul.Options.Tab.Main"]);
             Assert.Equal("Features", en["FiscalOverhaul.Options.Group.Features"]);
-            Assert.Equal("Density taxes", en["FiscalOverhaul.Options.Group.DensityTax"]);
+            Assert.Equal("Simulation changes", en["FiscalOverhaul.Options.Group.SimulationChanges"]);
+            Assert.Equal("Reset", en["FiscalOverhaul.Options.Group.Reset"]);
+            Assert.False(en.ContainsKey("FiscalOverhaul.Options.Group.DensityTax"));
             Assert.Equal("Enable budget chart", en["FiscalOverhaul.Options.Label.EnableBudgetChart"]);
             Assert.Equal("Enable density taxes (BETA)", en["FiscalOverhaul.Options.Label.EnableDensityTaxes"]);
-            Assert.Equal("Reset density tax offsets", en["FiscalOverhaul.Options.Label.ResetDensityTaxes"]);
-            Assert.Equal("Reset all density tax offsets to 0?", en["FiscalOverhaul.Options.Warning.ResetDensityTaxes"]);
+            Assert.Equal("Reset density tax rates", en["FiscalOverhaul.Options.Label.ResetDensityTaxes"]);
+            Assert.Equal("Reset all density tax rates to 0?", en["FiscalOverhaul.Options.Warning.ResetDensityTaxes"]);
             Assert.Equal("Replaces the bar chart in Economy > Budget with a line chart of each revenue and expense over time. Off: the Budget tab is the vanilla one.",
                 en["FiscalOverhaul.Options.Desc.EnableBudgetChart"]);
-            Assert.Equal("A beta feature, off by default. Adds per-density tax offsets (set in Economy > Taxation) to what buildings pay; income only, demand and happiness are unchanged. Off: buildings pay the vanilla rates and the Taxation tab hides the density rows; your offsets are kept for when you switch it back on.",
+            Assert.Equal("A beta feature, off by default. Adds a density tax: its own rate per zone and density (set in Economy > Taxation, −5% to +10%), paid on top of income tax; demand, happiness and households choosing homes react to it as to any tax. Needs Simulation changes on. Off: no density tax is charged and the Taxation tab hides the density rows; your rates are kept for when you switch it back on.",
                 en["FiscalOverhaul.Options.Desc.EnableDensityTaxes"]);
-            Assert.Equal("Sets every density offset (set in Economy > Taxation) back to 0, so buildings pay the vanilla rates again.",
+            Assert.Equal("Sets the loaded city's density tax rates (set in Economy > Taxation, the city's and every district's) and the starting rates for new cities back to 0, so buildings pay no density tax.",
                 en["FiscalOverhaul.Options.Desc.ResetDensityTaxes"]);
             Assert.Equal("Record district budgets", en["FiscalOverhaul.Options.Label.EnableDistrictBudget"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictBudget"));
-            Assert.Equal(13, CountOptionKeys(en));
+            Assert.Equal("Enable services table", en["FiscalOverhaul.Options.Label.EnableServicesTable"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableServicesTable"));
+            Assert.Equal("Simulation changes", en["FiscalOverhaul.Options.Label.EnableSimulationChanges"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableSimulationChanges"));
+            Assert.Equal("District service budgets (BETA)", en["FiscalOverhaul.Options.Label.EnableDistrictServiceBudget"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictServiceBudget"));
+            Assert.Equal("Reset district service budgets", en["FiscalOverhaul.Options.Label.ResetDistrictServiceBudgets"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.ResetDistrictServiceBudgets"));
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Warning.ResetDistrictServiceBudgets"));
+            Assert.Equal(25, CountOptionKeys(en));
+            // The master's description says what turning it off disables, and that the switches under it grey out.
+            var master = en["FiscalOverhaul.Options.Desc.EnableSimulationChanges"];
+            foreach (var part in new[] { "density taxes", "district tax rates", "happiness", "budget slider", "greyed out" })
+                Assert.Contains(part, master);
+            Assert.Equal("Run on untested game version", en["FiscalOverhaul.Options.Label.RunOnUntestedGameVersion"]);
+            Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.RunOnUntestedGameVersion"));
         }
 
         private static int CountOptionKeys(Dictionary<string, string> entries)

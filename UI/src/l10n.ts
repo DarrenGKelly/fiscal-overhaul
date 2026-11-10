@@ -50,6 +50,9 @@ export const VANILLA = {
   expenses: ["EconomyPanel.EXPENSES_SECTION_TITLE", "Expenses"],
   monthlyBalance: ["EconomyPanel.MONTHLY_BALANCE", "Monthly balance"],
   now: ["StatisticsPanel.TIME_SCALE_NOW", "Now"],
+  serviceBudget: ["EconomyPanel.SERVICES_TITLE_BUDGET", "Budget"],
+  serviceExpenses: ["EconomyPanel.SERVICES_TITLE_EXPENSES", "Expenses"],
+  serviceUpkeep: ["EconomyPanel.SERVICES_LABEL_UPKEEP", "Upkeep"],
 } as const;
 
 /** A vanilla string ({@link VANILLA}) in the game's language, or its English fallback. */

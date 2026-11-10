@@ -1,13 +1,15 @@
 ---
 type: Implementation
 title: Budget tab line chart
-description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
+description: The replacement Budget tab — where its history data comes from (the game's own per-source statistics), how it is turned into monthly series, how per-district budgets and the per-service upkeep split are recorded and selected, and how the filter rows, chart, tooltip and detail column fit together.
 resource:
   - Mod/Systems/BudgetHistoryUISystem.cs
   - Mod/Logic/BudgetHistoryMath.cs
   - Mod/Logic/FeatureGates.cs
   - Mod/Systems/DistrictBudgetSystem.cs
   - Mod/Logic/DistrictBudgetMath.cs
+  - Mod/Systems/ServiceUpkeepSystem.cs
+  - Mod/Logic/ServiceUpkeepSplit.cs
   - UI/src/budget
   - UI/src/chart
 ---
@@ -58,13 +60,14 @@ weights:
 
 | Source | Weight per district |
 |---|---|
-| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate (`AtCityRate`: paid x city rate / the rate the payer's district charges now) |
+| Taxes, subsidies | payers' `TaxPayer.m_AverageTaxPaid` (households residential, `ServiceAvailable` commercial, processing companies industrial or office, as `TaxSystem`), scaled by `TaxScale` = vanilla row / city-wide paid restated at the city rate (`AtCityRate`: paid x city rate / the rate the payer's district charges now). While the tax engine charges, `PayerTaxWeights` splits paid pro rata by rate into its vanilla part (restated), district part and density part (both as paid, since the engine books them exactly, [tax-engine.md](tax-engine.md#the-citys-side)); a negative density part weighs the subsidy slot. While the engine charges, only payers with a current charge record weigh (`PayerCounts`, `TaxEngineSystem.GetChargeRecords`): a payer it skips keeps a stale `m_AverageTaxPaid` |
 | Electricity, water | `ElectricityConsumer.m_FulfilledConsumption`; `WaterConsumer.m_FulfilledFresh + m_FulfilledSewage` |
 | Healthcare, education | `Patient` / `Student` buffer length |
 | Garbage | `GarbageProducer.m_Garbage` |
 | Parking | parked cars x their lane's `ParkingLane.m_ParkingFee`, by the lane's district (`BorderDistrict` side, else the owner building's `CurrentDistrict`) |
 | Public transport | household residents |
 | Service upkeep | each `CityServiceUpkeep` entity's upkeep as `CityServiceBudgetSystem`'s building job; the network part (`CollectedCityServiceUpkeepData.m_BaseCost`) stays city-only |
+; the money part runs at the building's district % for its service when per-district service budgets apply (`ServiceUpkeepCost.EffectiveBudget`), else the city %; the per-service weights use the same %, so the children still sum to the district slot |
 
 **Taxes are not apportioned**: vanilla's tax rows are policy-blind estimates (taxable income x city rate), while
 `m_AverageTaxPaid` includes a district's Low Commercial Tax policy; scaling the paid sums keeps a discount in its
@@ -89,24 +92,72 @@ sums x the tax scale, so a Low Commercial Tax district shows its lower commercia
 the lane fees, and usage policies (water, electricity, ...) through usage. History starts when recording does (the
 first save with the mod), not with the city.
 
+## Per-service upkeep split
+
+Vanilla records Service Upkeep as one expense source (`ExpenseSource.ServiceUpkeep`, 5) and keeps no per-service
+series, so the mod records the split itself, as **weights** per service (by service prefab name, `ServiceColumns`), and
+splits the recorded row by them when it builds the history (`ServiceUpkeepSplit.Split`: largest-remainder rounding, so
+each point's parts are whole numbers summing exactly to the row as written; a negative or zero weight counts 0).
+
+- **Entire City**: `ServiceUpkeepSystem` (`GameSimulation`, every 8192 frames at offset 4096, halfway between the
+  statistics samples) records while **Enable budget chart** is on (`FeatureGates.RecordsServiceUpkeep`, panel open or
+  not). A sample is `CityServiceBudgetSystem.GetEstimatedServiceBudget(service)` per service prefab (the
+  `CollectedCityServiceBudgetData` entities); vanilla's ServiceUpkeep expense is exactly the sum of these. Each sample is
+  tagged with `CityStatisticsSystem.sampleCount`, the statistic sample filling at the time; at build time point `local`
+  of the ServiceUpkeep series reads the tag `ServiceUpkeepSplit.CityTag` (the live point uses the live estimates). Its
+  own `IDefaultSerializable` block (`ServiceUpkeepSave.WriteCity`: version, names, tagged samples, 36 months).
+- **A district**: `DistrictBudgetSystem`'s upkeep job also adds each building's upkeep under its service
+  (`ServiceObjectData.m_Service`) into per-area weights, kept beside each `DistrictHistory` as a `ServiceWeightHistory`
+  aligned with its newest sample (`ServiceUpkeepSplit.DistrictWeightIndex`); the split is of the district's own upkeep
+  slot, so networks stay out as they do there. Save **format 2** (`DistrictHistory.FormatVersion`,
+  `ServiceUpkeepSave.WriteDistricts`): version, service names, then per area its key, samples and weights. Format 1
+  saves (before the split) still load, with no weights: a district's split starts with the next sample.
+- **Gaps**: points before the first recorded weights have no split (`start`, the line starts there; months before the
+  mod recorded have none); after it, the last weights carry forward over gaps (recording switched off for a while), and
+  Now uses the latest weights. A service at 0 on every point with data is left out (`ServiceRows.Build`).
+- The save codec is pure (`ISaveReader`/`ISaveWriter`, wrapped round the game's `IReader`/`IWriter` by `SaveReader` /
+  `SaveWriter` in `ServiceUpkeepSystem.cs`, which are classes so a struct reader advances in one place), so the format 1
+  load is tested. A future per-district service budget % changes the weights only; `Split` takes any weights.
+
 ### Bindings
 
-`BudgetHistoryUISystem` publishes `districtBudgetEnabled` (recording on: `FeatureGates.RecordsDistrictBudget`) and
-`districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name; `[]` while recording is off) and takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
+`BudgetHistoryUISystem` publishes `districtBudgetEnabled` (recording on: `FeatureGates.RecordsDistrictBudget`); the
+list, `districts` (`DistrictChoice[]` = `{ key, name }`, sorted by name), is `DistrictListUISystem`'s, shared with the
+Services tab and `[]` while no district feature is on (`FeatureGates.PublishesDistrictList`). It takes `setDistrict(key)`: `""` = Entire City, `"outside"`, or `"<index>:<version>"`; an
 unknown key falls back to Entire City. `history` then carries `district` (`""` for Entire City) and `nowIncome[14]` /
 `nowExpense[15]` (a district's live values, expenses positive; `null` for Entire City: every view writes the same
-properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0.
+properties, `BudgetHistoryPayload`) with series from the district's samples; city-only sources are 0. Every view also
+writes `services`: `[{ name, start, values }]` (`FiscalOverhaul.ServiceUpkeep`, never null, `[]` without data), the
+Service Upkeep row split per service at the same points, in vanilla's Services tab order (`UIObjectData.m_Priority`).
 
 ### District selector
 
-`budget/district-selector.tsx`, centred above both columns: `‹ [name] ›`, span buttons on the rows' value-field box
+One picker for the Budget, Taxation and Services tabs, in the **Economy panel's header** at the left of the tabs
+(`economy/economy-tab-bar.tsx`, drawn by the extended vanilla `TabBar`; the logic in `economy/header-picker.ts`). The
+tabs follow it: [Budget | Taxation | Services], a divider line, [Production | Loans] (`withTabGroupDivider`, by tab id).
+It shows on the selected tab only by that tab's own rule (`headerPicker`: Budget while recording is on, Services while
+district service budgets are on, Taxation while the tax engine charges and the city has a district) and its choices
+(every one offers Outside Districts; a deleted district shows the city and the choice stays for the other tabs). On
+Production and Loans, or a tab whose feature is off, its slot stays empty so the tabs never move; with every district
+feature off there is no slot (`reservesPickerSlot`). The city option is the **city's name** (vanilla
+`toolbarBottom.cityName`; `cityLabel` falls back to "Entire City" while it is blank).
+
+While the picker shows, a **frame** (a filled outline, `.tab-group-frame`) surrounds it and the tabs it drives
+[picker | Budget Taxation Services], 6rem out on every side (a user request: the choice applies to those three tabs).
+The picker is **as tall as a tab**. Both are measured (`PickerRoom` in `economy-tab-bar.tsx`, `tab-group-frame.ts`):
+the tab buttons after the room marker up to the divider, after each render and for a few frames (`keepMeasuring`; no
+ResizeObserver), the padding scaled by a `100rem` probe. Production and Loans show no frame (their slot is empty).
+
+`district/district-selector.tsx` (`compact` in the header: it fills its 340rem slot, 20rem before Budget, and the name
+takes what the arrows leave; a 22rem bold name, above the tabs' `--fontSizeL` labels for hierarchy, user requests;
+centred by a line-height of the measured tab height; clipped with an ellipsis): `‹ [name] ›`, span buttons on the rows' value-field box
 (vanilla `NumberField`'s secondary background, `rgba(6,10,16,.7)` with 8rem corners: `$value-field-bg`), so the name
-and both arrows read as controls; the name is the tab's header (bold 24rem, above the rows' bold 18rem titles; scoped under `.district-selector` so the later
+and both arrows read as controls; the name is bold (scoped under `.district-selector` so the later
 `.span-button` rule doesn't shrink it). The arrows are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the
 left one (the font has no arrows). They cycle Entire City → each district (by name) → Outside Districts → Entire
 City, wrapping both ways; the name opens a list of every choice, with a divider line between the three groups (Entire
 City | the districts | Outside Districts; `dividerBefore`). The list's items sit in vanilla's `Scrollable`, capped at
-520rem, so a long list gets the game's scroll bar instead of running past the panel. It shows whenever recording is on (`districtBudgetEnabled`, `showsDistrictSelector`), even in a city without
+520rem, so a long list gets the game's scroll bar instead of running past the panel. The open list closes on a pick, a second click on the name, or a mouse press anywhere else (a document `mousedown` listener while open; `closesOnPress`): another tab, the panel or the map, since the picker stays mounted in the header across tabs (issue #91). It shows whenever recording is on (`districtBudgetEnabled`, `showsDistrictSelector`), even in a city without
 districts, so the per-district view can be found: then Entire City is the only choice and the arrows and the list
 stay on it. With **Record district budgets** off it hides (vanilla behaviour). A choice no
 longer offered falls back to Entire City (`effectiveKey`). The choice persists for the session (module-level, like
@@ -119,11 +170,13 @@ expenses negated to show as vanilla does), Revenues / Expenses / Monthly balance
 detail pop-out is off (its breakdown is city-wide), and the chart draws the district's series. A district with no
 samples yet has one point (its live Now), which the chart draws as a dot. A blank or localization-id name (an
 unnamed district from `NameSystem.GetRenderedLabelName`) is translated, else shown as "District <n>" (its place in
-the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
+the list; `districtLabel`). The pure logic is `district/district-select.ts` and `economy/header-picker.ts`.
 
 ## UI
 
-- **Left column**: just the filter rows (the column scrolls when they don't fit). There is no right-hand column, so
+- **Left column**: just the filter rows, inside vanilla's `Scrollable` (`.list-scroll`, `flex: 1 1 0; min-height: 0`
+  under a `min-height: 0` flex chain), so expanded categories that overflow get the game's scroll bar; plain
+  `overflow: auto` scrolled with no bar. There is no right-hand column, so
   the chart takes the rest of the width.
 - **Spacing**: the page adds no side padding of its own (the economy panel's 32rem is the margin, as on the other
   Economy tabs), and rows and sections are kept tight.
@@ -136,6 +189,25 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
   `economyBudget.incomeItems$`. **`incomeValues$`/`expenseValues$` are indexed by source, not by item**: an item's
   value is the sum of `values[source.index]` over its sources (`itemValue`, vanilla's `getItemValue`); indexing by the
   item's position shows the wrong numbers. The checked set and span persist for the session (module-level variables).
+- **Subcategory rows** (`UI/src/budget/budget-rows.ts`): a category with more than one source (in the current view)
+  has an arrow that expands it into one indented row per source, labelled `EconomyPanel.BUDGET_SUB_ITEM[<source id>]`
+  (vanilla's `BudgetItemDetail` names), valued `values[source.index]`, with its own checkbox and line
+  (`income:<itemId>:<sourceId>`, from `history.income[source.index]`; `buildSourceSeries`). Child colours are the
+  parent's shaded lighter/darker (`childColor`), distinct from it and each other. A single-source category gets no
+  arrow (`EXPAND_SINGLE_SOURCE`, provisional); totals and the balance never do. A district view hides city-only
+  sources, the `isCityOnlyItem` rule per source. The expanded set persists like the checked set; expanding plays
+  `expand-panel`. Hovering a child row pops out its category's detail.
+- **Service rows** (`UI/src/budget/service-rows.ts`): the expense item holding Service Upkeep (a single source, so no
+  source rows) expands into one row per service in `history.services`, labelled with vanilla's Services tab name
+  `Services.NAME[<prefab name>]`, valued minus its newest point, keyed `expense:<itemId>:service:<name>`, coloured after
+  any source rows. Its line (`buildServiceSeries`) starts at the service's `start`: `SeriesDef`/`ChartLine` `start`,
+  which the chart skips when drawing, scaling (`shownValues`, `valueRange`), hit-testing (`nearestSeries`) and the span
+  stats.
+- **Group checkboxes** (`UI/src/budget/group-toggle.ts`): a category with child rows (sources or services, expanded
+  or not) is a group, and its box reads from its own key and every child's (`groupState`): filled while all are on,
+  empty while none are, a small filled square inside while only some are. A click on the group (`toggledGroup`) turns
+  it and all its children off when all are on, else all on; a child row, a total, the balance and a category without
+  children toggle only their own line, so turning a child off makes its group partial.
 - **Chart (right)**: canvas line chart (`chart/line-chart.tsx`), span buttons 1M/3M/6M/1Y/3Y/All, opening on 3M (`DEFAULT_SPAN_MONTHS` / `BudgetHistoryMath.DefaultSpanMonths`). Expenses are plotted as
   positive so they compare against revenue on one axis; the balance line can go negative (the zero line is
   brighter). Hover picks the nearest sample on x, then the line nearest the cursor at that x
@@ -161,8 +233,32 @@ the list; `districtLabel`). The pure logic is `budget/district-select.ts`.
   span buttons (above the chart area) and the pop-out. It takes no pointer events, and a line's tooltip draws over it.
   Now, Low and High are gone: Now is the row's value, the rest the line and its tooltip.
 
+## Load time
+
+The chart should draw within a frame or two of the tab mounting. What happens on a mount:
+- **Data is there at once.** `useValue(history$)` subscribes, and `RawValueBinding.OnSubscribe` writes the history
+  synchronously, for the span and district the C# side last had; the UI's `setSpan`/`setDistrict` on mount and the
+  panel's first `OnUpdate` rebuild it the next frame.
+- **The size is not.** Gameface lays out once a frame, so the just-mounted chart reads 0 wide in its layout effect and
+  can't draw. It used to retry only on its 500 ms resize poll or the next history rebuild (every 60 frames), so it drew
+  up to a second late. `LineChart` now measures every animation frame until it has a size and for
+  `FAST_MEASURE_FRAMES` after mount (the panel settling), then polls every 500 ms (`UI/src/chart/load-timing.ts`
+  `nextMeasure`). A draw resizes the canvas only when the size changed (a resize reallocates it).
+- **Timings in Mod.log.** `BudgetHistoryUISystem` writes `BudgetChart: build <n> compute <ms>, write <ms>; <samples>,
+  <points>, <series>, <services>, view <key>` for the first `BudgetLoadTiming.BuildsPerOpen` builds after each
+  subscribe (`kLogEveryBuild` logs all), and the chart sends one line per mount through the `logTiming` trigger:
+  `BudgetChart UI: data +<ms>, size +<ms>, draw +<ms>; draw took <ms>, <n> draws, <n> measures, <w>x<h> px, rem <r>,
+  <lines> lines x <points> points` (milliseconds since the chart mounted; also on the UI console).
+
 ## Tests
 
-`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
-ranges, value and time ticks, hit-testing and formatting; `UI/src/budget/district-select.test.ts` the selector's
-options, when it shows, cycling, names, city-only rows and row values.
+`Tests/BudgetHistoryMathTests.cs` covers the C# maths, `Tests/BudgetLoadTimingTests.cs` and
+`UI/src/chart/load-timing.test.ts` the load timings and the per-frame measuring, `Tests/FeatureGatesTests.cs` the on/off gates, `Tests/DistrictBudgetMathTests.cs` the district split. `UI/src/chart/chart-math.test.ts` covers series building,
+ranges, value and time ticks, hit-testing and formatting; `UI/src/district/district-select.test.ts` and `UI/src/economy/header-picker.test.ts` the selector's
+options, when it shows, cycling, names, city-only rows and row values; `UI/src/budget/budget-rows.test.ts` the
+subcategory rows (keys, which categories expand, district filtering, colours, values and series),
+`UI/src/budget/group-toggle.test.ts` the group checkboxes (off to all on, all on to all off, partial to all on, a child
+making its group partial);
+`Tests/ServiceUpkeepSplitTests.cs` the per-service split (exact sums, rounding, zero / one / negative inputs, gaps,
+alignment, the save codec and a format 1 load) and `UI/src/budget/service-rows.test.ts` the service rows and lines
+with a `start`.

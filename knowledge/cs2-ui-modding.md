@@ -91,11 +91,40 @@ Under `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II`:
   The registry's setter reassigns the bundle's own variable, so other vanilla components that use the export get the
   wrapper too: extending `TaxSlider`/`NumberField` reaches the ones `TaxationGroup`/`TaxationPage` draw. To change one
   value a vanilla component computes itself, wrap its parent in a React context provider and let the extended child
-  read it (the Taxation totals: [impl/density-taxes.md](impl/density-taxes.md#storage-and-ui)).
+  read it (the Taxation totals: [impl/tax-engine-ui.md](impl/tax-engine-ui.md#totals)).
+  To hide part of a vanilla component, add a class to its live `*.module.scss` `classes` object (from `getModule`),
+  which it reads on every render, and restore it when off: the Taxation tab hides `TaxationGroup`'s own expander this
+  way ([impl/tax-engine-ui.md](impl/tax-engine-ui.md#layout)).
+  **Trap: an extended component reaches every use of it.** Our `NumberField` extension adds the density total to the
+  field wearing the Taxation page's `totalValue` class, so another page's total must not borrow that class (the
+  Services table's: [impl/district-service-budgets.md § UI](impl/district-service-budgets.md#ui)).
   It is also how to replace a component **switchably**: the Budget tab's wrapper renders our page, or `Wrapped` while
   the Options switch (a bool binding) is off.
+- **Economy panel header (the header hook):** EconomyPanel's `Panel` header is the title bar, then vanilla
+  `TabBar` (`game-ui/common/tabs/tabs.tsx`: `<div class=tabBar {className}>` around the children, a centred flex row)
+  with one child per tab carrying `{ tab, selectedTab, feature, uiTag, onSelect }`. `extend(TAB_BAR_PATH, "TabBar", …)`
+  recognises that set (`isEconomyTabSet`) and draws `EconomyTabBar` (`UI/src/economy/economy-tab-bar.tsx`) with
+  `economyTabBarChildren` (`UI/src/economy/header-picker.ts`): the district picker's marker first, then vanilla's tab
+  elements unchanged, reordered (Budget, Taxation, Services | Production, Loans) with `orderEconomyTabs`
+  (`UI/src/economy/tab-order.ts`), and a divider marker before the first city-only tab (`withTabGroupDivider`), by `tab`
+  id, never by position (vanilla indexes features by enum value). The picker and the divider are zero-width, zero-basis
+  markers that draw their content absolutely; the room after each is the next tab's margin (`marker + button`). The
+  picker's list draws through vanilla's `Portal` (`game-ui/common/portal/portal.tsx`, the tooltip layer), placed under
+  the name with `listAnchor`: in the header it would sit under the panel content. The portal layer lets clicks through,
+  so the list sets `pointer-events: auto`, or clicks on its items reach the panel underneath. The selected tab is read from a
+  child's `selectedTab`. Other tab bars pass through. The Switch Tab key/gamepad cycle keeps the vanilla order: an
+  accepted limitation.
+- **Trap: never style vanilla's `.tab-bar` itself.** Any style of ours on the tab bar element (`justify-content:
+  flex-start`, or `padding-left` with `position: relative`) made every tab about 2.5e8 px wide in Gameface: one blue
+  bar, no labels, no clicks, and UI.log logs "An elements' size (2.5e+08) exceeds the maximum allowed representable
+  size". Gameface reads the tabs' `flex: 0 1` as basis `auto`. Add children that take no part in the flex sizing
+  instead (above).
+- **Trap: one focus child under a pass-through focus controller.** The panel content hosts a single focus child (the
+  page); a focusable `Button` of ours beside the page logs "Cannot register second focus key" in UI.log. Give such a
+  button `focusKey={FOCUS_DISABLED}` (`cs2/input`).
 - `getModule(path, export)` borrows a vanilla component. `UI/src/vanilla.ts` lists the ones we use (`NumberField`,
-  `BudgetItemDetail`, `TaxSlider`) and their props as read from the bundle. **After a game patch, check those
+  `BudgetItemDetail`, `TaxSlider`, `TaxationItem`, and for the Services tab `Section`, `GradientSlider`, `intTransformer`, the economy gradient-slider theme,
+  `taxSliderClasses`, `useLegacyInterfaceActive`) and their props as read from the bundle. **After a game patch, check those
   paths and props first**: a renamed module fails at runtime, not at build.
 - **Scroll bars:** Gameface draws none for `overflow: auto` (it scrolls by wheel, with no sign there is more). Wrap the
   content in vanilla's `Scrollable` (`game-ui/common/scrolling/scrollable.tsx`, in `vanilla.ts`) with a rem
@@ -121,7 +150,9 @@ ones a case has no value for, as vanilla's `*Section` writers do (`BudgetHistory
 
 Coherent Gameface isn't Chrome:
 - **Use `<canvas>` 2D for charts**, not inline SVG. The vanilla statistics graphs use chart.js on canvas.
-- No `ResizeObserver`; measure in a layout effect and poll (see `UI/src/chart/line-chart.tsx`).
+- No `ResizeObserver`; measure in a layout effect and poll (see `UI/src/chart/line-chart.tsx`). **Layout runs once a
+  frame**: a just-mounted element reads 0 wide in its layout effect, so retry every `requestAnimationFrame` until it
+  has a size (`UI/src/chart/load-timing.ts`); a slow poll alone delays the first draw by up to the poll interval.
 - Patchy `Intl`; format numbers yourself (`formatMoney` in `chart-math.ts`).
 - Sizes in `rem` follow the game's UI scale setting. The UI is laid out for 4K, so **1rem is less than a pixel**
   below 4K (about 0.67 px at 1440p): vanilla text is around 18–24rem.
@@ -173,5 +204,5 @@ file up, `LocaleFileTests` checks it parses and holds only known keys, and keys 
 
 `UpdateSystem` runs a `GameSystemBase` every `GetUpdateInterval()` frames at an offset. A system registered with
 `UpdateBefore<Ours, Theirs>`/`UpdateAfter` that has the **same interval and offset -1 (the default) inherits
-`Theirs`'s offset**, so it runs on exactly the same frames. Density taxes depend on that:
-[impl/density-taxes.md](impl/density-taxes.md).
+`Theirs`'s offset**, so it runs on exactly the same frames. The tax engine depends on that:
+[impl/tax-engine.md](impl/tax-engine.md).

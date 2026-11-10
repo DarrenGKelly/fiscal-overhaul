@@ -1,4 +1,3 @@
-import { formatMoney } from "../chart/chart-math";
 import { localize, Translate, UiKey } from "../l10n";
 // Mapping between the game's tax area indices and the mod's density tax table (Mod/Logic/DensityTaxTable.cs).
 
@@ -25,28 +24,12 @@ export function densityLabel(density: number, translate: Translate | null): stri
   return key ? localize(translate, key) : localize(translate, "DensityOther", { NUMBER: density });
 }
 
-/** The collapsed rows' summary: "no offsets", "1 offset set", "3 offsets set". */
-export function offsetSummary(active: number, translate: Translate | null): string {
-  if (active <= 0) return localize(translate, "NoOffsets");
-  return localize(translate, active === 1 ? "OneOffsetSet" : "OffsetsSet", { COUNT: active });
-}
-
-/** A row's payer count, " · 1,234 payers", or nothing while it has none. */
-export function payersSuffix(payers: number, translate: Translate | null): string {
-  return payers > 0 ? ` · ${localize(translate, "Payers", { COUNT: formatCount(payers) })}` : "";
-}
-
 /**
  * The expand/collapse arrow, as the vanilla foldout draws it: a Media/Glyphs icon (the game's font, Overpass, has no
  * arrow glyphs and shows a tofu box).
  */
 export function arrowFor(open: boolean): string {
   return open ? "Media/Glyphs/ThickStrokeArrowDown.svg" : "Media/Glyphs/ThickStrokeArrowRight.svg";
-}
-
-/** A count with thousands separators ("1,234,567"), not locale-dependent: Gameface's Intl is patchy (formatMoney's grouping). */
-export function formatCount(n: number): string {
-  return formatMoney(n).replace("\u00a2", "");
 }
 
 // Totals. Vanilla's zone totals (each group's header slider income, the `areaTaxIncomes` binding) and ESTIMATED TOTAL
@@ -66,12 +49,13 @@ interface AreaLike {
 }
 
 /**
- * The density offsets' extra monthly revenue in one tax area: the sum of its rows' estimates (negative offsets lower
- * it). 0 while density taxes are off, for the city-wide area, a locked zone, or with every offset 0.
+ * The density tax's monthly revenue in one tax area: the sum of its rows' estimates (each payer's own density part as
+ * charged, so a cell at the city's 0 still counts what its districts' rates bring; a subsidy lowers it). 0 while
+ * density taxes are off, for the city-wide area, a locked zone, or with no payer paying density tax.
  */
 export function densityExtraForArea(cells: EstimateCell[] | null | undefined, areaIndex: number, locked: boolean, enabled: boolean): number {
   let sum = 0;
-  for (const c of cellsForArea(cells, areaIndex, locked, enabled)) if (c.offset !== 0) sum += c.estimate;
+  for (const c of cellsForArea(cells, areaIndex, locked, enabled)) sum += c.estimate;
   return sum;
 }
 
@@ -79,6 +63,40 @@ export function densityExtraForArea(cells: EstimateCell[] | null | undefined, ar
 export function densityExtraTotal(cells: EstimateCell[] | null | undefined, areas: AreaLike[] | null | undefined, enabled: boolean): number {
   let sum = 0;
   for (const a of areas ?? []) sum += densityExtraForArea(cells, a.index, a.locked, enabled);
+  return sum;
+}
+
+/**
+ * What district and Outside income-tax overrides add to a tax area's vanilla total (the densityTaxes binding's
+ * districtParts, per zone): booked by the city as tax income whatever the density switch. 0 for the city-wide area, a
+ * locked zone, or no data.
+ */
+export function districtPartForArea(parts: number[] | null | undefined, areaIndex: number, locked: boolean): number {
+  const zone = zoneForAreaIndex(areaIndex);
+  if (locked || zone < 0) return 0;
+  return parts?.[zone] ?? 0;
+}
+
+/** A zone's whole extra on top of vanilla's total: its density tax plus its district part. */
+export function zoneExtra(
+  cells: EstimateCell[] | null | undefined,
+  districtParts: number[] | null | undefined,
+  areaIndex: number,
+  locked: boolean,
+  enabled: boolean,
+): number {
+  return densityExtraForArea(cells, areaIndex, locked, enabled) + districtPartForArea(districtParts, areaIndex, locked);
+}
+
+/** ESTIMATED TOTAL's extra: every area's {@link zoneExtra}, so it matches the zone totals. */
+export function totalExtra(
+  cells: EstimateCell[] | null | undefined,
+  districtParts: number[] | null | undefined,
+  areas: AreaLike[] | null | undefined,
+  enabled: boolean,
+): number {
+  let sum = 0;
+  for (const a of areas ?? []) sum += zoneExtra(cells, districtParts, a.index, a.locked, enabled);
   return sum;
 }
 

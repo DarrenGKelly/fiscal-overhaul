@@ -27,31 +27,37 @@ $GameRunPoints = [ordered]@{
     # area from the size it was measured at (RefWidth x RefHeight); see Get-LauncherResumePoint.
     LauncherResume    = @{ X = 660;  Y = 246;  RefWidth = 1282; RefHeight = 677; Source = 'measured'; What = "the Paradox launcher's Resume (launcher client, scaled to its size)" }
     MoneyTotal        = @{ X = 1950; Y = 1406; Source = 'measured'; What = 'the money total in the bottom bar: opens the Economy panel on Budget' }
-    BudgetTab         = @{ X = 736;  Y = 306;  Source = 'measured'; What = 'the Economy panel''s Budget tab' }
-    TaxationTab       = @{ X = 1280; Y = 306;  Source = 'measured'; What = 'the Economy panel''s Taxation tab' }
+    # The tabs sit right of the header's district picker (economy-tab-bar.module.scss), read off a 2026-11-09 run.
+    BudgetTab         = @{ X = 952;  Y = 306;  Source = 'derived';  What = 'the Economy panel''s Budget tab (after the header''s district picker)' }
+    TaxationTab       = @{ X = 1224; Y = 306;  Source = 'derived';  What = 'the Economy panel''s Taxation tab (2nd slot: Budget, Taxation, Services, Production, Loans)' }
+    ServicesTab       = @{ X = 1496; Y = 306;  Source = 'derived';  What = 'the Economy panel''s Services tab (3rd slot)' }
     ChartPoint        = @{ X = 2045; Y = 651;  Source = 'derived';  What = 'a point on the Revenues line, 17 h ago in the Odiham save (02-budget-tooltip)' }
     PauseExit         = @{ X = 818;  Y = 1140; Source = 'measured'; What = 'the pause menu''s Exit' }
     ExitToDesktop     = @{ X = 1278; Y = 800;  Source = 'measured'; What = 'Exit to Desktop in the Exit dialog' }
     PauseOptions      = @{ X = 818;  Y = 1042; Source = 'derived';  What = 'the pause menu''s Options (half-scale menu.png 430,521)' }
     Neutral           = @{ X = 627;  Y = 1177; Source = 'derived';  What = 'an empty spot in the Economy panel below the Budget rows: no hover' }
-    RowCheckX         = @{ X = 389;  Y = 0;    Source = 'derived';  What = 'the x of the Budget rows'' check squares (Y unused)' }
-    RowRevenues       = @{ X = 440;  Y = 453;  Source = 'derived';  What = 'Budget row: Revenues (on by default)' }
-    RowTaxes          = @{ X = 440;  Y = 508;  Source = 'derived';  What = 'Budget row: Taxes; hovered for the detail pop-out' }
-    RowServiceFees    = @{ X = 440;  Y = 563;  Source = 'derived';  What = 'Budget row: Service Fees' }
-    RowIncomeTrade    = @{ X = 440;  Y = 618;  Source = 'derived';  What = 'Budget row: Service Trade (revenue)' }
-    RowExpenses       = @{ X = 440;  Y = 685;  Source = 'derived';  What = 'Budget row: Expenses (on by default)' }
-    RowSubsidies      = @{ X = 440;  Y = 741;  Source = 'derived';  What = 'Budget row: Subsidies' }
-    RowUpkeeps        = @{ X = 440;  Y = 796;  Source = 'derived';  What = 'Budget row: Service Upkeeps' }
-    RowExpenseTrade   = @{ X = 440;  Y = 851;  Source = 'derived';  What = 'Budget row: Service Trade (expense)' }
-    RowLoanInterest   = @{ X = 440;  Y = 906;  Source = 'derived';  What = 'Budget row: Loan Interest' }
-    RowTileUpkeep     = @{ X = 440;  Y = 961;  Source = 'derived';  What = 'Budget row: Tile Upkeep' }
-    RowBalance        = @{ X = 440;  Y = 1028; Source = 'derived';  What = 'Budget row: Monthly Balance' }
-    DistrictPrev      = @{ X = 1037; Y = 391;  Source = 'derived';  What = 'the district selector''s left arrow' }
-    DistrictNext      = @{ X = 1528; Y = 391;  Source = 'derived';  What = 'the district selector''s right arrow' }
-    DistrictName      = @{ X = 1282; Y = 391;  Source = 'derived';  What = 'the district selector''s name box: opens and closes the list' }
-    ResidentialDensity = @{ X = 529; Y = 518;  Source = 'derived';  What = 'Taxation tab: Residential''s "By density" toggle' }
+    # Each row's check square (clicked to toggle, and read for its state): the totals' squares at x 389, the rows under
+    # them at 418 (the expander's indent), read off a 2026-11-09 run with the picker in the header.
+    RowRevenues       = @{ X = 389;  Y = 395;  Source = 'derived';  What = 'Budget row: Revenues'' check square (on by default)' }
+    RowTaxes          = @{ X = 418;  Y = 450;  Source = 'derived';  What = 'Budget row: Taxes'' check square' }
+    RowServiceFees    = @{ X = 418;  Y = 505;  Source = 'derived';  What = 'Budget row: Service Fees'' check square' }
+    RowIncomeTrade    = @{ X = 418;  Y = 560;  Source = 'derived';  What = 'Budget row: Service Trade (revenue)''s check square' }
+    RowExpenses       = @{ X = 389;  Y = 628;  Source = 'derived';  What = 'Budget row: Expenses'' check square (on by default)' }
+    RowSubsidies      = @{ X = 418;  Y = 684;  Source = 'derived';  What = 'Budget row: Subsidies'' check square' }
+    RowUpkeeps        = @{ X = 418;  Y = 738;  Source = 'derived';  What = 'Budget row: Service Upkeeps'' check square' }
+    RowExpenseTrade   = @{ X = 418;  Y = 794;  Source = 'derived';  What = 'Budget row: Service Trade (expense)''s check square' }
+    RowLoanInterest   = @{ X = 418;  Y = 848;  Source = 'derived';  What = 'Budget row: Loan Interest''s check square' }
+    RowTileUpkeep     = @{ X = 418;  Y = 904;  Source = 'derived';  What = 'Budget row: Tile Upkeep''s check square' }
+    RowBalance        = @{ X = 389;  Y = 972;  Source = 'derived';  What = 'Budget row: Monthly Balance''s check square' }
+    TaxesHover        = @{ X = 480;  Y = 450;  Source = 'derived';  What = 'the Taxes row''s label: hovered for the vanilla detail pop-out' }
+    # The header's district picker, left of the tabs (economy/economy-tab-bar.tsx).
+    DistrictPrev      = @{ X = 372;  Y = 306;  Source = 'derived';  What = 'the header district picker''s left arrow' }
+    DistrictNext      = @{ X = 764;  Y = 306;  Source = 'derived';  What = 'the header district picker''s right arrow' }
+    DistrictName      = @{ X = 568;  Y = 306;  Source = 'derived';  What = 'the header district picker''s name box: opens and closes the list' }
+    ResidentialDensity = @{ X = 500; Y = 570;  Source = 'derived';  What = 'Taxation tab: Residential''s "Density" section toggle (under Resources)' }
+    ServiceElectricity = @{ X = 516; Y = 596;  Source = 'derived';  What = 'Services tab: the Electricity row''s name, hovered for the info column' }
     OptionsModEntry   = @{ X = 283;  Y = 1048; Source = 'derived';  What = 'Options: the FISCAL OVERHAUL entry in the left list (moves with the installed mods)' }
-    OptionsDensity    = @{ X = 1596; Y = 396;  Source = 'derived';  What = 'Options > Fiscal Overhaul: the Enable density taxes (BETA) check box' }
+    OptionsDensity    = @{ X = 1596; Y = 739;  Source = 'derived';  What = 'Options > Fiscal Overhaul: the Enable density taxes (BETA) check box (the fifth, under Simulation changes)' }
     OptionsNeutral    = @{ X = 1900; Y = 1200; Source = 'derived';  What = 'an empty spot on the Options page: no hover' }
 }
 
@@ -186,8 +192,8 @@ function Get-UncheckedRows([string]$Path, $Points) {
     Use-Drawing
     $bitmap = [System.Drawing.Bitmap]::FromFile($Path)
     try {
-        $x = $Points.RowCheckX.X
-        return @($GameRunBudgetRows | Where-Object { -not (Test-RowChecked $bitmap $x $Points[$_].Y) })
+        # Each row's own square: the totals and the rows under them are indented differently.
+        return @($GameRunBudgetRows | Where-Object { -not (Test-RowChecked $bitmap $Points[$_].X $Points[$_].Y) })
     }
     finally { $bitmap.Dispose() }
 }
@@ -383,6 +389,23 @@ function Assert-GamePaused($Session, [string]$CheckDir) {
     if (-not (Test-PausedBanner $again)) { throw "the game isn't paused after one Space (no PAUSED banner in $again): look at loaded.png and paused.png" }
 }
 
+# Runs the simulation for $Seconds, then pauses it again, each step checked by the PAUSED banner: the Taxation tab's
+# estimates count only payers the tax engine charged lately, and a save that loads paused has charged none. Returns
+# the two check shots (running, paused again).
+function Invoke-SimulationRun($Session, [string]$CheckDir, [int]$Seconds) {
+    Invoke-GameControl focus | Out-Null
+    Invoke-GameControl key Space | Out-Null
+    $running = Join-Path $CheckDir 'sim-running.png'
+    Save-GameShot -Out $running -Scale 1 -Delay 1000
+    if (Test-PausedBanner $running) { throw "Space didn't start the simulation (the PAUSED banner is still in $running)" }
+    Start-Sleep -Seconds $Seconds
+    Invoke-GameControl key Space | Out-Null
+    $paused = Join-Path $CheckDir 'sim-paused.png'
+    Save-GameShot -Out $paused -Scale 1 -Delay 1000
+    if (-not (Test-PausedBanner $paused)) { throw "the game isn't paused again after the simulation run (no PAUSED banner in $paused)" }
+    return @($running, $paused)
+}
+
 # Quits the game this run launched, and only that: $Escapes presses of Escape reach the pause menu (2 with a panel
 # open), then Exit and Exit to Desktop; when the process isn't gone 30 s later, or -Force (a failed run, whose state
 # is unknown), the launched instance is stopped. Returns $true when no game process is left.
@@ -451,6 +474,8 @@ $StoreShotSet = @(
     [pscustomobject]@{ Base = '05-budget-vanilla-detail'; Kind = 'panel';   What = 'the Taxes row hovered: the vanilla detail panel popped out' }
     [pscustomobject]@{ Base = '06-budget-district';       Kind = 'panel';   What = 'the first district selected (one click on the right arrow)' }
     [pscustomobject]@{ Base = '07-budget-district-list';  Kind = 'panel';   What = 'the district list open' }
+    [pscustomobject]@{ Base = '08-services-table';        Kind = 'panel';   What = 'Economy > Services: the table, Electricity hovered for the info column' }
+    [pscustomobject]@{ Base = '09-taxation-district';     Kind = 'panel';   What = 'Economy > Taxation in the first district''s view: its own rates and estimates' }
 )
 $StoreSuffixPattern = '-v\d+-\d+-\d+$'
 
@@ -534,6 +559,8 @@ function Set-StoreSettingsText([string]$Text, [string]$Offsets) {
     }
     $values['EnableBudgetChart'] = $true
     $values['EnableDistrictBudget'] = $true
+    $values['EnableServicesTable'] = $true
+    $values['EnableSimulationChanges'] = $true
     $values['EnableDensityTaxes'] = $true
     $values['DensityTaxOffsets'] = ($Offsets -replace '\s', '')
     $lines = foreach ($key in $values.Keys) {

@@ -22,21 +22,34 @@ namespace FiscalOverhaul.Logic
     }
 
     /// <summary>
-    /// The density tax offsets, in percentage points added on top of the vanilla rate a building already pays
-    /// (zone rate + education/product offset). Pure data: the game systems copy it into a native array.
+    /// The city's density tax rates: density tax is its own tax per (zone, density), in percentage points charged on
+    /// top of income tax (the zone and education/resource rates); negative is a tax break. A view of a
+    /// <see cref="TaxRateTable"/>'s city <see cref="TaxType.Density"/> entries (key = <see cref="Density"/>), which
+    /// holds the storage (a district may override a cell: <see cref="TaxRateModel.DistrictDensityRate"/>). Pure data: the game systems copy it into a
+    /// native array for the tax engine. The comma-separated text form is the Options template new cities are seeded from.
     /// </summary>
     public sealed class DensityTaxTable
     {
         public const int ZoneCount = 4;
         public const int DensityCount = 3;
 
-        /// <summary>
-        /// Offsets only change revenue, not demand or happiness (those read vanilla rates inside game code),
-        /// so they're capped to keep that from being a free money lever.
-        /// </summary>
-        public const int MaxOffset = 5;
+        /// <summary>The density tax's own rate range (<see cref="TaxRateTable.DensityMin"/>..<see cref="TaxRateTable.DensityMax"/>).</summary>
+        public const int MinRate = TaxRateTable.DensityMin;
+        public const int MaxRate = TaxRateTable.DensityMax;
 
-        private readonly int[] m_Offsets = new int[ZoneCount * DensityCount];
+        private readonly TaxRateTable m_Rates;
+
+        /// <summary>A table over its own, empty <see cref="TaxRateTable"/>.</summary>
+        public DensityTaxTable() : this(new TaxRateTable()) { }
+
+        /// <summary>A view of <paramref name="rates"/>' density entries: reads and writes go straight to it.</summary>
+        public DensityTaxTable(TaxRateTable rates)
+        {
+            m_Rates = rates ?? throw new ArgumentNullException(nameof(rates));
+        }
+
+        /// <summary>The table this view reads and writes.</summary>
+        public TaxRateTable Rates => m_Rates;
 
         /// <summary>Densities the game actually produces for each zone (PropertyUtils.GetZoneDensity).</summary>
         public static bool IsSupported(TaxZone zone, Density density)
@@ -53,48 +66,35 @@ namespace FiscalOverhaul.Logic
 
         public static int Index(TaxZone zone, Density density) => (int)zone * DensityCount + (int)density;
 
-        public int Get(TaxZone zone, Density density) => m_Offsets[Index(zone, density)];
+        public int Get(TaxZone zone, Density density) => m_Rates.Get(TaxType.Density, (int)zone, (int)density);
 
-        /// <summary>Sets an offset, clamped to ±<see cref="MaxOffset"/>. Unsupported cells stay 0. Returns the stored value.</summary>
+        /// <summary>Sets the city's rate for a cell, clamped to <see cref="MinRate"/>..<see cref="MaxRate"/>. Unsupported cells stay 0. Returns the stored value.</summary>
         public int Set(TaxZone zone, Density density, int offset)
         {
             if (!IsSupported(zone, density)) return 0;
-            int clamped = Math.Max(-MaxOffset, Math.Min(MaxOffset, offset));
-            m_Offsets[Index(zone, density)] = clamped;
-            return clamped;
+            return m_Rates.Set(TaxType.Density, (int)zone, (int)density, offset);
         }
 
-        public bool IsEmpty
-        {
-            get
-            {
-                foreach (int o in m_Offsets) if (o != 0) return false;
-                return true;
-            }
-        }
+        public bool IsEmpty => !m_Rates.Any(TaxType.Density);
 
         /// <summary>A copy of the flat offsets array, indexed by <see cref="Index"/>.</summary>
-        public int[] ToArray() => (int[])m_Offsets.Clone();
+        public int[] ToArray()
+        {
+            var offsets = new int[ZoneCount * DensityCount];
+            for (int z = 0; z < ZoneCount; z++)
+                for (int d = 0; d < DensityCount; d++)
+                    offsets[z * DensityCount + d] = Get((TaxZone)z, (Density)d);
+            return offsets;
+        }
 
         /// <summary>
         /// The offsets the tax systems charge, indexed by <see cref="Index"/>: the stored ones while density taxes are
         /// enabled, all 0 while disabled. The stored offsets are never touched, so enabling again restores them.
         /// </summary>
-        public int[] EffectiveOffsets(bool enabled) => enabled ? ToArray() : new int[m_Offsets.Length];
+        public int[] EffectiveOffsets(bool enabled) => enabled ? ToArray() : new int[ZoneCount * DensityCount];
 
         /// <summary>Whether any building pays a density offset: density taxes enabled and at least one offset set.</summary>
         public bool IsCharged(bool enabled) => enabled && !IsEmpty;
-
-        /// <summary>
-        /// The rate actually charged: base + offset, never below 0 (a negative rate would pay citizens).
-        /// Returns the delta applied so it can be undone exactly.
-        /// </summary>
-        public static int AppliedDelta(int baseRate, int offset)
-        {
-            int result = baseRate + offset;
-            if (result < 0) result = 0;
-            return result - baseRate;
-        }
 
         /// <summary>
         /// Rough extra (or lost) monthly revenue from an offset, given what the buildings in that cell pay per
@@ -105,6 +105,32 @@ namespace FiscalOverhaul.Logic
         /// Right after the offset changes, the paid amounts still reflect the old one until each payer's next payment
         /// (1/32 of a month).
         /// </summary>
+        /// <summary>
+        /// One payer's monthly taxable base: what it paid (TaxPayer.m_AverageTaxPaid) over the rate it was charged at
+        /// (its own resolved rate, <c>TaxRateResolver</c>: vanilla rate, district difference, its own density tax).
+        /// 0 when nothing was paid or charged. Burst-safe: the Taxation tab's sum job calls it per payer.
+        /// </summary>
+        public static double TaxableBase(long monthlyTaxPaid, int chargedRate)
+        {
+            if (monthlyTaxPaid <= 0 || chargedRate <= 0) return 0;
+            return monthlyTaxPaid * 100.0 / chargedRate;
+        }
+
+        /// <summary>
+        /// A cell's estimate from its payers' summed <see cref="TaxableBase"/>: the extra (or lost) monthly revenue of
+        /// <paramref name="offset"/> on that base. Each payer's base is taken at its own charged rate, so a district's
+        /// density override (charging some of the cell's payers another rate) doesn't skew the city's estimate.
+        /// </summary>
+        public static long EstimateFromBase(double taxableBase, int offset)
+        {
+            if (offset == 0 || taxableBase <= 0) return 0;
+            return (long)Math.Round(taxableBase * offset / 100.0, MidpointRounding.AwayFromZero);
+        }
+
+        /// <summary>
+        /// The older cell-wide form (every payer assumed charged the cell's average stored rate plus
+        /// <paramref name="offset"/>); kept for the tests that pin its maths. The tab uses <see cref="TaxableBase"/>.
+        /// </summary>
         public static long EstimateExtraRevenue(long monthlyTaxPaid, double averageRate, int offset)
         {
             if (offset == 0 || averageRate <= 0 || monthlyTaxPaid == 0) return 0;
@@ -114,14 +140,15 @@ namespace FiscalOverhaul.Logic
             return (long)Math.Round(taxableBase * offset / 100.0, MidpointRounding.AwayFromZero);
         }
 
-        /// <summary>Compact text form for the settings file: 12 comma-separated integers.</summary>
+        /// <summary>Compact text form for the Options template: 12 comma-separated integers.</summary>
         public string Serialize()
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < m_Offsets.Length; i++)
+            int[] offsets = ToArray();
+            for (int i = 0; i < offsets.Length; i++)
             {
                 if (i > 0) sb.Append(',');
-                sb.Append(m_Offsets[i].ToString(CultureInfo.InvariantCulture));
+                sb.Append(offsets[i].ToString(CultureInfo.InvariantCulture));
             }
             return sb.ToString();
         }

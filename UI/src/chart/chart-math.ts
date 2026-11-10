@@ -28,6 +28,16 @@ export interface BudgetHistory {
   /** Live per-source values now in a district view (expenses positive); null for Entire City. */
   nowIncome?: number[] | null;
   nowExpense?: number[] | null;
+  /** The Service Upkeep row split per service, at the same points (BudgetHistoryUISystem BuildServiceRows). */
+  services?: ServiceUpkeepRow[] | null;
+}
+
+/** One service's share of Service Upkeep (expenses positive); points before `start` have no recorded split. */
+export interface ServiceUpkeepRow {
+  /** The service prefab's name: vanilla's Services.NAME[name]. */
+  name: string;
+  start: number;
+  values: number[];
 }
 
 export type SeriesKind = "income-total" | "income" | "expense-total" | "expense" | "balance";
@@ -37,8 +47,14 @@ export interface SeriesDef {
   kind: SeriesKind;
   /** Budget item id for item series; undefined for totals and balance. */
   itemId?: string;
+  /** Budget source id for a subcategory series (budget/budget-rows.ts buildSourceSeries); undefined otherwise. */
+  sourceId?: string;
   color: string;
   values: number[];
+  /** A service's share of Service Upkeep (budget/service-rows.ts): the service prefab's name; undefined otherwise. */
+  serviceName?: string;
+  /** The first point with data (a service split recorded only from then on); 0 when absent. */
+  start?: number;
 }
 
 export const INCOME_TOTAL = "income-total";
@@ -100,12 +116,17 @@ export function buildSeries(history: BudgetHistory, incomeItems: BudgetItemLike[
   return series;
 }
 
-/** Min and max over the given series, padded so lines don't touch the edges; always includes 0. */
-export function valueRange(series: { values: number[] }[]): [number, number] {
+/** The points of a series that have data: from its `start` on. */
+export function shownValues(s: { values: number[]; start?: number }): number[] {
+  return s.start ? s.values.slice(s.start) : s.values;
+}
+
+/** Min and max over the given series (from each one's `start`), padded so lines don't touch the edges; always includes 0. */
+export function valueRange(series: { values: number[]; start?: number }[]): [number, number] {
   let min = 0;
   let max = 0;
   for (const s of series) {
-    for (const v of s.values) {
+    for (const v of shownValues(s)) {
       if (v < min) min = v;
       if (v > max) max = v;
     }
@@ -158,13 +179,13 @@ export function nearestIndex(xs: number[], x: number): number {
   return Math.abs(xs[lo] - x) <= Math.abs(xs[hi] - x) ? lo : hi;
 }
 
-/** The series (among `series`) whose value at `index` is closest to `value`. */
-export function nearestSeries<T extends { values: number[] }>(series: T[], index: number, value: number): T | undefined {
+/** The series (among `series`) whose value at `index` is closest to `value`; one without data there (before its `start`) never. */
+export function nearestSeries<T extends { values: number[]; start?: number }>(series: T[], index: number, value: number): T | undefined {
   let best: T | undefined;
   let bestDist = Infinity;
   for (const s of series) {
     const v = s.values[index];
-    if (v === undefined) continue;
+    if (v === undefined || index < (s.start ?? 0)) continue;
     const d = Math.abs(v - value);
     if (d < bestDist) {
       bestDist = d;

@@ -1,0 +1,130 @@
+import { describe, expect, it } from "vitest";
+import EN_US from "../../../l10n/en-US.json";
+import { english } from "../l10n";
+import * as density from "./density";
+import { groupClasses, orderedSections, SectionExpandState, sectionsForArea, TAX_SECTIONS, TaxSectionDef } from "./tax-sections";
+
+const RESIDENTIAL = 1;
+const COMMERCIAL = 2;
+const INDUSTRIAL = 3;
+const OFFICE = 4;
+
+describe("TAX_SECTIONS", () => {
+  it("puts the main income tax (vanilla rows) first and Density after it", () => {
+    expect(orderedSections(TAX_SECTIONS).map((s) => s.id)).toEqual(["vanilla", "density"]);
+    expect(orderedSections(TAX_SECTIONS)[0].id).not.toBe("density");
+    expect(TAX_SECTIONS.find((s) => s.id === "vanilla")?.kind).toBe("main");
+    expect(TAX_SECTIONS.find((s) => s.id === "density")?.kind).toBe("additional");
+    // The old ±adjustment District section is gone: a district view shows these same sections with its own values.
+    expect(TAX_SECTIONS.map((s) => s.id)).not.toContain("district");
+    expect(Object.keys(EN_US)).not.toContain("FiscalOverhaul.UI.SectionDistrict");
+  });
+
+  it("has an English title for every section in every zone", () => {
+    for (const s of TAX_SECTIONS)
+      for (const area of [RESIDENTIAL, COMMERCIAL, INDUSTRIAL, OFFICE]) expect(english(s.title(area))).toBeTruthy();
+  });
+});
+
+describe("sectionsForArea", () => {
+  it("gives Education then Density for Residential", () => {
+    expect(sectionsForArea(RESIDENTIAL, false, { density: 3, vanilla: 5 })).toEqual([
+      { id: "vanilla", title: "SectionEducation", startsOpen: false },
+      { id: "density", title: "SectionDensity", startsOpen: false },
+    ]);
+    expect(english("SectionDensity")).toBe("Density");
+    expect(english("SectionDensity")).not.toBe("Density tax");
+    expect(english("SectionEducation")).toBe("Education");
+  });
+
+  it("names the other zones' vanilla rows Resources, not Education", () => {
+    for (const area of [COMMERCIAL, INDUSTRIAL, OFFICE]) {
+      const titles = sectionsForArea(area, false, { density: 2, vanilla: 4 }).map((s) => s.title);
+      expect(titles).toEqual(["SectionResources", "SectionDensity"]);
+      expect(titles).not.toContain("SectionEducation");
+    }
+  });
+
+  it("leaves out a section with no rows, keeping the order of the rest", () => {
+    expect(sectionsForArea(OFFICE, false, { density: 0, vanilla: 4 }).map((s) => s.id)).toEqual(["vanilla"]);
+    expect(sectionsForArea(OFFICE, false, { vanilla: 4 }).map((s) => s.id)).toEqual(["vanilla"]);
+    expect(sectionsForArea(RESIDENTIAL, false, { density: 3, vanilla: 0 }).map((s) => s.id)).toEqual(["density"]);
+  });
+
+  it("gives no sections for a locked zone or one with no rows", () => {
+    expect(sectionsForArea(OFFICE, true, { density: 2, vanilla: 4 })).toEqual([]);
+    expect(sectionsForArea(RESIDENTIAL, false, {})).toEqual([]);
+  });
+
+  it("takes a new additional tax type as one more entry, after the main section and Density", () => {
+    const land = { id: "land", kind: "additional", title: () => "SectionResources" } as unknown as TaxSectionDef;
+    const counts = { density: 1, vanilla: 1, land: 2 } as Record<string, number>;
+    expect(sectionsForArea(RESIDENTIAL, false, counts, [...TAX_SECTIONS, land]).map((s) => s.id)).toEqual(["vanilla", "density", "land"]);
+    // Listed before the main section, an additional one is still drawn after it.
+    expect(sectionsForArea(RESIDENTIAL, false, counts, [land, ...TAX_SECTIONS]).map((s) => s.id)).toEqual(["vanilla", "land", "density"]);
+    expect(sectionsForArea(RESIDENTIAL, false, counts).map((s) => s.id)).toEqual(["vanilla", "density"]);
+  });
+});
+
+describe("SectionExpandState", () => {
+  it("starts every section collapsed", () => {
+    const state = new SectionExpandState();
+    expect(state.isOpen("Residential", "density")).toBe(false);
+    expect(state.isOpen("Commercial", "vanilla")).toBe(false);
+  });
+
+  it("remembers a toggled section, per zone and per section", () => {
+    const state = new SectionExpandState();
+    expect(state.toggle("Residential", "density")).toBe(true);
+    expect(state.isOpen("Residential", "density")).toBe(true);
+    expect(state.isOpen("Residential", "vanilla")).toBe(false);
+    expect(state.isOpen("Commercial", "density")).toBe(false);
+    expect(state.toggle("Residential", "density")).toBe(false);
+    expect(state.isOpen("Residential", "density")).toBe(false);
+  });
+
+  it("starts a startsOpen section open and remembers it collapsed", () => {
+    const state = new SectionExpandState();
+    expect(state.isOpen("Residential", "vanilla", true)).toBe(true);
+    expect(state.toggle("Residential", "vanilla", true)).toBe(false);
+    expect(state.isOpen("Residential", "vanilla", true)).toBe(false);
+    expect(state.isOpen("Commercial", "vanilla", true)).toBe(true);
+    expect(state.toggle("Residential", "vanilla", true)).toBe(true);
+  });
+});
+
+describe("groupClasses", () => {
+  const vanilla = { toggleButton: "toggle-button_hTU", hint: "hint_yGN", content: "content_NUa" };
+
+  it("hides vanilla's expander while the sections are on", () => {
+    expect(groupClasses(vanilla, "inv", "gone", true)).toEqual({
+      toggleButton: "toggle-button_hTU inv",
+      hint: "hint_yGN inv",
+      content: "content_NUa gone",
+    });
+  });
+
+  it("gives vanilla's names unchanged while they are off", () => {
+    expect(groupClasses(vanilla, "inv", "gone", false)).toEqual(vanilla);
+  });
+
+  it("restores the names after being on (computed from vanilla's, not the patched ones)", () => {
+    groupClasses(vanilla, "inv", "gone", true);
+    expect(groupClasses(vanilla, "inv", "gone", false).toggleButton).toBe("toggle-button_hTU");
+  });
+
+  it("leaves a missing name missing", () => {
+    expect(groupClasses({}, "inv", "gone", true)).toEqual({ toggleButton: undefined, hint: undefined, content: undefined });
+  });
+});
+
+describe("density rows have no payer count", () => {
+  it("has no payers text or helper any more", () => {
+    expect(Object.keys(EN_US)).not.toContain("FiscalOverhaul.UI.Payers");
+    expect("payersSuffix" in density).toBe(false);
+  });
+
+  it("still labels a row by its density alone", () => {
+    expect(density.densityLabel(1, null)).toBe("Medium density");
+  });
+});
