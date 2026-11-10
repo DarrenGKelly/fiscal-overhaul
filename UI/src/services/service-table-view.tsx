@@ -1,9 +1,9 @@
 // The Services tab as a table like the Taxation tab's (with District service budgets on): Type | Budget / Fee |
 // Estimate, one row per service with its budget slider and cost, a sub-row per fee with its revenue (a slider when
 // adjustable), and an estimated total; vanilla's info column at the right explains the hovered row.
-// Always the Services tab (a user decision). The city view sets vanilla's budget and fees; with District service
-// budgets (BETA) on, a district view (the header's picker) sets the area's budget and shows the city's fees
-// read-only. Off: the table, city-only.
+// The Services tab while Options > Enable services table is on (else vanilla's, index.tsx). The city view sets
+// vanilla's budget and fees; with District service budgets (BETA) on, a district view (the header's picker) sets the
+// area's budget and shows the city's fees read-only. Off: the table, city-only.
 import { useEffect, useMemo, useState } from "react";
 import { useMapValue, useValue } from "cs2/api";
 import { service as serviceBindings } from "cs2/bindings";
@@ -112,7 +112,7 @@ const NULL_ENTITY = { index: 0, version: 0 };
 const RowBox = ActiveFocusDiv ?? "div";
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
-/** ServicePage override: our table always replaces vanilla's service list and detail; vanilla's info column stays. */
+/** The Services page while the table is on (index.tsx): our table in place of vanilla's service list and detail; vanilla's info column stays. */
 export const ServiceTablePage = () => <ServiceTable />;
 
 /** The hover handlers a row part passes to its element: enter shows it in the info column, leave clears it. */

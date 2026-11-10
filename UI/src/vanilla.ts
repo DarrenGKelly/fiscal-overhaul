@@ -57,7 +57,7 @@ export const TAX_SLIDER_PATH = `${ECONOMY}/taxation-page/tax-slider.tsx`;
 export const MONEY_FIELD_PATH = `${ECONOMY}/components/money-field/money-field.tsx`;
 
 // Services tab (UI/src/services/service-table-view.tsx): the page is replaced by a table built like the Taxation tab's.
-/** Overridden: props none; our table and vanilla's info column are drawn instead of the service list and detail. */
+/** Extended: props none; with the services table on, our table and vanilla's info column replace the service list and detail. */
 export const SERVICE_PAGE_PATH = `${ECONOMY}/service-page/service-page.tsx`;
 
 /**

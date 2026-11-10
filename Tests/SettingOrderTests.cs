@@ -70,10 +70,10 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
-        public void Features_HoldsOnlyTheCore_BudgetChartThenDistrictBudget()
+        public void Features_HoldsOnlyTheCore_BudgetChartThenDistrictBudgetThenServicesTable()
         {
             var options = Options(SettingSource());
-            Assert.Equal(new[] { "EnableBudgetChart", "EnableDistrictBudget" }, Names(options, "kFeaturesGroup"));
+            Assert.Equal(new[] { "EnableBudgetChart", "EnableDistrictBudget", "EnableServicesTable" }, Names(options, "kFeaturesGroup"));
             Assert.DoesNotContain(options, o => o.Group == "kFeaturesGroup" && o.DisabledByMaster);
         }
 

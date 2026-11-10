@@ -128,9 +128,13 @@ children (same weights) still sum to the district slot.
 
 ## UI
 
-**The table is always the Services tab** (a user decision): with District service budgets (BETA) off, or Simulation
-changes off, it is city-only: the header's picker hides on Services and no district overrides show or apply
-(`tableDistrict` in `service-table.ts` forces the city view). The district features show while
+**The table is the Services tab while Options > Features > Enable services table is on** (`Setting.EnableServicesTable`,
+default on, the `servicesTableEnabled` binding from `ServiceTableUISystem`; a user request): off, `index.tsx`'s
+`extend` of vanilla `ServicePage` draws the vanilla page, `FeatureGates.BuildsServiceTable` builds nothing, and the
+header's picker hides on Services (`servicesDistrictsOn` in `header-picker.ts`), so district budgets can't be set
+(stored ones still apply). With the table on but District service budgets (BETA) off, or Simulation changes off, it is
+city-only: the header's picker hides on Services and no district overrides show or apply (`tableDistrict` in
+`service-table.ts` forces the city view). The district features show while
 `FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding).
 
 - **Bindings** (`DistrictListUISystem`, only while the Economy panel is open): `districts`, the selector's list, now
@@ -142,7 +146,7 @@ changes off, it is city-only: the header's picker hides on Services and no distr
 - **District picker:** the one picker in the Economy panel header (`economy/economy-tab-bar.tsx`,
   [budget-chart.md § District selector](budget-chart.md#district-selector)), shown on this tab while the feature is on;
   it drives the table below. One selection across tabs (`useSelectedDistrict`).
-- **The table** (`override` of vanilla `ServicePage`, always, `services/service-table-view.tsx`; pure logic `service-table.ts`):
+- **The table** (`extend` of vanilla `ServicePage` while the switch is on, `services/service-table-view.tsx`; pure logic `service-table.ts`):
   a user decision (playtest), replacing vanilla's left service list and centre detail with a table
   built like the Taxation tab, in its DOM and live classes (`taxationPageClasses`, `taxationGroupClasses`,
   `taxationItemClasses`, `taxSliderClasses`): columns **Type | Budget / Fee | Estimate**, one group per

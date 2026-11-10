@@ -22,7 +22,7 @@ $picker-gap: 20rem;
 
 // The picker, out of the flex flow: at the row's left, centred on the row's middle (the marker sits there, height 0),
 // above the panel content so its list opens over the page. Kept (empty) while the picker hides on Production and
-// Loans, so the tabs never move.
+// Loans, so the tabs never move. As tall as a tab (the height is measured, economy-tab-bar.tsx).
 .picker-slot {
   position: absolute;
   left: 0;
@@ -61,4 +61,23 @@ $divider-gap: 40rem;
 
 .tab-divider + button {
   margin-left: $divider-gap;
+}
+
+// The frame around [picker | Budget Taxation Services]: the district choice drives those three tabs. Drawn behind the
+// picker (z-index 20) from the room marker, its box measured from the tabs (tab-group-frame.ts); shown only while the
+// picker is, so Production and Loans keep the plain header.
+.tab-group-frame {
+  position: absolute;
+  pointer-events: none;
+  border: 2rem solid rgba(255, 255, 255, 0.22);
+  border-radius: 12rem;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+// 100rem wide, out of sight: the px per rem the frame's padding is scaled by.
+.rem-probe {
+  position: absolute;
+  width: 100rem;
+  height: 0;
+  visibility: hidden;
 }
