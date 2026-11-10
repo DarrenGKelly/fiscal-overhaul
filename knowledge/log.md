@@ -3,6 +3,7 @@
 ## 2026-11-09
 
 * **Services tab: info column back, cost and revenue split** (user request): vanilla's right info column (`ServiceItemDetail`) is restored beside the table and explains the hovered service, budget slider or fee; the Estimate column shows each service's cost only and each fee's revenue as a positive figure, with a row for every fee (a slider only on adjustable ones), still adding up to the total. [impl/district-service-budgets.md](impl/district-service-budgets.md#ui)
+* **land-pr runs on the Linux PC** (`pwsh`): `git-common.ps1`'s path helpers follow the OS instead of forcing `\`; `test-land-pr.ps1` passes under both shells. [repo-structure.md § tools/](repo-structure.md#tools)
 
 ## 2026-11-08
 
