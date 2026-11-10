@@ -75,15 +75,15 @@ If you enjoy the mod and want to say thanks, you can [buy me a coffee on Ko-fi](
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
 	<!--Screenshot, can be set multiple times (added with the screenshot files: Properties/Screenshots/*.png)-->
-	<Screenshot Value="Properties/Screenshots/01-budget-chart-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/08-services-table-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/09-taxation-district-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/06-budget-district-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/07-budget-district-list-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/02-budget-tooltip-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/03-taxation-density-v1-2-0.png" />
-	<Screenshot Value="Properties/Screenshots/04-options-v1-2-0.png" />
+	<Screenshot Value="Properties/Screenshots/01-budget-chart-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/08-services-table-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/09-taxation-district-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/06-budget-district-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/07-budget-district-list-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/02-budget-tooltip-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/03-taxation-density-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/04-options-v1-3-0.png" />
 	<!--Tag, can be set multiple times. CS2's Paradox Mods tags: "Code Mod", "Map", "Savegame", "Prefab", plus asset tags-->
 	<Tag Value="Code Mod" />
 	<!--Link to the forum post where the mod can be discussed (optional; none yet)-->

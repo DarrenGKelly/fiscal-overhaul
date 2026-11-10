@@ -2,6 +2,7 @@
 
 ## 2026-11-09
 
+* **Store screenshots renamed for v1.3.0** (the user's version): the set was named `-v1-2-0`, a released version (the Windows checkout had no tags); reinstalled from the same captures as `-v1-3-0`. Autodev PR titles never take a `vX.Y.Z - ` prefix (promote.py skips those). [git-workflow.md](git-workflow.md#autonomous-sessions-autodev), [releasing.md § Screenshots](releasing.md#screenshots)
 * **Store screenshots retaken with #91 and #92 fixed**: the Taxation shots after a full round of charges (200 s), so Chester Square's estimate (¢302,784) matches its Budget taxes (¢298,835).
 * **Taxation estimates right from the first tick after a load** (issue #92): the density and district estimates count only payers charged in the last 16 engine ticks, so for the first ~2 minutes at 1x after a load they read a fraction of the whole (a district 29% of its Budget taxes); they are now scaled by 16 / ticks charged. `store-screenshots.ps1` runs the simulation 200 s by default, a full round. [impl/tax-engine-ui.md](impl/tax-engine-ui.md#density-bindings-and-the-estimate)
 * **District list closes on an outside click** (issue #91): the header picker's list closed only on a pick or a second click on the name, so it stayed open over another tab; a mouse press anywhere else now closes it. [impl/budget-chart.md § District selector](impl/budget-chart.md#district-selector)
