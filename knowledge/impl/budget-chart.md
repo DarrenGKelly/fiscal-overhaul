@@ -157,7 +157,7 @@ and both arrows read as controls; the name is bold (scoped under `.district-sele
 left one (the font has no arrows). They cycle Entire City → each district (by name) → Outside Districts → Entire
 City, wrapping both ways; the name opens a list of every choice, with a divider line between the three groups (Entire
 City | the districts | Outside Districts; `dividerBefore`). The list's items sit in vanilla's `Scrollable`, capped at
-520rem, so a long list gets the game's scroll bar instead of running past the panel. It shows whenever recording is on (`districtBudgetEnabled`, `showsDistrictSelector`), even in a city without
+520rem, so a long list gets the game's scroll bar instead of running past the panel. The open list closes on a pick, a second click on the name, or a mouse press anywhere else (a document `mousedown` listener while open; `closesOnPress`): another tab, the panel or the map, since the picker stays mounted in the header across tabs (issue #91). It shows whenever recording is on (`districtBudgetEnabled`, `showsDistrictSelector`), even in a city without
 districts, so the per-district view can be found: then Entire City is the only choice and the arrows and the list
 stay on it. With **Record district budgets** off it hides (vanilla behaviour). A choice no
 longer offered falls back to Entire City (`effectiveKey`). The choice persists for the session (module-level, like

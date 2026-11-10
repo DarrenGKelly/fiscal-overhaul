@@ -104,3 +104,17 @@ export function listAnchor(anchor: BoxLike, container: BoxLike | null): { left: 
   const oy = container?.top ?? 0;
   return { left: anchor.left + anchor.width / 2 - ox, top: anchor.top + anchor.height - oy };
 }
+
+/** What `Node.contains` needs: an element the picker owns. */
+export interface ContainsLike {
+  contains(node: unknown): boolean;
+}
+
+/**
+ * Whether a mouse press closes the open list: anywhere but the picker's own name box and list (another tab, the
+ * panel, the map). A press on the name toggles it through its own click; one on an entry picks it.
+ */
+export function closesOnPress(target: unknown, owned: (ContainsLike | null | undefined)[]): boolean {
+  if (target == null) return true;
+  return !owned.some((el) => el != null && el.contains(target));
+}
