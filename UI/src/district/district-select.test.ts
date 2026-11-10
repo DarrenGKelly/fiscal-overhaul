@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CITY_KEY,
   cityLabel,
+  closesOnPress,
   cycle,
   districtLabel,
   districtOptions,
@@ -152,5 +153,29 @@ describe("listAnchor", () => {
 
   it("uses screen coordinates without a container", () => {
     expect(listAnchor({ left: 300, top: 140, width: 200, height: 40 }, null)).toEqual({ left: 400, top: 180 });
+  });
+});
+describe("closesOnPress", () => {
+  // A stand-in element: contains itself and the nodes listed as its children.
+  const el = (...children: unknown[]) => {
+    const self = { contains: (n: unknown) => n === self || children.includes(n) };
+    return self;
+  };
+  const entry = {};
+  const name = el();
+  const list = el(entry);
+
+  it("closes on a press outside the picker (another tab, the panel)", () => {
+    expect(closesOnPress({}, [name, list])).toBe(true);
+    expect(closesOnPress(null, [name, list])).toBe(true);
+  });
+  it("doesn't close on a press on the name box, the list or one of its entries", () => {
+    expect(closesOnPress(name, [name, list])).toBe(false);
+    expect(closesOnPress(list, [name, list])).toBe(false);
+    expect(closesOnPress(entry, [name, list])).toBe(false);
+  });
+  it("skips refs not mounted yet", () => {
+    expect(closesOnPress(entry, [null, undefined, list])).toBe(false);
+    expect(closesOnPress(entry, [null, name])).toBe(true);
   });
 });
