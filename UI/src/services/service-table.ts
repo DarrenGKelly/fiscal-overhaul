@@ -23,6 +23,8 @@ export interface FeeLike {
   max: number;
   adjustable: boolean;
   incomeInternal: number;
+  /** Absent in older test data: 0. */
+  incomeExports?: number;
 }
 
 /** One row of the districtServiceFees binding (C# ServiceTableUISystem): an area's share of a fee's income. */
@@ -52,10 +54,23 @@ export const FEE_SLIDER_MAX = 200;
  */
 export const DISTRICT_FEE_ROWS: "disabled" | "hidden" = "disabled";
 
-/** The fee sub-rows a service shows: its adjustable fees (vanilla's rule), none in a district view when hidden there. */
+/**
+ * The fee sub-rows a service shows: every fee, so its revenue has a row in the Estimate column (a user request); only
+ * an adjustable one has a slider (vanilla's rule, `hasFeeSlider`). None in a district view when hidden there.
+ */
 export function feeRows<F extends FeeLike>(fees: F[] | null | undefined, districtView: boolean, mode: "disabled" | "hidden" = DISTRICT_FEE_ROWS): F[] {
   if (districtView && mode === "hidden") return [];
-  return (fees ?? []).filter((f) => f.adjustable);
+  return fees ?? [];
+}
+
+/** Whether a fee row has a slider: only an adjustable fee (vanilla's detail filters the same way). */
+export function hasFeeSlider(fee: FeeLike): boolean {
+  return fee.adjustable;
+}
+
+/** A fee's revenue in the city view: what vanilla's detail lists as Fees and Export, internal plus exports. */
+export function feeRevenue(fee: FeeLike): number {
+  return fee.incomeInternal + (fee.incomeExports ?? 0);
 }
 
 /** The fee as vanilla's slider shows it: 200 × (fee − min) / (max − min), 0 for an empty range. */
@@ -129,20 +144,27 @@ export interface DistrictData {
 }
 
 /**
- * A service row's Estimate: NET = fee income − upkeep. City view: vanilla's own figure (services[].budget). District
- * view: the area's share of the fee income (by usage) minus its upkeep at its effective %.
+ * A service's NET = fee income + exports − imports − upkeep: the footer adds these. City view: vanilla's own figure
+ * (services[].budget). District view: the area's share of the fee income (by usage) minus its upkeep at its effective %.
  */
-export function serviceEstimate(service: { key: string; budget: number }, district: string, data: DistrictData): number {
+export function serviceNet(service: { key: string; budget: number }, district: string, data: DistrictData): number {
   if (!isDistrictView(district)) return service.budget;
   return districtServiceFeeIncome(data.fees, service.key, district) - upkeepFor(data.budgets, service.key, district);
 }
 
 /**
- * A fee sub-row's Estimate: blank (null). Its fee income is already in the service row's NET above it, so a figure
- * here made the column not add up to the total (a user request: the visible column sums to the footer).
+ * A service row's Estimate: its cost only (a user request), the fee revenue being on the fee rows below it. City view:
+ * vanilla's NET less every fee's revenue, so upkeep and imports. District view: the area's upkeep at its effective %.
+ * The service row and its fee rows add up to the service's NET.
  */
-export function feeRowEstimate(): number | null {
-  return null;
+export function serviceCost(service: { key: string; budget: number; fees?: FeeLike[] | null }, district: string, data: DistrictData): number {
+  if (isDistrictView(district)) return 0 - upkeepFor(data.budgets, service.key, district);
+  return service.budget - (service.fees ?? []).reduce((sum, f) => sum + feeRevenue(f), 0);
+}
+
+/** A fee sub-row's Estimate: the fee's revenue, positive. District view: the area's share of the fee's income. */
+export function feeRowEstimate(fee: FeeLike, service: string, district: string, data: DistrictData): number {
+  return isDistrictView(district) ? districtFeeIncome(data.fees, service, district, fee.resource) : feeRevenue(fee);
 }
 
 /** A row of the table as drawn: a service row or one of its fee sub-rows. */
@@ -152,19 +174,19 @@ export interface TableRowInput {
   fees: FeeLike[];
 }
 
-/** The Estimate column top to bottom, as drawn: each service's NET, then a blank (null) per fee sub-row. */
-export function visibleEstimates(services: TableRowInput[], district: string, data: DistrictData): (number | null)[] {
-  const column: (number | null)[] = [];
+/** The Estimate column top to bottom, as drawn: each service's cost, then each fee row's revenue. */
+export function visibleEstimates(services: TableRowInput[], district: string, data: DistrictData): number[] {
+  const column: number[] = [];
   for (const s of services) {
-    column.push(serviceEstimate(s, district, data));
-    for (const _ of feeRows(s.fees, isDistrictView(district))) column.push(feeRowEstimate());
+    column.push(serviceCost(s, district, data));
+    for (const f of feeRows(s.fees, isDistrictView(district))) column.push(feeRowEstimate(f, s.key, district, data));
   }
   return column;
 }
 
-/** The footer total: the sum of the service rows' Estimates (the fee sub-rows are parts of them, not added again). */
+/** The footer total: the sum of the services' NETs, which is the visible column's sum (a cost and its fee rows). */
 export function estimateTotal(services: { key: string; budget: number }[], district: string, data: DistrictData): number {
-  return services.reduce((sum, s) => sum + serviceEstimate(s, district, data), 0);
+  return services.reduce((sum, s) => sum + serviceNet(s, district, data), 0);
 }
 
 /**

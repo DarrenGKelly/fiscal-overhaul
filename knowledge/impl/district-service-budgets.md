@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: District service budgets
-description: Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab table (Type | Budget / Fee | Estimate, fee sub-rows, reset buttons and markers, NET per service and total, district view), and the master "Simulation changes" switch every simulation-changing feature gates on.
+description: Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab table (Type | Budget / Fee | Estimate, fee sub-rows with their revenue, cost per service, total, vanilla's info column, district view), and the master "Simulation changes" switch every simulation-changing feature gates on.
 resource:
   - Mod/Systems/DistrictServiceBudgetSystem.cs
   - Mod/Systems/DistrictServiceUpkeepSystem.cs
@@ -143,28 +143,36 @@ changes off, it is city-only: the header's picker hides on Services and no distr
   [budget-chart.md § District selector](budget-chart.md#district-selector)), shown on this tab while the feature is on;
   it drives the table below. One selection across tabs (`useSelectedDistrict`).
 - **The table** (`override` of vanilla `ServicePage`, always, `services/service-table-view.tsx`; pure logic `service-table.ts`):
-  a user decision (playtest), replacing vanilla's left service list, centre detail and right info column with a table
+  a user decision (playtest), replacing vanilla's left service list and centre detail with a table
   built like the Taxation tab, in its DOM and live classes (`taxationPageClasses`, `taxationGroupClasses`,
   `taxationItemClasses`, `taxSliderClasses`): columns **Type | Budget / Fee | Estimate**, one group per
   `serviceBudget.services` row (icon and name as a zone header; a locked service is shown disabled), then a sub-row
-  per adjustable fee (`serviceDetails(entity).fees[].adjustable`, read, never hard-coded; always shown, not
-  collapsible; vanilla's own detail filters the same way). In game 1.6.3 only **Electricity and Water** have one: the
-  Garbage, Healthcare and Education fees are not adjustable in the game's `ServiceFeeParameterPrefab` data (the flag
-  is asset data, `FeeParameters.m_Adjustable`, not code), so vanilla shows no slider for them either; and an **ESTIMATED TOTAL** footer (vanilla's label). The right info column (description, image) is
-  dropped: the table takes the width. Vanilla `TaxSlider` is not reused: its gradient is the tax colours by rate, so the
+  per fee (`serviceDetails(entity).fees`, every one, so its revenue has a row: a user request; always shown, not
+  collapsible). Only an adjustable fee (`fees[].adjustable`, read, never hard-coded; `hasFeeSlider`) has a slider:
+  in game 1.6.3 only **Electricity and Water**. The Garbage, Healthcare and Education fees are not adjustable in the
+  game's `ServiceFeeParameterPrefab` data (the flag is asset data, `FeeParameters.m_Adjustable`, not code), so their
+  rows show only the revenue, as vanilla shows no slider for them either; and an **ESTIMATED TOTAL** footer (vanilla's
+  label).
+- **Info column:** vanilla's right column is kept (it was dropped by mistake once, restored on request): vanilla
+  `ServiceItemDetail` with `servicePageClasses.infoColumn`, fed vanilla's item ids (`services/service-info.ts`,
+  `ServicePageItemType`). Hovering a service's icon or name shows the service (icon, description), its budget slider
+  the budget's efficiency (a service with no budget slider: the service), a fee row the fee's effects. Leaving the
+  row empties the column, as vanilla does (`afterLeave`: a late leave of the previous row keeps the new one). Mouse
+  only; vanilla's gamepad-focus path is not wired. Vanilla `TaxSlider` is not reused: its gradient is the tax colours by rate, so the
   rows draw TaxSlider's DOM (`[slider column > [rate, track], estimate column]`) with vanilla `GradientSlider`
   (`economyGradientSliderClasses` theme, `intTransformer`) and the service gradients (BudgetSliderItem's, and
   ServiceFeeSliderItem's reversed one, both copied). A fee slider is vanilla's 0..200 mapping
   (`feeToSlider`/`feeFromSlider`: 200 × (fee − min) / (max − min)).
-- **City view:** the sliders call vanilla's `setServiceBudget` / `setServiceFee`. Estimate: a service row is vanilla's
-  NET (`services[].budget`: fee income + exports − imports − upkeep, `ServiceBudgetUISystem.GetTotalBudget`), a fee row
-  **no figure** (a user request: its income is already in the NET above it, and a figure there made the visible column
-  not add up to the footer; `feeRowEstimate`, `visibleEstimates`); the total is the sum of the service rows.
+- **City view:** the sliders call vanilla's `setServiceBudget` / `setServiceFee`. Estimate (a user request): a service
+  row shows **only its cost** (`serviceCost`: vanilla's NET less its fees' revenue, so −upkeep − imports), a fee row
+  its **revenue, positive** (`feeRowEstimate`: `incomeInternal + incomeExports`). A service's rows add up to vanilla's
+  NET (`services[].budget`: fee income + exports − imports − upkeep, `ServiceBudgetUISystem.GetTotalBudget`), and the
+  total is the sum of the NETs (`serviceNet`), so the visible column adds up to the footer (`visibleEstimates`).
 - **District view** (a district or Outside Districts, the header's picker): the budget slider shows and sets the area's %
   (`setDistrictServiceBudget`, as above). **Fees are city-wide** (per-district fees deferred by the user): a fee row
   shows the city's fee read-only, disabled (`DISTRICT_FEE_ROWS = "disabled"` in `service-table.ts`, provisional; "hidden"
-  drops the rows). Estimate: the area's fee income share minus its upkeep at its effective % (`districtServiceBudgets`
-  upkeep); the total is the sum of the rows. Upkeep belongs to the area holding the service's buildings
+  drops the rows). Estimate: the service row the area's upkeep at its effective % (`districtServiceBudgets` upkeep), each
+  fee row the area's share of that fee (`districtServiceFees`); the total is the sum of the rows. Upkeep belongs to the area holding the service's buildings
   (`districtServiceBudgets` has a row only where there are some), so a district with consumers but no power plant
   shows Electricity as its fee share alone, and the district with the plant carries its whole upkeep. The fee share is `districtServiceFees` (below); exports, imports and the
   network base cost (roads) stay city-only, so a district's rows don't add up to vanilla's city NET.

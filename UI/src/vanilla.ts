@@ -57,8 +57,18 @@ export const TAX_SLIDER_PATH = `${ECONOMY}/taxation-page/tax-slider.tsx`;
 export const MONEY_FIELD_PATH = `${ECONOMY}/components/money-field/money-field.tsx`;
 
 // Services tab (UI/src/services/service-table-view.tsx): the page is replaced by a table built like the Taxation tab's.
-/** Extended: props none; with the feature on our table is drawn instead (vanilla's service list, detail and info column). */
+/** Overridden: props none; our table and vanilla's info column are drawn instead of the service list and detail. */
 export const SERVICE_PAGE_PATH = `${ECONOMY}/service-page/service-page.tsx`;
+
+/**
+ * Vanilla's info column (the Services page's right column): props { service: Entity, itemId, className? }, itemId one
+ * of ServicePageItemType's ids (services/service-info.ts) or null (empty). Draws the service's icon and description,
+ * the budget slider's efficiency or a fee's effects.
+ */
+export const ServiceItemDetail: any = getModule(`${ECONOMY}/service-page/item-detail/service-item-detail.tsx`, "ServiceItemDetail");
+
+/** The Services page's class names (`servicePage`, `listColumn`, `mainColumn`, `infoColumn`). */
+export const servicePageClasses: Record<string, string> | undefined = getModule(`${ECONOMY}/service-page/service-page.module.scss`, "classes");
 
 /** Panel section (a frame with an optional header): props { header?, className?, theme?, focusKey?, children }. */
 export const Section: any = getModule("game-ui/common/section/section.tsx", "Section");

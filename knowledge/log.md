@@ -1,5 +1,9 @@
 # Update log
 
+## 2026-11-09
+
+* **Services tab: info column back, cost and revenue split** (user request): vanilla's right info column (`ServiceItemDetail`) is restored beside the table and explains the hovered service, budget slider or fee; the Estimate column shows each service's cost only and each fee's revenue as a positive figure, with a row for every fee (a slider only on adjustable ones), still adding up to the total. [impl/district-service-budgets.md](impl/district-service-budgets.md#ui)
+
 ## 2026-11-08
 
 * **Services tab as a table** (playtest, user design): the tab is always a Taxation-style table (city-only with District service budgets off) (Type | Budget / Fee | Estimate, fee sub-rows, reset buttons and markers, NET per service and ESTIMATED TOTAL) in place of vanilla's list, detail and info column; a district view sets the area's budget, shows the city's fees read-only and the district's NET (fee share by usage, `districtServiceFees`, minus its upkeep). Closes #62. [impl/district-service-budgets.md](impl/district-service-budgets.md#ui)

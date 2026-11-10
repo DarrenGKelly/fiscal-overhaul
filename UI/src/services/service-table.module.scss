@@ -43,3 +43,5 @@
 .track { flex: 1; }
 .estimateColumn { width: 166rem; padding: 6rem 12rem; display: flex; flex-direction: row; align-items: center; border-left: var(--stroke2) solid var(--dividerColor); }
 .estimateValue { flex: 1; }
+// Copy of vanilla's service-page .info-column (the info column's place beside the table).
+.infoColumn { margin-left: 6rem; width: var(--centerPanelSidebarWidth); --contentPadding: 0rem; }
