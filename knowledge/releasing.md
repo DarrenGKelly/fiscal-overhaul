@@ -67,10 +67,12 @@ the `ChangeLog`. The promotion stamps it, so the version on `master` is always t
 ## Screenshots
 
 The page's pictures live in `Mod/Properties/Screenshots/`, each listed as a `Screenshot` in
-`PublishConfiguration.xml` in the order the mod page shows them; the README embeds the same files. The set is seven
+`PublishConfiguration.xml` in the order the mod page shows them; the README embeds the same files. The set is nine
 shots, by base name (the number is when a shot was added, not its place on the page): `01-budget-chart`,
 `02-budget-tooltip`, `03-taxation-density`, `04-options`, `05-budget-vanilla-detail`, `06-budget-district`,
-`07-budget-district-list`.
+`07-budget-district-list`, `08-services-table` (the table, Electricity hovered so the info column shows),
+`09-taxation-district` (Taxation in the first district's view). A new shot gets a `<Screenshot>` entry and a README
+link by hand (any version suffix): the install renames them.
 
 - **Spec.** 1920x1080 24-bit RGB PNGs (about 1.2 to 1.4 MB each; the captures are opaque, and the 32-bit ARGB a `System.Drawing` bitmap saves by default put some over the 2.1 MB limit) from full-scale window captures at 2560x1440: an Economy panel shot is
   cropped to the 16:9 box (285, 193)-(2275, 1312) around the panel and scaled, the Options page is scaled whole.
@@ -85,12 +87,15 @@ shots, by base name (the number is when a shot was added, not its place on the p
   released name.
 - **`tools/store-screenshots.ps1`** takes the set (`Get-Help ./tools/store-screenshots.ps1 -Full`): the same claim,
   launch, paused check and quit as `in-game-check.ps1`; before the launch it sets the mod's settings file
-  (`FiscalOverhaul.coc` in the game's LocalLow folder: the chart, district recording and density taxes on, density
-  offsets from `-Offsets`, default three set) and puts the original back byte for byte after the game exits; it turns
-  every Budget row on (reading each check square off a full-scale capture, so a row already on isn't toggled off),
-  takes the seven shots, switches density taxes back off on the Options page, quits, then crops, scales and installs
+  (`FiscalOverhaul.coc` in the game's LocalLow folder: the chart, district recording, the services table, simulation
+  changes and density taxes on, the density offsets template from `-Offsets`, which only a save without its own
+  density rates takes: Odiham's own rates are what `03` shows) and puts the original back byte for byte after the game
+  exits; it turns every Budget row on (reading each check square off a full-scale capture, so a row already on isn't
+  toggled off), takes the Budget shots, **runs the simulation `-SimSeconds` (default 30) and pauses it again** before
+  the Taxation shots (their estimates count only payers the tax engine charged lately, and a save that loads paused
+  has charged none, so without the run every estimate reads ¢0), takes the rest of the nine shots, switches density taxes back off on the Options page, quits, then crops, scales and installs
   them: the new files in `Screenshots/`, the `Screenshot` entries and README links renamed in place (the page order
-  kept), the old files of each base removed. All seven or nothing. Commit the result through a PR into `autodev`.
+  kept), the old files of each base removed. The whole set or nothing. Commit the result through a PR into `autodev`.
 - **Points it hasn't clicked before** (`-ListPoints`: source `derived`) each get a check shot in `-CheckDir`; a run
   that misses one is redone with `-Point Name=x,y`, and the corrected value goes into `tools/game-run-common.ps1`.
   `-FromDir <dir>` re-crops and installs captures already taken (`<base>.png` at 2560x1440) without the game.

@@ -10,8 +10,8 @@
     FO_GAME_LAUNCH starts a renamed ping.exe as the "game". What must hold, each with a pass and a fail case: the
     version the names carry (ModVersion, the next patch after a released tag, -Version), the suffixed names and their
     base, the config and README rewrites (order kept, other entries untouched), the settings rewrite, the crop box and
-    scale; the argument refusals; -FromDir installs all seven or nothing; the refusal while a game runs; a green run
-    turns the rows on, takes the seven shots, installs them and puts the settings file back byte for byte; a red run
+    scale; the argument refusals; -FromDir installs the whole set or nothing; the refusal while a game runs; a green run
+    turns the rows on, takes the nine shots, installs them and puts the settings file back byte for byte; a red run
     (rows that stay off) installs nothing, puts the settings back and stops the game it launched; a killed run's
     settings copy is put back first.
         ./tools/test-store-screenshots.ps1     (exit 0 = all passed)
@@ -50,7 +50,7 @@ $fakeExe = Join-Path $root "$fakeName.exe"
 $gameData = Join-Path $root 'game-data'
 $settings = Join-Path $gameData 'FiscalOverhaul.coc'
 $savedNames = 'FO_GAME_CONTROL', 'FO_GAME_LAUNCH', 'FO_GAME_LAUNCH_ARGS', 'FO_GAME_PROCESS_NAME', 'FO_GAME_DATA_DIR', 'FO_STUB_LOG',
-    'FO_STUB_FAIL_AT', 'FO_STUB_UNPAUSED', 'FO_STUB_ROWS_OFF', 'FO_STUB_SEEN'
+    'FO_STUB_FAIL_AT', 'FO_STUB_UNPAUSED', 'FO_STUB_ROWS_OFF', 'FO_STUB_SEEN', 'FO_STUB_SPACE_IGNORED'
 
 # The page order on purpose differs from the file numbers (as the real config's does).
 $OldOrder = '01-budget-chart', '06-budget-district', '07-budget-district-list', '02-budget-tooltip', '05-budget-vanilla-detail', '03-taxation-density', '04-options'
@@ -84,7 +84,15 @@ if ($Gone) { $line += ' -Gone' }
 if ($Out) { $line += " $([IO.Path]::GetFileName($Out)) scale $Scale" }
 Add-Content -LiteralPath $env:FO_STUB_LOG -Value $line
 if ($env:FO_STUB_FAIL_AT -and $line -like $env:FO_STUB_FAIL_AT) { [Console]::Error.WriteLine("stub: failing '$line'"); exit 1 }
+# Space toggles the pause (unless FO_STUB_SPACE_IGNORED); the PAUSED banner is painted only while paused.
+$running = "$env:FO_STUB_LOG.running"
 switch ($Command) {
+    'key' {
+        if ($Name -eq 'Space' -and -not $env:FO_STUB_SPACE_IGNORED) {
+            if (Test-Path -LiteralPath $running) { Remove-Item -LiteralPath $running } else { Set-Content -LiteralPath $running -Value '' }
+        }
+        'key ok'
+    }
     'window' { 'client: 100,50,2560,1440' }
     'screenshot' {
         Add-Type -AssemblyName System.Drawing
@@ -92,8 +100,8 @@ switch ($Command) {
         $b = [System.Drawing.Bitmap]::new([int](2560 * $s), [int](1440 * $s))
         $g = [System.Drawing.Graphics]::FromImage($b)
         $g.Clear([System.Drawing.Color]::FromArgb(60, 73, 91))
-        $g.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(74, 192, 240)), [int](1170 * $s), [int](4 * $s), [int](220 * $s), [int](44 * $s))
-        if (-not $env:FO_STUB_ROWS_OFF) { $g.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(113, 241, 168)), [int](370 * $s), [int](400 * $s), [int](40 * $s), [int](700 * $s)) }
+        if (-not (Test-Path -LiteralPath $running)) { $g.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(74, 192, 240)), [int](1170 * $s), [int](4 * $s), [int](220 * $s), [int](44 * $s)) }
+        if (-not $env:FO_STUB_ROWS_OFF) { $g.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(113, 241, 168)), [int](370 * $s), [int](380 * $s), [int](70 * $s), [int](700 * $s)) }
         $g.Dispose()
         $b.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
         $b.Dispose()
@@ -151,7 +159,10 @@ function Get-RepoState {
 
 function Invoke-Store([string[]]$Arguments, [hashtable]$Env = @{}) {
     Set-Content -LiteralPath $log -Value $null
-    foreach ($name in 'FO_STUB_FAIL_AT', 'FO_STUB_ROWS_OFF') { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
+    Remove-Item -LiteralPath "$log.running" -ErrorAction SilentlyContinue
+    foreach ($name in 'FO_STUB_FAIL_AT', 'FO_STUB_ROWS_OFF', 'FO_STUB_SPACE_IGNORED') { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
+    # A one-second simulation run unless the test sets its own.
+    if ($Arguments -notcontains '-SimSeconds') { $Arguments += @('-SimSeconds', '1') }
     foreach ($key in $Env.Keys) { Set-Item "Env:$key" $Env[$key] }
     $global:LASTEXITCODE = 0
     $ErrorActionPreference = 'Continue'
@@ -194,6 +205,19 @@ try {
     $parsed = $newSettings.Substring($newSettings.IndexOf('{')) | ConvertFrom-Json
     Check ($newSettings.StartsWith("FiscalOverhaul`n{") -and $parsed.EnableDensityTaxes -eq $true -and $parsed.EnableBudgetChart -eq $true -and $parsed.EnableDistrictBudget -eq $true -and $parsed.DensityTaxOffsets -eq '2,1,-1,0,0,0,0,0,0,0,0,0') 'the settings file gets the features on and the offsets' $newSettings
     Check ($parsed.SomethingElse -eq 7) '... keeping its other keys' $newSettings
+    Check ($parsed.EnableServicesTable -eq $true -and $parsed.EnableSimulationChanges -eq $true) '... the services table and simulation changes on too (08-services-table, 09-taxation-district)' $newSettings
+
+    Write-Host '--- the Budget rows'' check squares ---'
+    # Each row is read at its own square: the totals at x 389, the rows under them at 418.
+    $points = Merge-GameRunPoints @()
+    $squares = Join-Path $root 'rows/squares.png'
+    $green = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(113, 241, 168))
+    New-Png $squares 2560 1440 { param($g) foreach ($row in $GameRunBudgetRows) { $g.FillRectangle($green, $points[$row].X - 5, $points[$row].Y - 5, 10, 10) } }
+    Check ((Get-UncheckedRows $squares $points).Count -eq 0) 'every square filled at its own x: no row reads off'
+    $totalsOnly = Join-Path $root 'rows/totals-only.png'
+    New-Png $totalsOnly 2560 1440 { param($g) $g.FillRectangle($green, 384, 380, 10, 700) }
+    $off = Get-UncheckedRows $totalsOnly $points
+    Check ($off -contains 'RowTaxes' -and $off -notcontains 'RowRevenues' -and $off -notcontains 'RowBalance') 'fail case: only the totals'' column filled: the indented rows read off' ($off -join ', ')
     Check ((Set-StoreSettingsText '' '0,0,0,0,0,0,0,0,0,0,0,1') -match '"DensityTaxOffsets": "0,0,0,0,0,0,0,0,0,0,0,1"') 'no settings file yet: one is written'
     Check (Throws { Set-StoreSettingsText $FixtureSettings '1,2,3' } '12 comma-separated') 'fail case: offsets that aren''t 12 integers'
 
@@ -250,7 +274,7 @@ try {
     Check ($r.ExitCode -eq 2 -and $r.Output -match 'lacks 04-options\.png' -and (Get-RepoState) -eq $before) 'fail case: a missing capture installs nothing' $r.Output
     New-Png (Join-Path $rawDir '04-options.png') 2560 1440
     $r = Invoke-Store @('-FromDir', $rawDir, '-CheckDir', $checkDir)
-    Check ($r.ExitCode -eq 0) 'all seven captures install (exit 0)' $r.Output
+    Check ($r.ExitCode -eq 0) 'all the captures install (exit 0)' $r.Output
     $files = @(Get-ChildItem -LiteralPath (Join-Path $repo 'Mod\Properties\Screenshots') -File | ForEach-Object { $_.Name } | Sort-Object)
     $want = @(($StoreShotSet | ForEach-Object { "$($_.Base)-v1-1-1.png" }) + '99-extra.png' | Sort-Object)
     Check (($files -join ',') -eq ($want -join ',')) '... the new names in Screenshots/, the old files gone, an unrelated one kept' ($files -join "`n")
@@ -283,22 +307,35 @@ try {
     $seen = [IO.File]::ReadAllText($env:FO_STUB_SEEN)
     Check ($seen -match '"EnableDensityTaxes": true' -and $seen -match '"DensityTaxOffsets": "2,1,-1,0,0,0,0,0,0,0,0,0"') '... the game loaded with density taxes on and the default offsets' $seen
     Check ([IO.File]::ReadAllText($settings) -eq $FixtureSettings -and -not (Test-Path -LiteralPath "$settings.store-screenshots-backup")) '... and the settings file is back byte for byte afterwards'
-    Check ($r.Output -match 'rows off at first: none' -and $r.Calls -notmatch '(?m)^click 540,') '... rows already on are not clicked (a click would turn one off)' $r.Calls
-    Check ($r.Calls -match '(?m)^click 1628,441$' -and $r.Calls -match '(?m)^click 1382,441$' -and $r.Calls -match '(?m)^click 629,568$' -and $r.Calls -match '(?m)^click 918,1092$') '... the district arrow and name, By density and Options at origin + offset' $r.Calls
-    Check ($r.Calls -match '(?m)^click 1696,446$') '... density taxes switched back off on the Options page' $r.Calls
-    Check ($r.Calls -notmatch '(?m)^key Space$') '... never a Space on a paused save' $r.Calls
+    Check ($r.Output -match 'rows off at first: none' -and $r.Calls -notmatch '(?m)^click (489|518),') '... rows already on are not clicked (a click would turn one off)' $r.Calls
+    Check ($r.Calls -match '(?m)^click 864,356$' -and $r.Calls -match '(?m)^click 668,356$' -and $r.Calls -match '(?m)^click 600,620$' -and $r.Calls -match '(?m)^click 1596,356$' -and $r.Calls -match '(?m)^click 918,1092$') '... the header picker''s arrow and name, the Density section, the Services tab and Options at origin + offset' $r.Calls
+    Check ($r.Calls -match '(?m)^click 1696,789$' -and $r.Calls -notmatch '(?m)^click 1696,446$') '... density taxes switched back off on the Options page (its own box, not Record district budgets)' $r.Calls
+    $spaces = @($r.Calls -split "`n" | Where-Object { $_ -eq 'key Space' }).Count
+    Check ($spaces -eq 2 -and $r.Calls -match '(?s)key Space\n.*key Space\n(?:(?!click )[^\n]*\n)*click 1324,356') '... the simulation run: two Spaces (start, pause again) just before the Taxation tab' $r.Calls
     $files = @(Get-ChildItem -LiteralPath (Join-Path $repo 'Mod\Properties\Screenshots') -File | ForEach-Object { $_.Name } | Sort-Object)
-    Check (($files -join ',') -eq ($want -join ',')) '... the seven installed under the new names, the old ones removed' ($files -join "`n")
+    Check (($files -join ',') -eq ($want -join ',')) '... the set installed under the new names, the old ones removed' ($files -join "`n")
     Check (-not (Test-FakeRunning) -and $r.Output -match 'Game: not running') '... and the launched game stopped: Game: not running' $r.Output
     $manifest = Get-Content -Raw -LiteralPath (Join-Path $checkDir 'manifest.md')
     Check ($manifest -match 'Result: green' -and $manifest -match 'Version: 1\.1\.1' -and $manifest -match 'rows-on\.png' -and $manifest -match 'options-open\.png') '... with a manifest of the shots and the check shots' $manifest
+    Check ($manifest -match 'sim-running\.png' -and $manifest -match 'sim-paused\.png') '... the simulation run''s two check shots in it' $manifest
+
+    Write-Host '--- the simulation run ---'
+    Reset-Fixture
+    $before = Get-RepoState
+    $r = Invoke-Store @('-SkipDeploy', '-ModsPath', $mods, '-CheckDir', $checkDir) @{ FO_STUB_SPACE_IGNORED = '1' }
+    Check ($r.ExitCode -eq 1 -and $r.Output -match "Space didn't start the simulation") 'fail case: a Space that leaves the PAUSED banner makes the run red' $r.Output
+    Check ((Get-RepoState) -eq $before -and [IO.File]::ReadAllText($settings) -eq $FixtureSettings) '... installing nothing, the settings file put back'
+    Check (-not (Test-FakeRunning) -and $r.Output -match 'Game: not running') '... and the launched game stopped' $r.Output
+    Reset-Fixture
+    $r = Invoke-Store @('-SkipDeploy', '-ModsPath', $mods, '-CheckDir', $checkDir, '-SimSeconds', '0')
+    Check ($r.ExitCode -eq 0 -and $r.Calls -notmatch '(?m)^key Space$') '-SimSeconds 0: no run, no Space on the paused save' $r.Calls
 
     Write-Host '--- rows that stay off ---'
     Reset-Fixture
     $before = Get-RepoState
     $r = Invoke-Store @('-SkipDeploy', '-ModsPath', $mods, '-CheckDir', $checkDir) @{ FO_STUB_ROWS_OFF = '1' }
     Check ($r.ExitCode -eq 1 -and $r.Output -match 'rows still off after clicking them: RowRevenues') 'fail case: rows that read off after the clicks make the run red' $r.Output
-    Check ($r.Calls -match '(?m)^click 540,503$' -and $r.Calls -match '(?m)^click 540,1078$') '... after clicking every row that read off (Revenues to Monthly Balance)' $r.Calls
+    Check ($r.Calls -match '(?m)^click 489,445$' -and $r.Calls -match '(?m)^click 489,1022$' -and $r.Calls -match '(?m)^click 518,500$') '... after clicking every row that read off (Revenues to Monthly Balance)' $r.Calls
     Check ((Get-RepoState) -eq $before) '... installing nothing'
     Check ([IO.File]::ReadAllText($settings) -eq $FixtureSettings) '... putting the settings file back'
     Check (-not (Test-FakeRunning) -and $r.Output -match 'Game: not running') '... and stopping the game it launched' $r.Output
