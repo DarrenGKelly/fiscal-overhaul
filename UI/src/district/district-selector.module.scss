@@ -69,22 +69,26 @@ $value-field-radius: 8rem;
 .compact {
   justify-content: flex-start;
   margin-bottom: 0;
+  width: 100%;
 }
 
+// The picker fills its slot (economy-tab-bar.module.scss $picker-width), so the name gets every rem the arrows leave.
 .compact .district-selector {
+  flex: 1 1 auto;
   align-self: stretch;
   align-items: stretch;
 }
 
-// As tall as a tab (the bar's height and the name's line-height are set from a measured tab), the name centred in it, bold and larger than the
-// tabs' var(--fontSizeL) labels: the district heads what the three tabs show.
+// As tall as a tab (the bar's height and the name's line-height are set from a measured tab), the name centred in it,
+// bold and a little larger than the tabs' var(--fontSizeL) labels: the district heads what the three tabs show, and a
+// long name still fits (a user request: 26rem clipped "Chester Square").
 .compact .district-selector .district-name {
-  // With the arrows about 300rem in all: the header row is tight (economy-tab-bar.module.scss $picker-width).
-  min-width: 180rem;
-  max-width: 190rem;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
   padding-top: 0;
   padding-bottom: 0;
-  font-size: 26rem;
+  font-size: 22rem;
   font-weight: bold;
   overflow: hidden;
   text-overflow: ellipsis;

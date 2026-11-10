@@ -148,8 +148,9 @@ The picker is **as tall as a tab**. Both are measured (`PickerRoom` in `economy-
 the tab buttons after the room marker up to the divider, after each render and for a few frames (`keepMeasuring`; no
 ResizeObserver), the padding scaled by a `100rem` probe. Production and Loans show no frame (their slot is empty).
 
-`district/district-selector.tsx` (`compact` in the header: a 26rem bold name, above the tabs' `--fontSizeL` labels for
-hierarchy, a user request; centred by a line-height of the measured tab height; clipped with an ellipsis): `‹ [name] ›`, span buttons on the rows' value-field box
+`district/district-selector.tsx` (`compact` in the header: it fills its 340rem slot, 20rem before Budget, and the name
+takes what the arrows leave; a 22rem bold name, above the tabs' `--fontSizeL` labels for hierarchy, user requests;
+centred by a line-height of the measured tab height; clipped with an ellipsis): `‹ [name] ›`, span buttons on the rows' value-field box
 (vanilla `NumberField`'s secondary background, `rgba(6,10,16,.7)` with 8rem corners: `$value-field-bg`), so the name
 and both arrows read as controls; the name is bold (scoped under `.district-selector` so the later
 `.span-button` rule doesn't shrink it). The arrows are the vanilla `ThickStrokeArrowRight` glyph, mirrored for the

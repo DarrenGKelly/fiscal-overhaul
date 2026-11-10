@@ -2,6 +2,7 @@
 
 ## 2026-11-09
 
+* **Longer district names in the header picker** (user request): the picker fills a 340rem slot (was 310rem, the name capped at 190rem) and the name is 22rem bold (was 26rem). [impl/budget-chart.md § District selector](impl/budget-chart.md#district-selector)
 * **Services table switch; framed district picker** (user requests): Options > Features > Enable services table (default on) turns the Services tab back to vanilla's; the header's district picker is as tall as a tab with a bold 26rem name, and a filled outline frames it with Budget, Taxation and Services, the tabs it drives. [impl/district-service-budgets.md](impl/district-service-budgets.md#ui), [impl/budget-chart.md § District selector](impl/budget-chart.md#district-selector)
 * **Services tab: info column back, cost and revenue split** (user request): vanilla's right info column (`ServiceItemDetail`) is restored beside the table and explains the hovered service, budget slider or fee; the Estimate column shows each service's cost only and each fee's revenue as a positive figure, with a row for every fee (a slider only on adjustable ones), still adding up to the total. [impl/district-service-budgets.md](impl/district-service-budgets.md#ui)
 * **land-pr runs on the Linux PC** (`pwsh`): `git-common.ps1`'s path helpers follow the OS instead of forcing `\`; `test-land-pr.ps1` passes under both shells. [repo-structure.md § tools/](repo-structure.md#tools)
