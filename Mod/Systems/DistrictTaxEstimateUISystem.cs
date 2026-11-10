@@ -160,8 +160,10 @@ namespace FiscalOverhaul
                 JobHandle handle = job.Schedule(m_PayerQuery, JobHandle.CombineDependencies(Dependency, recordDeps));
                 m_TaxEngine.AddChargeRecordsReader(handle);
                 handle.Complete();
-                for (int i = 0; i < m_Items.Length; i++) m_Items[i] = items[i];
-                for (int i = 0; i < m_Density.Length; i++) m_Density[i] = density[i];
+                // The first 16 ticks after a load have charged only some update-frame groups: scale up to the whole.
+                double scale = ChargeWindow.WarmUpScale(nowTick);
+                for (int i = 0; i < m_Items.Length; i++) m_Items[i] = items[i] * scale;
+                for (int i = 0; i < m_Density.Length; i++) m_Density[i] = density[i] * scale;
             }
             finally
             {
