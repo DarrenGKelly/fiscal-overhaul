@@ -9,8 +9,9 @@
 
 // The picker's room before the tabs. The whole row [picker | Budget Taxation Services | Production Loans] stays
 // centred by vanilla and must fit the bar (about 1416rem inside at 16:9): 5 tabs x 200rem + gaps + the divider's gap
-// (~1056rem) leave ~360rem, so the compact picker (district-selector.module.scss .compact) is kept to $picker-width.
-$picker-width: 310rem;
+// (~1056rem) leave ~360rem: the compact picker (district-selector.module.scss .compact) fills $picker-width, and
+// $picker-gap stays between it and Budget.
+$picker-width: 340rem;
 $picker-gap: 20rem;
 
 .picker-room {
