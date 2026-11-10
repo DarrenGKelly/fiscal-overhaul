@@ -202,8 +202,10 @@ namespace FiscalOverhaul
                 m_TaxEngine.AddChargeRecordsReader(handle);
                 handle.Complete();
 
-                for (int i = 0; i < cells; i++) m_DensityPart[i] = densityPart[i];
-                for (int z = 0; z < m_DistrictPart.Length; z++) m_DistrictPart[z] = districtPart[z];
+                // The first 16 ticks after a load have charged only some update-frame groups: scale up to the whole.
+                double scale = m_TaxEngine.Mode == TaxEngineMode.Engine ? ChargeWindow.WarmUpScale(nowTick) : 1;
+                for (int i = 0; i < cells; i++) m_DensityPart[i] = densityPart[i] * scale;
+                for (int z = 0; z < m_DistrictPart.Length; z++) m_DistrictPart[z] = districtPart[z] * scale;
             }
             finally
             {

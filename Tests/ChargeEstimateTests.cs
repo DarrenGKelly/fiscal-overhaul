@@ -24,6 +24,33 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void WarmUpScale_StandsForTheGroupsNotChargedYet()
+        {
+            Assert.Equal(0, ChargeWindow.WarmUpScale(0)); // nothing charged since the load
+            Assert.Equal(16, ChargeWindow.WarmUpScale(1));
+            Assert.Equal(4, ChargeWindow.WarmUpScale(4));
+            Assert.Equal(1, ChargeWindow.WarmUpScale(16));
+            Assert.Equal(1, ChargeWindow.WarmUpScale(500)); // a full window has run: the records are the whole
+        }
+
+        [Fact]
+        public void AfterALoad_TheScaledSumIsTheWholeFromTheFirstTick()
+        {
+            // 160 payers, 10 per update-frame group, each paying 100 a charge; the engine charges group (tick - 1) % 16
+            // on each tick from 1 (issue #92: before, the sum climbed from 1/16 of the whole over the first 16 ticks).
+            const int groups = TaxBookingLedger.Frames, perGroup = 10, pays = 100, whole = groups * perGroup * pays;
+            var lastCharge = new int[groups * perGroup];
+            for (int tick = 1; tick <= 40; tick++)
+            {
+                for (int p = 0; p < lastCharge.Length; p++) if (p % groups == (tick - 1) % groups) lastCharge[p] = tick;
+                double sum = 0;
+                for (int p = 0; p < lastCharge.Length; p++) if (lastCharge[p] > 0 && ChargeWindow.IsCurrent(lastCharge[p], tick)) sum += pays;
+                Assert.Equal(whole, sum * ChargeWindow.WarmUpScale(tick), 6);
+                if (tick == 4) Assert.Equal(whole / 4, sum); // fail case: unscaled, 4 ticks in, a quarter of the whole
+            }
+        }
+
+        [Fact]
         public void APayerWithPaidButNoChargedIncome_AddsNothing()
         {
             // A household that stopped earning: m_AverageTaxPaid still 1200 from its last payment, but the engine skips
