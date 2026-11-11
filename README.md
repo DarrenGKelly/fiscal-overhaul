@@ -110,7 +110,7 @@ mods or DLC.
 
 ## Compatibility
 
-- **Game version:** 1.6.x (built and tested on 1.6.3f1).
+- **Game version:** 1.6.x (built and tested on 1.6.4f1).
 - **Other mods:** Fiscal Overhaul replaces the Economy panel's vanilla Budget and Services pages and extends its
   Taxation tab and tab bar. Another mod that replaces any of those may conflict with it: one of the two will win. Mods
   that change how households and companies are taxed may interact with the district and density tax rates.

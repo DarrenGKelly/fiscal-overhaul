@@ -7,11 +7,11 @@ describe("engineWarningKey", () => {
     expect(engineWarningKey(null)).toBeNull();
     expect(engineWarningKey(undefined)).toBeNull();
     expect(engineWarningKey(42)).toBeNull(); // a value this build doesn't know
+    expect(engineWarningKey(2)).toBeNull(); // the retired "untested but forced on" warning shows no line
   });
 
   it("picks the line for each warning", () => {
     expect(engineWarningKey(TaxEngineWarning.UntestedVersion)).toBe("TaxEngineUntestedVersion");
-    expect(engineWarningKey(TaxEngineWarning.UntestedVersionForced)).toBe("TaxEngineUntestedVersionForced");
     expect(engineWarningKey(TaxEngineWarning.Incompatible)).toBe("TaxEngineIncompatible");
   });
 });

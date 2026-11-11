@@ -183,8 +183,10 @@ Mod.log carries the version, the structure result and every decision change (`Ta
 
 **A new game version**: compare vanilla `TaxSystem` (PayTaxJob, OnUpdate, OnGameLoaded) with the copy, update the
 copy and its headers, then add the version to `KnownGameVersions`; do the same for the effect systems' copies
-([tax-engine-effects.md](tax-engine-effects.md)). The known list is `1.6.0f1` and `1.6.3f1` (the copies' source); any
-other version stays blocked unless forced.
+([tax-engine-effects.md](tax-engine-effects.md)). The known list is `1.6.0f1`, `1.6.3f1` (the copies' source) and `1.6.4f1`
+(its TaxSystem, CitizenHappinessSystem, HouseholdFindPropertySystem and the PropertyUtils parts the copies use are
+identical to 1.6.3f1's); any other version stays blocked unless forced. The quickest comparison is a whole-assembly
+decompile of each version (`ilspycmd -p`) and `diff -rq` between them: only the changed files need reading.
 
 `Setting.EnableSimulationChanges` (default on, `FeatureGates.SimulationChangesDefault`) and
 `Setting.RunOnUntestedGameVersion` (default off, greyed out while the master is off) sit in Options > Simulation

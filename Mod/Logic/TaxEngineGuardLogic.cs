@@ -20,8 +20,7 @@ namespace FiscalOverhaul.Logic
         None = 0,
         /// <summary>Game version not in the known list, not forced: vanilla taxes.</summary>
         UntestedVersion = 1,
-        /// <summary>Game version not in the known list, forced on in Options: the engine runs anyway.</summary>
-        UntestedVersionForced = 2,
+        // 2 was "untested version, forced on": the player chose it in Options, so it shows no warning (removed by request).
         /// <summary>The structure checks failed (or another mod already replaced TaxSystem): vanilla taxes.</summary>
         Incompatible = 3,
     }
@@ -38,7 +37,7 @@ namespace FiscalOverhaul.Logic
         /// Add a version only after comparing vanilla TaxSystem's charge (PayTaxJob, OnUpdate, OnGameLoaded) with the
         /// copy in TaxEngineSystem.
         /// </summary>
-        public static readonly string[] KnownGameVersions = { "1.6.0f1", "1.6.3f1" };
+        public static readonly string[] KnownGameVersions = { "1.6.0f1", "1.6.3f1", "1.6.4f1" };
 
         /// <summary>
         /// Whether <paramref name="version"/> is a known one: its first word equals one exactly ("1.6.0f1" and
@@ -71,14 +70,14 @@ namespace FiscalOverhaul.Logic
             => Decide(IsKnownVersion(version, knownVersions), structureOk, forceUntested, masterOn);
 
         /// <summary>
-        /// The Taxation tab's warning: none while the master switch is off (vanilla by choice) or on a known, compatible
-        /// version.
+        /// The Taxation tab's warning: none while the master switch is off (vanilla by choice), on a known, compatible
+        /// version, or on an untested one the player forced on in Options (their choice, so no warning).
         /// </summary>
         public static TaxEngineWarning WarningFor(bool versionKnown, bool structureOk, bool forceUntested, bool masterOn)
         {
             if (!masterOn) return TaxEngineWarning.None;
             if (!structureOk) return TaxEngineWarning.Incompatible;
-            if (!versionKnown) return forceUntested ? TaxEngineWarning.UntestedVersionForced : TaxEngineWarning.UntestedVersion;
+            if (!versionKnown && !forceUntested) return TaxEngineWarning.UntestedVersion;
             return TaxEngineWarning.None;
         }
 
