@@ -57,7 +57,7 @@ $GameRunPoints = [ordered]@{
     ResidentialDensity = @{ X = 500; Y = 570;  Source = 'derived';  What = 'Taxation tab: Residential''s "Density" section toggle (under Resources)' }
     ServiceElectricity = @{ X = 516; Y = 596;  Source = 'derived';  What = 'Services tab: the Electricity row''s name, hovered for the info column' }
     OptionsModEntry   = @{ X = 283;  Y = 1048; Source = 'derived';  What = 'Options: the FISCAL OVERHAUL entry in the left list (moves with the installed mods)' }
-    OptionsDensity    = @{ X = 1596; Y = 739;  Source = 'derived';  What = 'Options > Fiscal Overhaul: the Enable density taxes (BETA) check box (the fifth, under Simulation changes)' }
+    OptionsDensity    = @{ X = 1596; Y = 739;  Source = 'derived';  What = 'Options > Fiscal Overhaul: the Enable density taxes check box (the fifth, under Simulation changes)' }
     OptionsNeutral    = @{ X = 1900; Y = 1200; Source = 'derived';  What = 'an empty spot on the Options page: no hover' }
 }
 

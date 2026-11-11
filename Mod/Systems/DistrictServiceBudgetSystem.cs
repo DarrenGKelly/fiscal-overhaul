@@ -20,7 +20,7 @@ using UnityEngine.Scripting;
 namespace FiscalOverhaul
 {
     /// <summary>
-    /// Per-district service budgets (BETA): an absolute % (50-150) per (service, district), Outside Districts included,
+    /// Per-district service budgets: an absolute % (50-150) per (service, district), Outside Districts included,
     /// kept in the save. A building with no override runs at the city slider, as in vanilla.
     ///
     /// This system is the store and the efficiency half: right after vanilla's CityServiceEfficiencySystem (which writes
@@ -36,7 +36,7 @@ namespace FiscalOverhaul
 
         /// <summary>
         /// One Mod.log line per override change and per triggered full pass (what applies, the efficiency each % gives),
-        /// none for the periodic safety passes. On while the feature is BETA, for the in-game checks.
+        /// none for the periodic safety passes. On, for the in-game checks.
         /// </summary>
         public static bool LogPasses = true;
 

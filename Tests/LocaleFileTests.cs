@@ -129,12 +129,12 @@ namespace FiscalOverhaul.Tests
             Assert.Equal("Reset", en["FiscalOverhaul.Options.Group.Reset"]);
             Assert.False(en.ContainsKey("FiscalOverhaul.Options.Group.DensityTax"));
             Assert.Equal("Enable budget chart", en["FiscalOverhaul.Options.Label.EnableBudgetChart"]);
-            Assert.Equal("Enable density taxes (BETA)", en["FiscalOverhaul.Options.Label.EnableDensityTaxes"]);
+            Assert.Equal("Enable density taxes", en["FiscalOverhaul.Options.Label.EnableDensityTaxes"]);
             Assert.Equal("Reset density tax rates", en["FiscalOverhaul.Options.Label.ResetDensityTaxes"]);
             Assert.Equal("Reset all density tax rates to 0?", en["FiscalOverhaul.Options.Warning.ResetDensityTaxes"]);
             Assert.Equal("Replaces the bar chart in Economy > Budget with a line chart of each revenue and expense over time. Off: the Budget tab is the vanilla one.",
                 en["FiscalOverhaul.Options.Desc.EnableBudgetChart"]);
-            Assert.Equal("A beta feature, off by default. Adds a density tax: its own rate per zone and density (set in Economy > Taxation, −5% to +10%), paid on top of income tax; demand, happiness and households choosing homes react to it as to any tax. Needs Simulation changes on. Off: no density tax is charged and the Taxation tab hides the density rows; your rates are kept for when you switch it back on.",
+            Assert.Equal("Adds a density tax: its own rate per zone and density (set in Economy > Taxation, −5% to +10%), paid on top of income tax; demand, happiness and households choosing homes react to it as to any tax. Needs Simulation changes on. Off: no density tax is charged and the Taxation tab hides the density rows; your rates are kept for when you switch it back on.",
                 en["FiscalOverhaul.Options.Desc.EnableDensityTaxes"]);
             Assert.Equal("Sets the loaded city's density tax rates (set in Economy > Taxation, the city's and every district's) and the starting rates for new cities back to 0, so buildings pay no density tax.",
                 en["FiscalOverhaul.Options.Desc.ResetDensityTaxes"]);
@@ -144,18 +144,30 @@ namespace FiscalOverhaul.Tests
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableServicesTable"));
             Assert.Equal("Simulation changes", en["FiscalOverhaul.Options.Label.EnableSimulationChanges"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableSimulationChanges"));
-            Assert.Equal("District service budgets (BETA)", en["FiscalOverhaul.Options.Label.EnableDistrictServiceBudget"]);
+            Assert.Equal("District service budgets", en["FiscalOverhaul.Options.Label.EnableDistrictServiceBudget"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.EnableDistrictServiceBudget"));
             Assert.Equal("Reset district service budgets", en["FiscalOverhaul.Options.Label.ResetDistrictServiceBudgets"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.ResetDistrictServiceBudgets"));
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Warning.ResetDistrictServiceBudgets"));
-            Assert.Equal(25, CountOptionKeys(en));
+            Assert.Equal(26, CountOptionKeys(en));
             // The master's description says what turning it off disables, and that the switches under it grey out.
             var master = en["FiscalOverhaul.Options.Desc.EnableSimulationChanges"];
             foreach (var part in new[] { "density taxes", "district tax rates", "happiness", "budget slider", "greyed out" })
                 Assert.Contains(part, master);
             Assert.Equal("Run on untested game version", en["FiscalOverhaul.Options.Label.RunOnUntestedGameVersion"]);
             Assert.True(en.ContainsKey("FiscalOverhaul.Options.Desc.RunOnUntestedGameVersion"));
+            // The untested-version notice at the top of the page: says taxes are the game's own, and names the option.
+            var notice = en["FiscalOverhaul.Options.Label.UntestedVersionNotice"];
+            Assert.Contains("hasn't been tested with this game version", notice);
+            Assert.Contains("Run on untested game version", notice);
+        }
+
+        [Fact]
+        public void NoText_SaysBeta()
+        {
+            // BETA wording removed by request: no option or UI text mentions it.
+            foreach (var pair in EnUs())
+                Assert.DoesNotContain("beta", pair.Value, StringComparison.OrdinalIgnoreCase);
         }
 
         private static int CountOptionKeys(Dictionary<string, string> entries)

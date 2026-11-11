@@ -287,7 +287,7 @@ try {
     $quitEscapes = 1
     Save-Check $session 'options-open' 'Options open: FISCAL OVERHAUL in the left list is OptionsModEntry'
     Invoke-GameClick $session 'OptionsModEntry'
-    Save-Check $session 'options-page' 'Options > Fiscal Overhaul: Enable density taxes (BETA) checked is OptionsDensity'
+    Save-Check $session 'options-page' 'Options > Fiscal Overhaul: Enable density taxes checked is OptionsDensity'
     if (-not $KeepDensityOn) {
         Invoke-GameClick $session 'OptionsDensity'
     }

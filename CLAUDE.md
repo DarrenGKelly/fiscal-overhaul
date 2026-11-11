@@ -58,15 +58,16 @@ Work branches are `feature/<kebab>` or `fix/<kebab>`; `master` changes only thro
   `setDensityTax`, `servicesTableEnabled`, `districtServiceBudgetEnabled`, `districtServiceBudgets`, `setDistrictServiceBudget`, `taxEngineWarning`, `taxRates`, `setTaxRate`, `resetDistrictTaxRates`, `logTiming`) and compute
   only while the Economy panel is open and the feature is on. The UI reads them through `UI/src/bindings.ts`, alongside
   the vanilla `economyBudget`/`taxation` bindings.
-- **Feature switches:** Options > Fiscal Overhaul turns each feature off live: off is vanilla behaviour and vanilla UI;
+- **Feature switches:** Options > Fiscal Overhaul (on an untested game version with Run on untested off, a warning notice
+  tops the page: `Setting.UntestedVersionNotice`) turns each feature off live: off is vanilla behaviour and vanilla UI;
   the stored offsets, overrides and district histories are kept. Three groups: **Features**, the core that only changes
   the UI or reads the game (`Setting.EnableBudgetChart`, `EnableDistrictBudget`, `EnableServicesTable`; all default on); **Simulation
   changes**, the master `EnableSimulationChanges` (default on) first, then every switch that changes the vanilla
-  simulation (`EnableDensityTaxes`, `EnableDistrictServiceBudget`, both BETA and default off, and
+  simulation (`EnableDensityTaxes`, `EnableDistrictServiceBudget`, both default on, and
   `RunOnUntestedGameVersion`), greyed out while the master is off; **Reset**, the reset buttons. Master off turns every
   simulation change (demand, happiness, home choice, service efficiency/upkeep, taxes) off at once; every such feature,
   the tax engine included, gates on it first (`FeatureGates`).
-- **District service budgets (BETA):** an absolute % per (service, district) in the save; `DistrictServiceBudgetSystem`
+- **District service budgets:** an absolute % per (service, district) in the save; `DistrictServiceBudgetSystem`
   rewrites service efficiency after vanilla's pass and `DistrictServiceUpkeepSystem` overwrites the Service Upkeep
   expense. The Services tab (`UI/src/services/`) adds the shared district selector and, in a district view, the area's
   own slider and upkeep. [impl/district-service-budgets.md](knowledge/impl/district-service-budgets.md)

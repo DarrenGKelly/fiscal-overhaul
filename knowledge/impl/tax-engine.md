@@ -193,6 +193,12 @@ decompile of each version (`ilspycmd -p`) and `diff -rq` between them: only the 
 changes, with Density taxes ([the Options layout](district-service-budgets.md#the-master-switch)); `Mod.ApplyFeatureSwitches`
 calls `TaxEngineSystem.ApplyMode` on every change.
 
+**The Options notice**: on an unknown version with that option off and the master on
+(`TaxEngineGuardLogic.ShowsUntestedVersionNotice`), `Setting.UntestedVersionNotice` (a `SettingsUIMultilineText` with
+the game's warning icon, alone in the first group, `kNoticeGroup`, which shows no name) tops the Options page: taxes are
+the game's own until the mod is updated or the option is ticked. `HidesUntestedVersionNotice` hides it once the option
+is ticked. Its text is its label key, `Options.Label.UntestedVersionNotice`.
+
 ## Classifying a building
 
 `DensityClassifier.TryClassify` (Burst-safe copy of `PropertyUtils.GetZoneDensity`): `PropertyRenter.m_Property` →

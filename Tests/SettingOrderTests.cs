@@ -46,8 +46,11 @@ namespace FiscalOverhaul.Tests
             {
                 string attrs = src.Substring(from, m.Index - from);
                 from = m.Index + m.Length;
-                var section = Regex.Match(attrs, @"SettingsUISection\(kSection, (\w+)\)");
-                if (!section.Success) continue; // not shown (or a method)
+                // The last section attribute before the property is its own (a non-bool option, such as the notice,
+                // can sit in between).
+                var sections = Regex.Matches(attrs, @"SettingsUISection\(kSection, (\w+)\)");
+                if (sections.Count == 0) continue; // not shown (or a method)
+                var section = sections[sections.Count - 1];
                 options.Add(new Option
                 {
                     Name = m.Groups[1].Value,
@@ -62,10 +65,10 @@ namespace FiscalOverhaul.Tests
             => options.Where(o => o.Group == group).Select(o => o.Name).ToArray();
 
         [Fact]
-        public void TheGroups_AreFeatures_ThenSimulationChanges_ThenReset()
+        public void TheGroups_AreTheNotice_ThenFeatures_ThenSimulationChanges_ThenReset()
         {
             var src = SettingSource();
-            Assert.Contains("[SettingsUIGroupOrder(kFeaturesGroup, kSimulationGroup, kResetGroup)]", src);
+            Assert.Contains("[SettingsUIGroupOrder(kNoticeGroup, kFeaturesGroup, kSimulationGroup, kResetGroup)]", src);
             Assert.Contains("[SettingsUIShowGroupName(kFeaturesGroup, kSimulationGroup, kResetGroup)]", src);
         }
 
@@ -103,6 +106,28 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
+        public void TheUntestedVersionNotice_TopsThePage_AsAWarningText_HiddenUnlessItApplies()
+        {
+            var src = SettingSource();
+            // Its own group, first in the order (checked above), with no group name shown.
+            Assert.DoesNotContain("SettingsUIShowGroupName(kNoticeGroup", src);
+            int notice = src.IndexOf("public string UntestedVersionNotice", StringComparison.Ordinal);
+            int firstSwitch = src.IndexOf("public bool EnableBudgetChart", StringComparison.Ordinal);
+            Assert.True(notice > 0 && notice < firstSwitch, "The notice must be declared before every switch");
+            int start = src.LastIndexOf("// ---- Notice", notice, StringComparison.Ordinal);
+            string attrs = src.Substring(start, notice - start);
+            Assert.Contains("[SettingsUISection(kSection, kNoticeGroup)]", attrs);
+            Assert.Contains("[SettingsUIMultilineText(\"Media/Misc/Warning.svg\")]", attrs);
+            Assert.Contains("[SettingsUIHideByCondition(typeof(Setting), nameof(HidesUntestedVersionNotice))]", attrs);
+            // Read-only, so it isn't written to the settings file; the condition is a method, so it isn't an option.
+            Assert.Contains("public string UntestedVersionNotice => string.Empty;", src);
+            Assert.Contains("public bool HidesUntestedVersionNotice()", src);
+            Assert.Contains("!TaxEngineGuardLogic.ShowsUntestedVersionNotice(GameVersionKnown(), RunOnUntestedGameVersion, EnableSimulationChanges)", src);
+            // The parser doesn't take the notice for a switch, nor put the first switch in its group.
+            Assert.DoesNotContain(Options(src), o => o.Group == "kNoticeGroup");
+        }
+
+        [Fact]
         public void TheConditionMethod_IsAMethodReadingTheMaster()
         {
             // A method (not a property), so the game doesn't list it as an option.
@@ -120,9 +145,15 @@ namespace FiscalOverhaul.Tests
         [SettingsUIDisableByCondition(typeof(Setting), nameof(SimulationSwitchesDisabled))]
         public bool Two { get; set; }
         public bool Hidden { get; set; }
-        public bool Check() => true;";
+        public bool Check() => true;
+        [SettingsUISection(kSection, kN)]
+        [SettingsUIMultilineText]
+        public string Note => string.Empty;
+        [SettingsUISection(kSection, kC)]
+        public bool Three { get; set; }";
             var options = Options(sample);
-            Assert.Equal(new[] { "One", "Two" }, options.Select(o => o.Name).ToArray());
+            Assert.Equal(new[] { "One", "Two", "Three" }, options.Select(o => o.Name).ToArray());
+            Assert.Equal("kC", options[2].Group); // its own section, not the text option's before it
             Assert.False(options[0].DisabledByMaster);
             Assert.True(options[1].DisabledByMaster);
             Assert.Equal("kB", options[1].Group);

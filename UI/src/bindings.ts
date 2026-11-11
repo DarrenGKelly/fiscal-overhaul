@@ -129,7 +129,7 @@ export function setTaxRate(type: number, zone: number, key: number, area: string
 /** Options > Enable services table: the Services tab is our table; off, the vanilla Services tab. */
 export const servicesTableEnabled$ = bindValue<boolean>(GROUP, "servicesTableEnabled", true);
 
-/** Options > District service budgets (BETA) with Simulation changes on. Off: the Services table is city-only (no picker, no district overrides). */
+/** Options > District service budgets with Simulation changes on. Off: the Services table is city-only (no picker, no district overrides). */
 export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
 
 /** Each (service, area) with buildings or an override: its override % (0 = city) and its upkeep. */

@@ -50,6 +50,16 @@ namespace FiscalOverhaul.Tests
             Assert.Equal(TaxEngineWarning.UntestedVersion, TaxEngineGuardLogic.WarningFor(false, true, false, true));
         }
 
+        [Theory]
+        [InlineData(false, false, true, true)]   // a new game version, option off: the notice shows
+        [InlineData(false, true, true, false)]   // ticked Run on untested game version: hidden
+        [InlineData(true, false, true, false)]   // a known version: hidden
+        [InlineData(false, false, false, false)] // Simulation changes off: taxes are vanilla by choice, hidden
+        public void OptionsNotice_ShowsOnlyOnAnUntestedVersion_WithTheOptionOff(bool known, bool force, bool master, bool shows)
+        {
+            Assert.Equal(shows, TaxEngineGuardLogic.ShowsUntestedVersionNotice(known, force, master));
+        }
+
         [Fact]
         public void UnknownVersion_ForcedOn_ShowsNoWarning()
         {

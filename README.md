@@ -2,7 +2,7 @@
 
 A Cities: Skylines II mod that reworks the Economy panel: a line chart of your city's budget history in place of
 the Budget tab's bar chart, a Services tab that shows what each service costs and earns, and tax rates per district,
-all driven by one district picker. Optional beta features add density taxes and per-district service budgets.
+all driven by one district picker. It also adds density taxes and per-district service budgets.
 
 ![The Budget tab's line chart](Mod/Properties/Screenshots/01-budget-chart-v1-3-0.png)
 
@@ -64,9 +64,9 @@ all driven by one district picker. Optional beta features add density taxes and 
 
 ![The Taxation tab in one district's view](Mod/Properties/Screenshots/09-taxation-district-v1-3-0.png)
 
-### Density taxes (BETA)
+### Density taxes
 
-A beta feature, **off by default**: turn it on with **Enable density taxes (BETA)** in Options > Fiscal Overhaul.
+On by default, with every rate at 0 until you set one; **Enable density taxes** in Options > Fiscal Overhaul turns it off.
 
 - A **density tax** per zone and building density (residential low / medium / high, commercial low / high, office
   low / high, industrial), from −5% to +10%, paid on top of income tax. The city and each district can set their own.
@@ -75,9 +75,9 @@ A beta feature, **off by default**: turn it on with **Enable density taxes (BETA
 
 ![Density tax rates on the Taxation tab, with density taxes enabled](Mod/Properties/Screenshots/03-taxation-density-v1-3-0.png)
 
-### District service budgets (BETA)
+### District service budgets
 
-A beta feature, **off by default**: turn it on with **District service budgets (BETA)** in Options.
+On by default; no district has its own budget until you set one. **District service budgets** in Options turns it off.
 
 - Each district (and Outside Districts) can run a service at its **own budget**, from 50% to 150%, changing that
   district's service buildings' efficiency and upkeep. Districts without one follow the city slider.
@@ -95,9 +95,10 @@ The mod has its own page in the game's Options menu, in three groups:
   - **Simulation changes** (default on), the master switch. Off, the game charges its own taxes again (no district
     or density tax rates) and every service building follows the city's budget slider; your rates and settings are
     kept, and the switches below are greyed out.
-  - **Enable density taxes (BETA)** and **District service budgets (BETA)** (both default off).
+  - **Enable density taxes** and **District service budgets** (both default on).
   - **Run on untested game version** (default off). The mod's tax charging is checked against specific game
-    versions; on any other, taxes stay vanilla (the Taxation tab says so) unless you tick this.
+    versions; on any other, taxes stay vanilla (the Taxation tab and a notice at the top of the Options page say so)
+    unless you tick this.
 - **Reset**: district service budgets, and density tax rates, each after a confirmation.
 
 ![The Options page: the feature, simulation and reset groups](Mod/Properties/Screenshots/04-options-v1-3-0.png)

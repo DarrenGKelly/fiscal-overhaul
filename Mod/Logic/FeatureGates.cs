@@ -6,8 +6,8 @@ namespace FiscalOverhaul.Logic
         /// <summary>Default of the budget chart switch: on.</summary>
         public const bool BudgetChartDefault = true;
 
-        /// <summary>Default of the density taxes switch: off, it is a BETA feature.</summary>
-        public const bool DensityTaxesDefault = false;
+        /// <summary>Default of the density taxes switch: on (every rate starts at 0, so nothing changes until one is set).</summary>
+        public const bool DensityTaxesDefault = true;
 
         /// <summary>Default of the per-district budget switch: on (it only records while the budget chart is on too).</summary>
         public const bool DistrictBudgetDefault = true;
@@ -26,8 +26,8 @@ namespace FiscalOverhaul.Logic
         /// </summary>
         public const bool SimulationChangesDefault = true;
 
-        /// <summary>Default of the per-district service budget switch: off, it is a BETA feature.</summary>
-        public const bool DistrictServiceBudgetDefault = false;
+        /// <summary>Default of the per-district service budget switch: on (no district has its own budget until one is set).</summary>
+        public const bool DistrictServiceBudgetDefault = true;
 
         /// <summary>
         /// Whether Options greys out the switches under the master (density taxes, district service budgets, run on

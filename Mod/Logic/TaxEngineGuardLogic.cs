@@ -82,6 +82,15 @@ namespace FiscalOverhaul.Logic
         }
 
         /// <summary>
+        /// Whether the Options page shows the untested-version notice at its top: the game version isn't a known one, Run
+        /// on untested game version is off and Simulation changes is on, so the tax engine stays vanilla and the player
+        /// is told why and what turns it on. Hidden once they tick the option (their choice), and while the master is off
+        /// (taxes are vanilla by choice then).
+        /// </summary>
+        public static bool ShowsUntestedVersionNotice(bool versionKnown, bool forceUntested, bool masterOn)
+            => masterOn && !versionKnown && !forceUntested;
+
+        /// <summary>
         /// Whether the mod's copy of CitizenHappinessSystem's update runs (vanilla's is then off): only while the tax
         /// engine charges (<paramref name="engineMode"/> is Engine, so the guard, the version and the master switch
         /// already agree), vanilla CitizenHappinessSystem still has the private fields the copy writes

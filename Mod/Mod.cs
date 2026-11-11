@@ -76,7 +76,7 @@ namespace FiscalOverhaul
             updateSystem.UpdateAt<ServiceUpkeepSystem>(SystemUpdatePhase.GameSimulation);
             updateSystem.World.GetOrCreateSystemManaged<ServiceUpkeepSystem>().SetSettings(m_Setting);
 
-            // Per-district service budgets (BETA): the efficiency pass right after vanilla writes the city %, and the
+            // Per-district service budgets: the efficiency pass right after vanilla writes the city %, and the
             // upkeep correction right after vanilla computes the expense array. Every frame, as both vanilla systems.
             updateSystem.UpdateAfter<DistrictServiceBudgetSystem, CityServiceEfficiencySystem>(SystemUpdatePhase.ModificationEnd);
             updateSystem.UpdateAfter<DistrictServiceUpkeepSystem, CityServiceBudgetSystem>(SystemUpdatePhase.ModificationEnd);
