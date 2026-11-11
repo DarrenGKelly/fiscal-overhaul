@@ -7,6 +7,8 @@ The version lives in `UI/mod.json` and `Mod/Properties/PublishConfiguration.xml`
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-10
+
 ### Changed
 
 - **Game version 1.6.4f1:** checked against the November 2026 game update. Tax charging runs on it as before, with no
@@ -99,7 +101,8 @@ First public release, for Cities: Skylines II 1.6.x.
 - **Options:** Enable budget chart (on by default) and Enable density taxes (BETA, off by default); turning one off restores
   the vanilla tab, and Reset density tax offsets.
 
-[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.0.0...v1.1.0
