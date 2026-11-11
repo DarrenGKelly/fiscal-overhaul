@@ -562,6 +562,9 @@ function Set-StoreSettingsText([string]$Text, [string]$Offsets) {
     $values['EnableServicesTable'] = $true
     $values['EnableSimulationChanges'] = $true
     $values['EnableDensityTaxes'] = $true
+    # The rest at their defaults, so 04-options shows the page as a new player sees it (whatever the tester set).
+    $values['EnableDistrictServiceBudget'] = $true
+    $values['RunOnUntestedGameVersion'] = $false
     $values['DensityTaxOffsets'] = ($Offsets -replace '\s', '')
     $lines = foreach ($key in $values.Keys) {
         $v = $values[$key]

@@ -72,7 +72,7 @@ Text about 01-budget-chart.png stays as it is.
 ![Options](Mod/Properties/Screenshots/04-options.png)
 ![Extra](Mod/Properties/Screenshots/99-extra.png)
 "@
-$FixtureSettings = "FiscalOverhaul`n{`n    `"DensityTaxOffsets`": `"0,0,0,0,0,0,0,0,0,0,0,0`",`n    `"EnableDensityTaxes`": false,`n    `"SomethingElse`": 7`n}`n"
+$FixtureSettings = "FiscalOverhaul`n{`n    `"DensityTaxOffsets`": `"0,0,0,0,0,0,0,0,0,0,0,0`",`n    `"EnableDensityTaxes`": false,`n    `"RunOnUntestedGameVersion`": true,`n    `"EnableDistrictServiceBudget`": false,`n    `"SomethingElse`": 7`n}`n"
 
 $Stub = @'
 param([Parameter(Position = 0)][string]$Command, [Parameter(Position = 1)][string]$Name, [string]$Out, [double]$Scale = 1,
@@ -206,6 +206,7 @@ try {
     Check ($newSettings.StartsWith("FiscalOverhaul`n{") -and $parsed.EnableDensityTaxes -eq $true -and $parsed.EnableBudgetChart -eq $true -and $parsed.EnableDistrictBudget -eq $true -and $parsed.DensityTaxOffsets -eq '2,1,-1,0,0,0,0,0,0,0,0,0') 'the settings file gets the features on and the offsets' $newSettings
     Check ($parsed.SomethingElse -eq 7) '... keeping its other keys' $newSettings
     Check ($parsed.EnableServicesTable -eq $true -and $parsed.EnableSimulationChanges -eq $true) '... the services table and simulation changes on too (08-services-table, 09-taxation-district)' $newSettings
+    Check ($parsed.RunOnUntestedGameVersion -eq $false -and $parsed.EnableDistrictServiceBudget -eq $true) '... and the tester''s own Run on untested (on) and District service budgets (off) back at their defaults for 04-options' $newSettings
 
     Write-Host '--- the Budget rows'' check squares ---'
     # Each row is read at its own square: the totals at x 389, the rows under them at 418.

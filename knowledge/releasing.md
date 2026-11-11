@@ -90,7 +90,8 @@ link by hand (any version suffix): the install renames them.
 - **`tools/store-screenshots.ps1`** takes the set (`Get-Help ./tools/store-screenshots.ps1 -Full`): the same claim,
   launch, paused check and quit as `in-game-check.ps1`; before the launch it sets the mod's settings file
   (`FiscalOverhaul.coc` in the game's LocalLow folder: the chart, district recording, the services table, simulation
-  changes and density taxes on, the density offsets template from `-Offsets`, which only a save without its own
+  changes, density taxes and district service budgets on, Run on untested game version off (the defaults, whatever the
+  tester set), the density offsets template from `-Offsets`, which only a save without its own
   density rates takes: Odiham's own rates are what `03` shows) and puts the original back byte for byte after the game
   exits; it turns every Budget row on (reading each check square off a full-scale capture, so a row already on isn't
   toggled off), takes the Budget shots, **runs the simulation `-SimSeconds` (default 200) and pauses it again** before
