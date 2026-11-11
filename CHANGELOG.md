@@ -7,6 +7,12 @@ The version lives in `UI/mod.json` and `Mod/Properties/PublishConfiguration.xml`
 
 ## [Unreleased]
 
+### Changed
+
+- **Game version 1.6.4f1:** checked against the November 2026 game update. Tax charging runs on it as before, with no
+  "untested game version" warning and no need for **Run on untested game version**.
+- With **Run on untested game version** on, the Taxation tab no longer shows a warning line about it.
+
 ## [1.3.0] - 2026-11-09
 
 ### Added

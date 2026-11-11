@@ -60,7 +60,8 @@ rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells whi
 `TaxEngineGuardLogic.WarningFor` ([tax-engine.md § The guard](tax-engine.md#the-guard-and-the-switches)):
 `DensityTaxUISystem` publishes it as `taxEngineWarning` (int), and `EngineWarningLine`
 (`UI/src/taxation/engine-warning-line.tsx`, text from `engine-warning.ts`) draws one line above the TaxationPage for
-an untested version (vanilla, or forced) or an incompatible game. None while the master switch is off.
+an untested version (vanilla) or an incompatible game. None while the master switch is off, and none on an untested
+version the player forced on (Run on untested game version: their choice, so no line; removed by request).
 
 ## Layout
 

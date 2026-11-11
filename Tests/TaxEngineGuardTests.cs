@@ -5,7 +5,7 @@ namespace FiscalOverhaul.Tests
 {
     public class TaxEngineGuardTests
     {
-        private static readonly string[] Known = { "1.6.0f1", "1.6.3f1" };
+        private static readonly string[] Known = { "1.6.0f1", "1.6.3f1" }; // a fixed list: 1.6.4f1 stands in for an unknown version below
 
         [Fact]
         public void KnownVersion_StructureOk_RunsTheEngine()
@@ -48,7 +48,17 @@ namespace FiscalOverhaul.Tests
             Assert.Equal(TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.7.0f1", Known, structureOk: true, forceUntested: false, masterOn: true));
             Assert.Equal(TaxEngineMode.Engine, TaxEngineGuardLogic.Decide("1.7.0f1", Known, structureOk: true, forceUntested: true, masterOn: true));
             Assert.Equal(TaxEngineWarning.UntestedVersion, TaxEngineGuardLogic.WarningFor(false, true, false, true));
-            Assert.Equal(TaxEngineWarning.UntestedVersionForced, TaxEngineGuardLogic.WarningFor(false, true, true, true));
+        }
+
+        [Fact]
+        public void UnknownVersion_ForcedOn_ShowsNoWarning()
+        {
+            // The player turned Run on untested game version on, so the Taxation tab doesn't nag about it.
+            Assert.Equal(TaxEngineWarning.None, TaxEngineGuardLogic.WarningFor(versionKnown: false, structureOk: true, forceUntested: true, masterOn: true));
+            // Not forced: the untested warning stays.
+            Assert.Equal(TaxEngineWarning.UntestedVersion, TaxEngineGuardLogic.WarningFor(versionKnown: false, structureOk: true, forceUntested: false, masterOn: true));
+            // Forced but the structure check failed: still incompatible.
+            Assert.Equal(TaxEngineWarning.Incompatible, TaxEngineGuardLogic.WarningFor(versionKnown: false, structureOk: false, forceUntested: true, masterOn: true));
         }
 
         [Theory]
@@ -82,7 +92,17 @@ namespace FiscalOverhaul.Tests
         {
             Assert.Contains("1.6.0f1", TaxEngineGuardLogic.KnownGameVersions);
             Assert.Contains("1.6.3f1", TaxEngineGuardLogic.KnownGameVersions);
-            Assert.DoesNotContain("1.6.4f1", TaxEngineGuardLogic.KnownGameVersions);
+            Assert.DoesNotContain("1.6.5f1", TaxEngineGuardLogic.KnownGameVersions);
+        }
+
+        [Fact]
+        public void TheKnownList_Has1_6_4f1_TheNovember2026Update()
+        {
+            // 1.6.4f1's TaxSystem, CitizenHappinessSystem, HouseholdFindPropertySystem and the PropertyUtils parts the
+            // copies use are unchanged from 1.6.3f1, so the engine runs on it without the untested warning.
+            Assert.True(TaxEngineGuardLogic.IsKnownVersion("1.6.4f1", TaxEngineGuardLogic.KnownGameVersions));
+            Assert.Equal(TaxEngineMode.Engine, TaxEngineGuardLogic.Decide("1.6.4f1", TaxEngineGuardLogic.KnownGameVersions, structureOk: true, forceUntested: false, masterOn: true));
+            Assert.False(TaxEngineGuardLogic.IsKnownVersion("1.6.4f2", TaxEngineGuardLogic.KnownGameVersions));
         }
 
         [Fact]

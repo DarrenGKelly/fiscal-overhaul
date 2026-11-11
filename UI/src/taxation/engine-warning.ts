@@ -1,4 +1,4 @@
-// The Taxation tab's warning line: why taxes are the game's own (or charged on an untested game version). The C# side
+// The Taxation tab's warning line: why taxes are the game's own. The C# side
 // publishes TaxEngineWarning as an int (taxEngineWarning$); this maps it to the line's text. No cs2 imports, so vitest
 // runs it without the game.
 import { localize, Translate, UiKey } from "../l10n";
@@ -7,13 +7,12 @@ import { localize, Translate, UiKey } from "../l10n";
 export const TaxEngineWarning = {
   None: 0,
   UntestedVersion: 1,
-  UntestedVersionForced: 2,
+  // 2 (untested version, forced on in Options) is no longer sent: the player's own choice shows no warning.
   Incompatible: 3,
 } as const;
 
 const KEYS: Record<number, UiKey> = {
   [TaxEngineWarning.UntestedVersion]: "TaxEngineUntestedVersion",
-  [TaxEngineWarning.UntestedVersionForced]: "TaxEngineUntestedVersionForced",
   [TaxEngineWarning.Incompatible]: "TaxEngineIncompatible",
 };
 
