@@ -7,18 +7,18 @@ describe("engineWarningKey", () => {
     expect(engineWarningKey(null)).toBeNull();
     expect(engineWarningKey(undefined)).toBeNull();
     expect(engineWarningKey(42)).toBeNull(); // a value this build doesn't know
+    expect(engineWarningKey(1)).toBeNull(); // the retired untested-version warnings show no line: the Options page says it
+    expect(engineWarningKey(2)).toBeNull();
   });
 
   it("picks the line for each warning", () => {
-    expect(engineWarningKey(TaxEngineWarning.UntestedVersion)).toBe("TaxEngineUntestedVersion");
-    expect(engineWarningKey(TaxEngineWarning.UntestedVersionForced)).toBe("TaxEngineUntestedVersionForced");
     expect(engineWarningKey(TaxEngineWarning.Incompatible)).toBe("TaxEngineIncompatible");
   });
 });
 
 describe("engineWarningText", () => {
   it("gives the English line without a translate, and null for none", () => {
-    expect(engineWarningText(TaxEngineWarning.UntestedVersion, null)).toContain("hasn't been tested with this game version");
+    expect(engineWarningText(TaxEngineWarning.Incompatible, null)).toContain("can't charge taxes on this game version");
     expect(engineWarningText(TaxEngineWarning.None, null)).toBeNull();
   });
 });

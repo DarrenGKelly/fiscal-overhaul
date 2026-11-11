@@ -71,8 +71,8 @@ export function setDensityTax(zone: number, density: number, offset: number) {
 }
 
 /**
- * Why the Taxation tab warns that taxes are the game's own (C# TaxEngineWarning): 0 none, 1 untested game version,
- * 2 untested version but forced on, 3 incompatible. See taxation/engine-warning.ts.
+ * Why the Taxation tab warns that taxes are the game's own (C# TaxEngineWarning): 0 none, 3 incompatible. 1 and 2 (an
+ * untested game version) are retired: the Options page's notice says it. See taxation/engine-warning.ts.
  */
 export const taxEngineWarning$ = bindValue<number>(GROUP, "taxEngineWarning", 0);
 
@@ -129,7 +129,7 @@ export function setTaxRate(type: number, zone: number, key: number, area: string
 /** Options > Enable services table: the Services tab is our table; off, the vanilla Services tab. */
 export const servicesTableEnabled$ = bindValue<boolean>(GROUP, "servicesTableEnabled", true);
 
-/** Options > District service budgets (BETA) with Simulation changes on. Off: the Services table is city-only (no picker, no district overrides). */
+/** Options > District service budgets with Simulation changes on. Off: the Services table is city-only (no picker, no district overrides). */
 export const districtServiceBudgetEnabled$ = bindValue<boolean>(GROUP, "districtServiceBudgetEnabled", false);
 
 /** Each (service, area) with buildings or an override: its override % (0 = city) and its upkeep. */

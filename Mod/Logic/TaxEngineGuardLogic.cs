@@ -18,10 +18,8 @@ namespace FiscalOverhaul.Logic
     public enum TaxEngineWarning
     {
         None = 0,
-        /// <summary>Game version not in the known list, not forced: vanilla taxes.</summary>
-        UntestedVersion = 1,
-        /// <summary>Game version not in the known list, forced on in Options: the engine runs anyway.</summary>
-        UntestedVersionForced = 2,
+        // 1 was "untested version, not forced" and 2 "untested version, forced on": the Taxation tab says neither (removed
+        // by request); an untested version is told at the top of the Options page instead (ShowsUntestedVersionNotice).
         /// <summary>The structure checks failed (or another mod already replaced TaxSystem): vanilla taxes.</summary>
         Incompatible = 3,
     }
@@ -38,7 +36,7 @@ namespace FiscalOverhaul.Logic
         /// Add a version only after comparing vanilla TaxSystem's charge (PayTaxJob, OnUpdate, OnGameLoaded) with the
         /// copy in TaxEngineSystem.
         /// </summary>
-        public static readonly string[] KnownGameVersions = { "1.6.0f1", "1.6.3f1" };
+        public static readonly string[] KnownGameVersions = { "1.6.0f1", "1.6.3f1", "1.6.4f1" };
 
         /// <summary>
         /// Whether <paramref name="version"/> is a known one: its first word equals one exactly ("1.6.0f1" and
@@ -71,16 +69,25 @@ namespace FiscalOverhaul.Logic
             => Decide(IsKnownVersion(version, knownVersions), structureOk, forceUntested, masterOn);
 
         /// <summary>
-        /// The Taxation tab's warning: none while the master switch is off (vanilla by choice) or on a known, compatible
-        /// version.
+        /// The Taxation tab's warning: only when the game's code no longer matches the copy (or another mod replaced
+        /// TaxSystem). None while the master switch is off (vanilla by choice), and none for the game version: an untested
+        /// one is told by the Options page's notice (<see cref="ShowsUntestedVersionNotice"/>), not the Taxation tab.
         /// </summary>
         public static TaxEngineWarning WarningFor(bool versionKnown, bool structureOk, bool forceUntested, bool masterOn)
         {
             if (!masterOn) return TaxEngineWarning.None;
             if (!structureOk) return TaxEngineWarning.Incompatible;
-            if (!versionKnown) return forceUntested ? TaxEngineWarning.UntestedVersionForced : TaxEngineWarning.UntestedVersion;
             return TaxEngineWarning.None;
         }
+
+        /// <summary>
+        /// Whether the Options page shows the untested-version notice at its top: the game version isn't a known one, Run
+        /// on untested game version is off and Simulation changes is on, so the tax engine stays vanilla and the player
+        /// is told why and what turns it on. Hidden once they tick the option (their choice), and while the master is off
+        /// (taxes are vanilla by choice then).
+        /// </summary>
+        public static bool ShowsUntestedVersionNotice(bool versionKnown, bool forceUntested, bool masterOn)
+            => masterOn && !versionKnown && !forceUntested;
 
         /// <summary>
         /// Whether the mod's copy of CitizenHappinessSystem's update runs (vanilla's is then off): only while the tax

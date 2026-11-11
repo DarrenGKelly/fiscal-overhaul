@@ -47,8 +47,8 @@ charge, every estimate is 0. Recomputed every ~2 s while the panel is open and d
 frames of a rate change (a dragged slider changes it every frame). The older forms (`EstimateFromBase`,
 `EstimateExtraRevenue`, the city's rate on every payer's base) are kept only for their tests.
 
-**Options > Enable density taxes (BETA)** (`Setting.EnableDensityTaxes`, default **off**: density taxes are a BETA
-feature, `FeatureGates.DensityTaxesDefault`) switches the feature off live. The options page calls `ApplyAndSave` on
+**Options > Enable density taxes** (`Setting.EnableDensityTaxes`, default **on**, `FeatureGates.DensityTaxesDefault`;
+every rate starts at 0, so on changes nothing until a rate is set) switches the feature off live. The options page calls `ApplyAndSave` on
 every change; `Mod` listens on `onSettingsApplied` and calls `DensityTaxState.SetEnabled`. Off, the density rates the
 engine reads are all 0 (`TaxRateModel.DistrictDensityRates` with the switch off), so buildings pay no density tax
 (district income-tax overrides still apply while the engine runs); the stored table and the template are left as they
@@ -60,7 +60,9 @@ rows ask `cellsForArea` (`UI/src/taxation/density.ts`), which gives no cells whi
 `TaxEngineGuardLogic.WarningFor` ([tax-engine.md § The guard](tax-engine.md#the-guard-and-the-switches)):
 `DensityTaxUISystem` publishes it as `taxEngineWarning` (int), and `EngineWarningLine`
 (`UI/src/taxation/engine-warning-line.tsx`, text from `engine-warning.ts`) draws one line above the TaxationPage for
-an untested version (vanilla, or forced) or an incompatible game. None while the master switch is off.
+an incompatible game (the structure check failed, or another mod replaced TaxSystem). None while the master switch is
+off, and none for an untested game version, forced or not (removed by request): the Options page's notice says that
+([tax-engine.md § The guard](tax-engine.md#the-guard-and-the-switches)).
 
 ## Layout
 

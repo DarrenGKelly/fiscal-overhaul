@@ -6,9 +6,22 @@ namespace FiscalOverhaul.Tests
     public class FeatureGatesTests
     {
         [Fact]
-        public void DensityTaxes_AreOffByDefault_AsABetaFeature()
+        public void DensityTaxes_AreOnByDefault()
         {
-            Assert.False(FeatureGates.DensityTaxesDefault);
+            Assert.True(FeatureGates.DensityTaxesDefault);
+        }
+
+        [Fact]
+        public void EverySwitch_IsOnByDefault_ExceptRunOnUntestedGameVersion()
+        {
+            Assert.True(FeatureGates.BudgetChartDefault);
+            Assert.True(FeatureGates.DistrictBudgetDefault);
+            Assert.True(FeatureGates.ServicesTableDefault);
+            Assert.True(FeatureGates.SimulationChangesDefault);
+            Assert.True(FeatureGates.DensityTaxesDefault);
+            Assert.True(FeatureGates.DistrictServiceBudgetDefault);
+            // Kept off (a user decision): an unknown game version gets vanilla taxes and the Options notice.
+            Assert.False(FeatureGates.RunOnUntestedGameVersionDefault);
         }
 
         [Fact]
@@ -20,7 +33,8 @@ namespace FiscalOverhaul.Tests
         [Fact]
         public void DefaultsDecideWhetherPanelDataIsBuilt()
         {
-            Assert.False(FeatureGates.BuildsPanelData(FeatureGates.DensityTaxesDefault, economyPanelOpen: true));
+            Assert.True(FeatureGates.BuildsPanelData(FeatureGates.DensityTaxesDefault, economyPanelOpen: true));
+            Assert.False(FeatureGates.BuildsPanelData(FeatureGates.DensityTaxesDefault, economyPanelOpen: false));
             Assert.True(FeatureGates.BuildsPanelData(FeatureGates.BudgetChartDefault, economyPanelOpen: true));
         }
 
@@ -64,10 +78,10 @@ namespace FiscalOverhaul.Tests
         }
 
         [Fact]
-        public void SimulationChanges_IsOnByDefault_DistrictServiceBudgets_OffAsBeta()
+        public void SimulationChanges_AndDistrictServiceBudgets_AreOnByDefault()
         {
             Assert.True(FeatureGates.SimulationChangesDefault);
-            Assert.False(FeatureGates.DistrictServiceBudgetDefault);
+            Assert.True(FeatureGates.DistrictServiceBudgetDefault);
         }
 
         [Theory]

@@ -7,6 +7,18 @@ The version lives in `UI/mod.json` and `Mod/Properties/PublishConfiguration.xml`
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-10
+
+### Changed
+
+- **Game version 1.6.4f1:** checked against the November 2026 game update. Tax charging runs on it as before, with no
+  "untested game version" warning and no need for **Run on untested game version**.
+- The Taxation tab no longer shows a warning line about the game version; the Options page tells you instead (below).
+- **Density taxes** and **District service budgets** are no longer beta, and are on by default. Nothing changes until
+  you set a density rate or a district budget. If you turned either off yourself, it stays off.
+- On a game version the mod hasn't been tested with yet, a notice at the top of Options > Fiscal Overhaul says that taxes
+  are the game's own until the mod is updated, and how to turn them on anyway (Run on untested game version).
+
 ## [1.3.0] - 2026-11-09
 
 ### Added
@@ -93,7 +105,8 @@ First public release, for Cities: Skylines II 1.6.x.
 - **Options:** Enable budget chart (on by default) and Enable density taxes (BETA, off by default); turning one off restores
   the vanilla tab, and Reset density tax offsets.
 
-[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/DarrenGKelly/fiscal-overhaul/compare/v1.0.0...v1.1.0
