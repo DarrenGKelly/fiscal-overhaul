@@ -96,7 +96,7 @@ link by hand (any version suffix): the install renames them.
   toggled off), takes the Budget shots, **runs the simulation `-SimSeconds` (default 200) and pauses it again** before
   the Taxation shots (their estimates count only payers the tax engine charged lately: a save that loads paused has
   charged none, so without the run every estimate reads ¢0, and a full round of charges takes a little over 2
-  minutes at 1x; shorter runs are scaled up from the groups charged so far, [tax-engine-ui.md](impl/tax-engine-ui.md#density-bindings-and-the-estimate)), takes the rest of the nine shots, switches density taxes back off on the Options page, quits, then crops, scales and installs
+  minutes at 1x; shorter runs are scaled up from the groups charged so far, [tax-engine-ui.md](impl/tax-engine-ui.md#density-bindings-and-the-estimate)), takes the rest of the nine shots (density taxes left on in the Options shot, its default; `-DensityOffInShot` switches it off), quits, then crops, scales and installs
   them: the new files in `Screenshots/`, the `Screenshot` entries and README links renamed in place (the page order
   kept), the old files of each base removed. The whole set or nothing. Commit the result through a PR into `autodev`.
 - **Points it hasn't clicked before** (`-ListPoints`: source `derived`) each get a check shot in `-CheckDir`; a run

@@ -26,7 +26,7 @@
            03-taxation-density      Taxation, Residential's Density section open, showing the offsets
            09-taxation-district     the header picker's right arrow: Taxation in the first district's view (back after)
            08-services-table        Services, the Electricity row hovered: the table and the info column
-           04-options               Escape, Escape, Options, Fiscal Overhaul, density taxes switched back off
+           04-options               Escape, Escape, Options, Fiscal Overhaul (density taxes on, its default)
       5. Quits the instance it launched (always, in a finally) and confirms "Game: not running".
       6. Crops each panel shot to the 16:9 box (285,193)-(2275,1312), the Options shot whole, scales to 1920x1080,
          and only when all nine exist installs them: <base>-v<X-Y-Z>.png in Mod/Properties/Screenshots/, the
@@ -54,8 +54,9 @@
     the first groups charged. 0 skips the run (every estimate then reads 0).
 .PARAMETER Version
     The X.Y.Z the new file names carry (default: see step 6).
-.PARAMETER KeepDensityOn
-    Leave density taxes checked on the Options shot (default: switched off there, as players first see it).
+.PARAMETER DensityOffInShot
+    Switch density taxes off on the Options shot (default: left on, as players first see it since density taxes
+    became on by default).
 .PARAMETER RepoRoot
     The checkout whose Mod/Properties and README are rewritten (default: this script's). The tests point it at a
     fixture.
@@ -83,7 +84,7 @@ param(
     [ValidateRange(0, 600)][int]$SimSeconds = 200,
     [string]$Version,
     [string[]]$Point = @(),
-    [switch]$KeepDensityOn,
+    [switch]$DensityOffInShot,
     [string]$FromDir,
     [string]$RepoRoot,
     [string]$ModsPath,
@@ -288,7 +289,7 @@ try {
     Save-Check $session 'options-open' 'Options open: FISCAL OVERHAUL in the left list is OptionsModEntry'
     Invoke-GameClick $session 'OptionsModEntry'
     Save-Check $session 'options-page' 'Options > Fiscal Overhaul: Enable density taxes checked is OptionsDensity'
-    if (-not $KeepDensityOn) {
+    if ($DensityOffInShot) {
         Invoke-GameClick $session 'OptionsDensity'
     }
     Invoke-GameMove $session 'OptionsNeutral'
