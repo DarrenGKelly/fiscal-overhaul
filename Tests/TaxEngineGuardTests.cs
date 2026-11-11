@@ -5,7 +5,7 @@ namespace FiscalOverhaul.Tests
 {
     public class TaxEngineGuardTests
     {
-        private static readonly string[] Known = { "1.6.0f1", "1.6.3f1" }; // a fixed list: 1.6.4f1 stands in for an unknown version below
+        private static readonly string[] Known = { "1.6.0f1", "1.6.3f1" }; // a fixed list: later versions stand in for unknown ones below
 
         [Fact]
         public void KnownVersion_StructureOk_RunsTheEngine()
@@ -25,11 +25,11 @@ namespace FiscalOverhaul.Tests
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void GameVersion1_6_4f1_IsUnknown_BlockedUnlessForced(bool force)
+        public void GameVersion1_6_5f1_IsUnknown_BlockedUnlessForced(bool force)
         {
-            Assert.Equal(TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.6.4f1", Known, structureOk: true, forceUntested: false, masterOn: true));
-            Assert.Equal(force ? TaxEngineMode.Engine : TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.6.4f1", TaxEngineGuardLogic.KnownGameVersions, structureOk: true, forceUntested: force, masterOn: true));
-            Assert.Equal(force ? TaxEngineMode.Engine : TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.6.4f1", Known, structureOk: true, forceUntested: force, masterOn: true));
+            Assert.Equal(TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.6.5f1", Known, structureOk: true, forceUntested: false, masterOn: true));
+            Assert.Equal(force ? TaxEngineMode.Engine : TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.6.5f1", TaxEngineGuardLogic.KnownGameVersions, structureOk: true, forceUntested: force, masterOn: true));
+            Assert.Equal(force ? TaxEngineMode.Engine : TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.6.5f1", Known, structureOk: true, forceUntested: force, masterOn: true));
         }
 
         [Theory]
