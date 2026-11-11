@@ -18,9 +18,8 @@ namespace FiscalOverhaul.Logic
     public enum TaxEngineWarning
     {
         None = 0,
-        /// <summary>Game version not in the known list, not forced: vanilla taxes.</summary>
-        UntestedVersion = 1,
-        // 2 was "untested version, forced on": the player chose it in Options, so it shows no warning (removed by request).
+        // 1 was "untested version, not forced" and 2 "untested version, forced on": the Taxation tab says neither (removed
+        // by request); an untested version is told at the top of the Options page instead (ShowsUntestedVersionNotice).
         /// <summary>The structure checks failed (or another mod already replaced TaxSystem): vanilla taxes.</summary>
         Incompatible = 3,
     }
@@ -70,14 +69,14 @@ namespace FiscalOverhaul.Logic
             => Decide(IsKnownVersion(version, knownVersions), structureOk, forceUntested, masterOn);
 
         /// <summary>
-        /// The Taxation tab's warning: none while the master switch is off (vanilla by choice), on a known, compatible
-        /// version, or on an untested one the player forced on in Options (their choice, so no warning).
+        /// The Taxation tab's warning: only when the game's code no longer matches the copy (or another mod replaced
+        /// TaxSystem). None while the master switch is off (vanilla by choice), and none for the game version: an untested
+        /// one is told by the Options page's notice (<see cref="ShowsUntestedVersionNotice"/>), not the Taxation tab.
         /// </summary>
         public static TaxEngineWarning WarningFor(bool versionKnown, bool structureOk, bool forceUntested, bool masterOn)
         {
             if (!masterOn) return TaxEngineWarning.None;
             if (!structureOk) return TaxEngineWarning.Incompatible;
-            if (!versionKnown && !forceUntested) return TaxEngineWarning.UntestedVersion;
             return TaxEngineWarning.None;
         }
 

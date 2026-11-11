@@ -71,8 +71,8 @@ export function setDensityTax(zone: number, density: number, offset: number) {
 }
 
 /**
- * Why the Taxation tab warns that taxes are the game's own (C# TaxEngineWarning): 0 none, 1 untested game version,
- * 2 untested version but forced on, 3 incompatible. See taxation/engine-warning.ts.
+ * Why the Taxation tab warns that taxes are the game's own (C# TaxEngineWarning): 0 none, 3 incompatible. 1 and 2 (an
+ * untested game version) are retired: the Options page's notice says it. See taxation/engine-warning.ts.
  */
 export const taxEngineWarning$ = bindValue<number>(GROUP, "taxEngineWarning", 0);
 

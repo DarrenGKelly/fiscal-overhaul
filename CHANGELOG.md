@@ -11,7 +11,7 @@ The version lives in `UI/mod.json` and `Mod/Properties/PublishConfiguration.xml`
 
 - **Game version 1.6.4f1:** checked against the November 2026 game update. Tax charging runs on it as before, with no
   "untested game version" warning and no need for **Run on untested game version**.
-- With **Run on untested game version** on, the Taxation tab no longer shows a warning line about it.
+- The Taxation tab no longer shows a warning line about the game version; the Options page tells you instead (below).
 - **Density taxes** and **District service budgets** are no longer beta, and are on by default. Nothing changes until
   you set a density rate or a district budget. If you turned either off yourself, it stays off.
 - On a game version the mod hasn't been tested with yet, a notice at the top of Options > Fiscal Overhaul says that taxes

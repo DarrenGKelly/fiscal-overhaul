@@ -6,13 +6,11 @@ import { localize, Translate, UiKey } from "../l10n";
 /** C# TaxEngineWarning values. */
 export const TaxEngineWarning = {
   None: 0,
-  UntestedVersion: 1,
-  // 2 (untested version, forced on in Options) is no longer sent: the player's own choice shows no warning.
+  // 1 and 2 (an untested game version, not forced / forced on) are no longer sent: the Options page's notice says it.
   Incompatible: 3,
 } as const;
 
 const KEYS: Record<number, UiKey> = {
-  [TaxEngineWarning.UntestedVersion]: "TaxEngineUntestedVersion",
   [TaxEngineWarning.Incompatible]: "TaxEngineIncompatible",
 };
 

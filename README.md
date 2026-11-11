@@ -97,7 +97,7 @@ The mod has its own page in the game's Options menu, in three groups:
     kept, and the switches below are greyed out.
   - **Enable density taxes** and **District service budgets** (both default on).
   - **Run on untested game version** (default off). The mod's tax charging is checked against specific game
-    versions; on any other, taxes stay vanilla (the Taxation tab and a notice at the top of the Options page say so)
+    versions; on any other, taxes stay vanilla (a notice at the top of the Options page says so)
     unless you tick this.
 - **Reset**: district service budgets, and density tax rates, each after a confirmation.
 
