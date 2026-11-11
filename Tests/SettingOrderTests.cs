@@ -121,8 +121,10 @@ namespace FiscalOverhaul.Tests
             Assert.Contains("[SettingsUIHideByCondition(typeof(Setting), nameof(HidesUntestedVersionNotice))]", attrs);
             // Read-only, so it isn't written to the settings file; the condition is a method, so it isn't an option.
             Assert.Contains("public string UntestedVersionNotice => string.Empty;", src);
-            Assert.Contains("public bool HidesUntestedVersionNotice()", src);
-            Assert.Contains("!TaxEngineGuardLogic.ShowsUntestedVersionNotice(GameVersionKnown(), RunOnUntestedGameVersion, EnableSimulationChanges)", src);
+            Assert.Contains("public bool HidesUntestedVersionNotice() => !ShowsUntestedVersionNotice();", src);
+            Assert.Contains("=> TaxEngineGuardLogic.ShowsUntestedVersionNotice(GameVersionKnown(), RunOnUntestedGameVersion, EnableSimulationChanges);", src);
+            // The same condition puts the warning triangle on the mod's entry in the Options list.
+            Assert.Contains("[SettingsUIPageWarning(typeof(Setting), nameof(ShowsUntestedVersionNotice))]", src);
             // The parser doesn't take the notice for a switch, nor put the first switch in its group.
             Assert.DoesNotContain(Options(src), o => o.Group == "kNoticeGroup");
         }

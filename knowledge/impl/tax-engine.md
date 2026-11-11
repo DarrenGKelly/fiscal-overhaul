@@ -197,7 +197,8 @@ calls `TaxEngineSystem.ApplyMode` on every change.
 (`TaxEngineGuardLogic.ShowsUntestedVersionNotice`), `Setting.UntestedVersionNotice` (a `SettingsUIMultilineText` with
 the game's warning icon, alone in the first group, `kNoticeGroup`, which shows no name) tops the Options page: taxes are
 the game's own until the mod is updated or the option is ticked. `HidesUntestedVersionNotice` hides it once the option
-is ticked. Its text is its label key, `Options.Label.UntestedVersionNotice`.
+is ticked. The same condition (`ShowsUntestedVersionNotice`, as `SettingsUIPageWarning`) puts the game's warning
+triangle on Fiscal Overhaul in the Options list. Its text is its label key, `Options.Label.UntestedVersionNotice`.
 
 ## Classifying a building
 

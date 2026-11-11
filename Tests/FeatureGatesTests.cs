@@ -33,7 +33,8 @@ namespace FiscalOverhaul.Tests
         [Fact]
         public void DefaultsDecideWhetherPanelDataIsBuilt()
         {
-            Assert.False(FeatureGates.BuildsPanelData(FeatureGates.DensityTaxesDefault, economyPanelOpen: true));
+            Assert.True(FeatureGates.BuildsPanelData(FeatureGates.DensityTaxesDefault, economyPanelOpen: true));
+            Assert.False(FeatureGates.BuildsPanelData(FeatureGates.DensityTaxesDefault, economyPanelOpen: false));
             Assert.True(FeatureGates.BuildsPanelData(FeatureGates.BudgetChartDefault, economyPanelOpen: true));
         }
 

@@ -16,6 +16,7 @@ namespace FiscalOverhaul
     [FileLocation(nameof(FiscalOverhaul))]
     [SettingsUIGroupOrder(kNoticeGroup, kFeaturesGroup, kSimulationGroup, kResetGroup)]
     [SettingsUIShowGroupName(kFeaturesGroup, kSimulationGroup, kResetGroup)]
+    [SettingsUIPageWarning(typeof(Setting), nameof(ShowsUntestedVersionNotice))]
     public class Setting : ModSetting
     {
         public const string kSection = "Main";
@@ -42,9 +43,15 @@ namespace FiscalOverhaul
         [SettingsUIHideByCondition(typeof(Setting), nameof(HidesUntestedVersionNotice))]
         public string UntestedVersionNotice => string.Empty;
 
-        /// <summary>The notice's hide condition (<see cref="TaxEngineGuardLogic.ShowsUntestedVersionNotice"/>). A method, so it isn't listed as an option.</summary>
-        public bool HidesUntestedVersionNotice()
-            => !TaxEngineGuardLogic.ShowsUntestedVersionNotice(GameVersionKnown(), RunOnUntestedGameVersion, EnableSimulationChanges);
+        /// <summary>
+        /// Whether the notice shows (<see cref="TaxEngineGuardLogic.ShowsUntestedVersionNotice"/>); also the page warning,
+        /// the game's warning triangle on Fiscal Overhaul in the Options list. A method, so it isn't listed as an option.
+        /// </summary>
+        public bool ShowsUntestedVersionNotice()
+            => TaxEngineGuardLogic.ShowsUntestedVersionNotice(GameVersionKnown(), RunOnUntestedGameVersion, EnableSimulationChanges);
+
+        /// <summary>The notice's hide condition: the opposite of <see cref="ShowsUntestedVersionNotice"/>.</summary>
+        public bool HidesUntestedVersionNotice() => !ShowsUntestedVersionNotice();
 
         private static bool? s_GameVersionKnown;
 
