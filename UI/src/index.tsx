@@ -37,7 +37,7 @@ const register: ModRegistrar = (moduleRegistry) => {
   moduleRegistry.extend(MONEY_FIELD_PATH, "NumberField", withEstimatedTotalDensityExtra);
 
   // Services tab: a table like the Taxation tab's, one row per service with its budget slider and cost, a row per fee
-  // with its revenue, an estimated total and vanilla's info column; with District service budgets (BETA) on, the
+  // with its revenue, an estimated total and vanilla's info column; with District service budgets on, the
   // header's picker shows a district's budgets and estimates (services/service-table-view.tsx). Options > Enable
   // services table off: the vanilla page.
   moduleRegistry.extend(SERVICE_PAGE_PATH, "ServicePage", (VanillaServicePage) => (props: any) => {

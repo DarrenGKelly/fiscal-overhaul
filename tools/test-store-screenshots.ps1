@@ -72,7 +72,7 @@ Text about 01-budget-chart.png stays as it is.
 ![Options](Mod/Properties/Screenshots/04-options.png)
 ![Extra](Mod/Properties/Screenshots/99-extra.png)
 "@
-$FixtureSettings = "FiscalOverhaul`n{`n    `"DensityTaxOffsets`": `"0,0,0,0,0,0,0,0,0,0,0,0`",`n    `"EnableDensityTaxes`": false,`n    `"SomethingElse`": 7`n}`n"
+$FixtureSettings = "FiscalOverhaul`n{`n    `"DensityTaxOffsets`": `"0,0,0,0,0,0,0,0,0,0,0,0`",`n    `"EnableDensityTaxes`": false,`n    `"RunOnUntestedGameVersion`": true,`n    `"EnableDistrictServiceBudget`": false,`n    `"SomethingElse`": 7`n}`n"
 
 $Stub = @'
 param([Parameter(Position = 0)][string]$Command, [Parameter(Position = 1)][string]$Name, [string]$Out, [double]$Scale = 1,
@@ -206,6 +206,7 @@ try {
     Check ($newSettings.StartsWith("FiscalOverhaul`n{") -and $parsed.EnableDensityTaxes -eq $true -and $parsed.EnableBudgetChart -eq $true -and $parsed.EnableDistrictBudget -eq $true -and $parsed.DensityTaxOffsets -eq '2,1,-1,0,0,0,0,0,0,0,0,0') 'the settings file gets the features on and the offsets' $newSettings
     Check ($parsed.SomethingElse -eq 7) '... keeping its other keys' $newSettings
     Check ($parsed.EnableServicesTable -eq $true -and $parsed.EnableSimulationChanges -eq $true) '... the services table and simulation changes on too (08-services-table, 09-taxation-district)' $newSettings
+    Check ($parsed.RunOnUntestedGameVersion -eq $false -and $parsed.EnableDistrictServiceBudget -eq $true) '... and the tester''s own Run on untested (on) and District service budgets (off) back at their defaults for 04-options' $newSettings
 
     Write-Host '--- the Budget rows'' check squares ---'
     # Each row is read at its own square: the totals at x 389, the rows under them at 418.
@@ -309,7 +310,9 @@ try {
     Check ([IO.File]::ReadAllText($settings) -eq $FixtureSettings -and -not (Test-Path -LiteralPath "$settings.store-screenshots-backup")) '... and the settings file is back byte for byte afterwards'
     Check ($r.Output -match 'rows off at first: none' -and $r.Calls -notmatch '(?m)^click (489|518),') '... rows already on are not clicked (a click would turn one off)' $r.Calls
     Check ($r.Calls -match '(?m)^click 864,356$' -and $r.Calls -match '(?m)^click 668,356$' -and $r.Calls -match '(?m)^click 600,620$' -and $r.Calls -match '(?m)^click 1596,356$' -and $r.Calls -match '(?m)^click 918,1092$') '... the header picker''s arrow and name, the Density section, the Services tab and Options at origin + offset' $r.Calls
-    Check ($r.Calls -match '(?m)^click 1696,789$' -and $r.Calls -notmatch '(?m)^click 1696,446$') '... density taxes switched back off on the Options page (its own box, not Record district budgets)' $r.Calls
+    Check ($r.Calls -notmatch '(?m)^click 1696,789$' -and $r.Calls -notmatch '(?m)^click 1696,446$') '... density taxes left on in the Options shot (its default): neither its box nor Record district budgets clicked' $r.Calls
+    $rOff = Invoke-Store @('-SkipDeploy', '-ModsPath', $mods, '-CheckDir', (Join-Path $checkDir 'off'), '-DensityOffInShot')
+    Check ($rOff.ExitCode -eq 0 -and $rOff.Calls -match '(?m)^click 1696,789$' -and $rOff.Calls -notmatch '(?m)^click 1696,446$') '... with -DensityOffInShot it is switched off (its own box, not Record district budgets)' $rOff.Calls
     $spaces = @($r.Calls -split "`n" | Where-Object { $_ -eq 'key Space' }).Count
     Check ($spaces -eq 2 -and $r.Calls -match '(?s)key Space\n.*key Space\n(?:(?!click )[^\n]*\n)*click 1324,356') '... the simulation run: two Spaces (start, pause again) just before the Taxation tab' $r.Calls
     $files = @(Get-ChildItem -LiteralPath (Join-Path $repo 'Mod\Properties\Screenshots') -File | ForEach-Object { $_.Name } | Sort-Object)

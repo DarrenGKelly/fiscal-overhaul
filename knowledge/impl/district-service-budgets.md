@@ -1,7 +1,7 @@
 ---
 type: Implementation
 title: District service budgets
-description: Per-district service budget % (BETA) — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab table (Type | Budget / Fee | Estimate, fee sub-rows with their revenue, cost per service, total, vanilla's info column, district view), and the master "Simulation changes" switch every simulation-changing feature gates on.
+description: Per-district service budget % — the store in the save, the efficiency pass after vanilla's, the Service Upkeep expense overwrite, the setDistrictServiceBudget trigger, the Services tab table (Type | Budget / Fee | Estimate, fee sub-rows with their revenue, cost per service, total, vanilla's info column, district view), and the master "Simulation changes" switch every simulation-changing feature gates on.
 resource:
   - Mod/Systems/DistrictServiceBudgetSystem.cs
   - Mod/Systems/DistrictServiceUpkeepSystem.cs
@@ -25,7 +25,7 @@ resource:
 
 Each district (and Outside Districts, buildings in no district) can run a service at its own budget %: an
 **absolute** % from 50 to 150 per (service, district), the vanilla slider's range. A building whose (service, district)
-has no override runs at the city slider, as in vanilla. BETA, off by default. The simulation side is below; the
+has no override runs at the city slider, as in vanilla. On by default (no BETA label: removed by request). The simulation side is below; the
 Services tab under [UI](#ui).
 
 ## How vanilla uses the budget %
@@ -90,12 +90,12 @@ apply. The overwrite reads this frame's collected costs where vanilla's entry us
 `"fiscalOverhaul"`. `serviceKey` is the service prefab's name (or its entity as `index:version`); `districtKey` is
 `"outside"` or a `DistrictKey`; `budget` 0 clears. Stored whatever the switches say.
 
-Options > Simulation changes: **District service budgets (BETA)** (`Setting.EnableDistrictServiceBudget`, default off,
+Options > Simulation changes: **District service budgets** (`Setting.EnableDistrictServiceBudget`, default on,
 `FeatureGates.DistrictServiceBudgetDefault`, greyed out while the master is off); Options > Reset: **Reset district
 service budgets** (clears the loaded city's table).
 `FeatureGates.AppliesDistrictServiceBudgets(master, feature, hasAny)` gates both systems.
 
-`DistrictServiceBudgetSystem.LogPasses` (on while BETA) writes a Mod.log line per override change and per triggered
+`DistrictServiceBudgetSystem.LogPasses` (on) writes a Mod.log line per override change and per triggered
 full pass (each override and the efficiency its % gives), and the upkeep system one line after each change: the
 Service Upkeep row charged against the row at the city %.
 
@@ -132,7 +132,7 @@ children (same weights) still sum to the district slot.
 default on, the `servicesTableEnabled` binding from `ServiceTableUISystem`; a user request): off, `index.tsx`'s
 `extend` of vanilla `ServicePage` draws the vanilla page, `FeatureGates.BuildsServiceTable` builds nothing, and the
 header's picker hides on Services (`servicesDistrictsOn` in `header-picker.ts`), so district budgets can't be set
-(stored ones still apply). With the table on but District service budgets (BETA) off, or Simulation changes off, it is
+(stored ones still apply). With the table on but District service budgets off, or Simulation changes off, it is
 city-only: the header's picker hides on Services and no district overrides show or apply (`tableDistrict` in
 `service-table.ts` forces the city view). The district features show while
 `FeatureGates.ShowsDistrictServiceBudgets(master, feature)` (the `districtServiceBudgetEnabled` binding).

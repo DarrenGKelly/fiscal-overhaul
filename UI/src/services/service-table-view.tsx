@@ -2,7 +2,7 @@
 // Estimate, one row per service with its budget slider and cost, a sub-row per fee with its revenue (a slider when
 // adjustable), and an estimated total; vanilla's info column at the right explains the hovered row.
 // The Services tab while Options > Enable services table is on (else vanilla's, index.tsx). The city view sets
-// vanilla's budget and fees; with District service budgets (BETA) on, a district view (the header's picker) sets the
+// vanilla's budget and fees; with District service budgets on, a district view (the header's picker) sets the
 // area's budget and shows the city's fees read-only. Off: the table, city-only.
 import { useEffect, useMemo, useState } from "react";
 import { useMapValue, useValue } from "cs2/api";

@@ -2,9 +2,9 @@
 	<!--Id must be set in order to update existed mod. it is not required for publishing mod for the first time-->
 	<ModId Value="166297" />
 	<!--Name of the mod to display to players (Paradox Mods: at most 60 characters)-->
-	<DisplayName Value="Fiscal Overhaul: Economy and Charts" />
+	<DisplayName Value="Fiscal Overhaul: Economy and UI" />
 	<!--Short description of the mod (Paradox Mods: under 200 characters)-->
-	<ShortDescription Value="A line chart of your city's budget history, a Services table of costs and fee revenue, and tax rates per district, plus optional (beta) density taxes and district service budgets." />
+	<ShortDescription Value="Per-district line charts of budget history and tax rates. Plus reworked services tab, density taxes and district service budgets." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
 	<!--
 	  Paradox Mods keeps only headings, **bold**, bullet and numbered lists, links and line breaks: italics, images,
@@ -12,19 +12,19 @@
 	  block), keep it under 10000 characters, and escape & and < for XML.
 	-->
 	<LongDescription>
-See where your city's money has been going, and run it district by district. Fiscal Overhaul swaps the Budget tab's bar chart for a line chart of your income and expenses over time, turns the Services tab into a clear table of what each service costs and earns, and lets every district set its own tax rates. Optional beta features add density taxes and per-district service budgets.
+See where your city's money has been going, and run it district by district. Fiscal Overhaul swaps the Budget tab's bar chart for a line chart of your income and expenses over time, turns the Services tab into a clear table of what each service costs and earns, and lets every district set its own tax rates. It also adds density taxes and per-district service budgets.
 
-## One district picker for three tabs
-* A **district picker** at the left of the Economy panel's tabs, framed together with **Budget, Taxation and Services**, the tabs it drives: Entire City (shown as your city's name), each of your districts, or Outside Districts (everything not in a district).
+## Control your city's finances per district!
+* A **district selector** at the left of the Economy panel's tabs, framed together with **Budget, Taxation and Services**. The options are: Entire City (shown as your city's name), each of your districts, or Outside Districts (everything not in a district).
 * Step through with the arrows, or click the name to pick from the list. The choice carries across the three tabs.
 
 ## Budget tab
+* **Per-district budgets**: pick a district to see what its buildings pay in taxes, at its own rates, and its share of service fees and upkeep by use. City-wide items (loan interest, map tile upkeep, service trade, subsidies) show under the whole city only. District history is recorded from the first time the mod runs on a save and kept in the save.
 * **Line chart** of total revenue, total expenses, the monthly balance and any single budget item, each as a per-month rate (the same figure the vanilla panel shows).
 * **Series filters**: click a row to show or hide its line; ticking a group turns its items on or off together. Only the items your city has are listed.
 * **Time span** from 1 month to all history (1M, 3M, 6M, 1Y, 3Y, All). The city's history is the game's own budget statistics, already kept in your save, so a loaded city shows everything back to its founding.
 * **Exact values on hover**: the tooltip shows the hovered line's monthly value and how long ago it was, with the span's change and average at the top of the chart.
 * **Vanilla detail panel**: hovering a budget item pops out the game's own breakdown by source.
-* **Per-district budgets**: pick a district to see what its buildings pay in taxes, at its own rates, and its share of service fees and upkeep by use. City-wide items (loan interest, map tile upkeep, service trade, subsidies) show under the whole city only. District history is recorded from the first time the mod runs on a save and kept in the save.
 
 ## Services tab
 * **A table like the Taxation tab**: one row per service with its **budget slider** and its **cost** (upkeep and imports), and a row under it for each **fee** with its **revenue**. Electricity and Water fees have their sliders right there.
@@ -38,13 +38,13 @@ See where your city's money has been going, and run it district by district. Fis
 * Demand, happiness and the homes households choose react to a district's rates as to the city's.
 * **Reset buttons and markers** on every row: a district's row goes back to the city's rate, the city's to the game's default.
 
-## Density taxes (BETA)
-A **beta feature, off by default**: turn on **Enable density taxes (BETA)** in Options > Fiscal Overhaul.
+## Density taxes
+**On by default**, with every rate at 0 until you set one; **Enable density taxes** in Options > Fiscal Overhaul turns it off.
 * A **density tax** per zone and building density (residential low / medium / high, commercial low / high, office low / high, industrial), from −5% to +10%, paid on top of income tax. The city and each district can set their own.
 * Demand, happiness and households choosing homes react to it as to any tax, and the Taxation tab estimates what each density rate brings in.
 
-## District service budgets (BETA)
-A **beta feature, off by default**: turn on **District service budgets (BETA)** in Options.
+## District service budgets
+**On by default**; no district has its own budget until you set one. **District service budgets** in Options turns it off.
 * Each district (and Outside Districts) can run a service at its **own budget**, from 50% to 150%, changing that district's service buildings' efficiency and upkeep. Districts without one follow the city slider.
 * Set them on the Services tab with the district picker; the table then shows that district's costs and fee revenue.
 
@@ -56,8 +56,8 @@ A **beta feature, off by default**: turn on **District service budgets (BETA)** 
 
 **Simulation changes** (change how the game plays):
 * **Simulation changes** (on): the master switch. Off, the game charges its own taxes again and every service building follows the city's budget slider; your rates and settings are kept.
-* **Enable density taxes (BETA)** and **District service budgets (BETA)** (both off).
-* **Run on untested game version** (off): the mod's tax charging is checked against specific game versions; on any other, taxes stay vanilla unless you tick this.
+* **Enable density taxes** and **District service budgets** (both on).
+* **Run on untested game version** (off): the mod's tax charging is checked against specific game versions; on any other, taxes stay vanilla (a notice at the top of the Options page says so) unless you tick this.
 
 **Reset**: district service budgets, and density tax rates.
 
@@ -75,15 +75,15 @@ If you enjoy the mod and want to say thanks, you can [buy me a coffee on Ko-fi](
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
 	<!--Screenshot, can be set multiple times (added with the screenshot files: Properties/Screenshots/*.png)-->
-	<Screenshot Value="Properties/Screenshots/01-budget-chart-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/08-services-table-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/09-taxation-district-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/06-budget-district-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/07-budget-district-list-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/02-budget-tooltip-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/03-taxation-density-v1-3-0.png" />
-	<Screenshot Value="Properties/Screenshots/04-options-v1-3-0.png" />
+	<Screenshot Value="Properties/Screenshots/01-budget-chart-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/08-services-table-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/09-taxation-district-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/06-budget-district-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/07-budget-district-list-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/02-budget-tooltip-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/05-budget-vanilla-detail-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/03-taxation-density-v1-3-1.png" />
+	<Screenshot Value="Properties/Screenshots/04-options-v1-3-1.png" />
 	<!--Tag, can be set multiple times. CS2's Paradox Mods tags: "Code Mod", "Map", "Savegame", "Prefab", plus asset tags-->
 	<Tag Value="Code Mod" />
 	<!--Link to the forum post where the mod can be discussed (optional; none yet)-->

@@ -47,7 +47,17 @@ namespace FiscalOverhaul.Tests
         {
             Assert.Equal(TaxEngineMode.Blocked, TaxEngineGuardLogic.Decide("1.7.0f1", Known, structureOk: true, forceUntested: false, masterOn: true));
             Assert.Equal(TaxEngineMode.Engine, TaxEngineGuardLogic.Decide("1.7.0f1", Known, structureOk: true, forceUntested: true, masterOn: true));
-            Assert.Equal(TaxEngineWarning.UntestedVersion, TaxEngineGuardLogic.WarningFor(false, true, false, true));
+            Assert.Equal(TaxEngineWarning.None, TaxEngineGuardLogic.WarningFor(false, true, false, true)); // told in Options instead
+        }
+
+        [Theory]
+        [InlineData(false, false, true, true)]   // a new game version, option off: the notice shows
+        [InlineData(false, true, true, false)]   // ticked Run on untested game version: hidden
+        [InlineData(true, false, true, false)]   // a known version: hidden
+        [InlineData(false, false, false, false)] // Simulation changes off: taxes are vanilla by choice, hidden
+        public void OptionsNotice_ShowsOnlyOnAnUntestedVersion_WithTheOptionOff(bool known, bool force, bool master, bool shows)
+        {
+            Assert.Equal(shows, TaxEngineGuardLogic.ShowsUntestedVersionNotice(known, force, master));
         }
 
         [Fact]
@@ -55,8 +65,8 @@ namespace FiscalOverhaul.Tests
         {
             // The player turned Run on untested game version on, so the Taxation tab doesn't nag about it.
             Assert.Equal(TaxEngineWarning.None, TaxEngineGuardLogic.WarningFor(versionKnown: false, structureOk: true, forceUntested: true, masterOn: true));
-            // Not forced: the untested warning stays.
-            Assert.Equal(TaxEngineWarning.UntestedVersion, TaxEngineGuardLogic.WarningFor(versionKnown: false, structureOk: true, forceUntested: false, masterOn: true));
+            // Not forced: no Taxation line either; the Options notice tells it (ShowsUntestedVersionNotice, tested below).
+            Assert.Equal(TaxEngineWarning.None, TaxEngineGuardLogic.WarningFor(versionKnown: false, structureOk: true, forceUntested: false, masterOn: true));
             // Forced but the structure check failed: still incompatible.
             Assert.Equal(TaxEngineWarning.Incompatible, TaxEngineGuardLogic.WarningFor(versionKnown: false, structureOk: false, forceUntested: true, masterOn: true));
         }

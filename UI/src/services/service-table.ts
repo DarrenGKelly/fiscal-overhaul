@@ -191,7 +191,7 @@ export function estimateTotal(services: { key: string; budget: number }[], distr
 
 /**
  * The area the Services table shows (a user decision: the table is always the Services tab). With District service
- * budgets (BETA) on (and Simulation changes on), the header picker's choice; off, always the city view: no district
+ * budgets on (and Simulation changes on), the header picker's choice; off, always the city view: no district
  * overrides, and the header offers no picker on Services (economy/header-picker.ts).
  */
 export function tableDistrict(districtBudgetsOn: boolean, selected: string): string {
